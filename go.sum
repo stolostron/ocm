@@ -214,6 +214,8 @@ github.com/grpc-ecosystem/grpc-gateway v1.16.0 h1:gmcG1KaJ57LophUzW0Hy8NmPhnMZb4
 github.com/grpc-ecosystem/grpc-gateway v1.16.0/go.mod h1:BDjrQk3hbvj6Nolgz8mAMFbcEtjT1g+wF4CSlocrBnw=
 github.com/grpc-ecosystem/grpc-gateway/v2 v2.7.0 h1:BZHcxBETFHIdVyhyEfOvn/RdU/QGdLI4y34qQGjGWO0=
 github.com/grpc-ecosystem/grpc-gateway/v2 v2.7.0/go.mod h1:hgWBS7lorOAVIJEQMi4ZsPv9hVvWI6+ch50m39Pf2Ks=
+github.com/haoqing0110/api v0.0.0-20231123081721-a0f61b85491b h1:GyXUUF4+YN9molqFWtKiIKWttW9W3VZLR1506EV4EWE=
+github.com/haoqing0110/api v0.0.0-20231123081721-a0f61b85491b/go.mod h1:RaKSNLO1I3xYfvIwIcCxFYgIUp3NOseG0xoGfReBEPw=
 github.com/hashicorp/golang-lru v0.5.0/go.mod h1:/m3WP610KZHVQ1SGc6re/UDhFvYD7pJ4Ao+sR/qLZy8=
 github.com/hashicorp/golang-lru v0.5.1/go.mod h1:/m3WP610KZHVQ1SGc6re/UDhFvYD7pJ4Ao+sR/qLZy8=
 github.com/huandu/xstrings v1.3.3 h1:/Gcsuc1x8JVbJ9/rlye4xZnVAbEkGauT8lbebqcQws4=
@@ -742,8 +744,6 @@ k8s.io/utils v0.0.0-20230726121419-3b25d923346b h1:sgn3ZU783SCgtaSJjpcVVlRqd6GSn
 k8s.io/utils v0.0.0-20230726121419-3b25d923346b/go.mod h1:OLgZIPagt7ERELqWJFomSt595RzquPNLL48iOWgYOg0=
 open-cluster-management.io/addon-framework v0.8.1-0.20231009020812-e52774032b4c h1:9Rvj3UTjVwJWOItlIYx6shFF72f8L3t91T9IwZ8sx6Q=
 open-cluster-management.io/addon-framework v0.8.1-0.20231009020812-e52774032b4c/go.mod h1:r4sQGR9YgLC4hXC695sfinun2WhuigWrEPk2IeIl800=
-open-cluster-management.io/api v0.12.1-0.20231027024433-bab1208e6889 h1:U57ynNMUY6umxZq9F+rLiVqjwky2eXMSHEk5mAtwau0=
-open-cluster-management.io/api v0.12.1-0.20231027024433-bab1208e6889/go.mod h1:RaKSNLO1I3xYfvIwIcCxFYgIUp3NOseG0xoGfReBEPw=
 rsc.io/binaryregexp v0.2.0/go.mod h1:qTv7/COck+e2FymRvadv62gMdZztPaShugOCi3I+8D8=
 rsc.io/quote/v3 v3.1.0/go.mod h1:yEA65RcK8LyAZtP9Kv3t0HmxON59tX3rD+tICJqUlj0=
 rsc.io/sampler v1.3.0/go.mod h1:T1hPZKmBbMNahiBKFy5HrXp6adAjACjK9JXDnKaTXpA=

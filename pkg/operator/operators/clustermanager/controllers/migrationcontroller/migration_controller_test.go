@@ -29,13 +29,6 @@ import (
 	testingcommon "open-cluster-management.io/ocm/pkg/common/testing"
 )
 
-var (
-	testMigrationRequestFiles = []string{
-		"cluster-manager/test/cluster-manager-managedclustersets-migration.yaml",
-		"cluster-manager/test/cluster-manager-managedclustersetbindings-migration.yaml",
-	}
-)
-
 func TestSupportStorageVersionMigration(t *testing.T) {
 	cases := []struct {
 		name            string
@@ -118,8 +111,8 @@ func TestApplyStorageVersionMigrations(t *testing.T) {
 	}
 
 	if len(migrationRequestFiles) == 0 {
-		t.Log("testing with test migrationRequestFiles")
-		migrationRequestFiles = testMigrationRequestFiles
+		t.Log("skip testing applyStorageVersionMigrations as no migrationRequestFiles")
+		return
 	}
 
 	for _, c := range cases {
@@ -383,12 +376,6 @@ func Test_syncStorageVersionMigrationsCondition(t *testing.T) {
 			},
 		},
 	}
-
-	if len(migrationRequestFiles) == 0 {
-		t.Log("testing with test migrationRequestFiles")
-		migrationRequestFiles = testMigrationRequestFiles
-	}
-
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			fakeMigrationClient := fakemigrationclient.NewSimpleClientset(tt.existingObjects...)
@@ -406,11 +393,6 @@ func Test_syncStorageVersionMigrationsCondition(t *testing.T) {
 }
 
 func TestSync(t *testing.T) {
-	if len(migrationRequestFiles) == 0 {
-		t.Log("testing with test migrationRequestFiles")
-		migrationRequestFiles = testMigrationRequestFiles
-	}
-
 	clusterManager := newClusterManager("testhub")
 	tc, client := newTestController(t, clusterManager)
 

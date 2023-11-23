@@ -2,6 +2,8 @@ module open-cluster-management.io/ocm
 
 go 1.20
 
+replace open-cluster-management.io/api => github.com/haoqing0110/api v0.0.0-20231123081721-a0f61b85491b
+
 require (
 	github.com/davecgh/go-spew v1.1.1
 	github.com/evanphx/json-patch v5.6.0+incompatible
