@@ -29,6 +29,10 @@ var _ = ginkgo.Describe("Test ManifestWorkReplicaSet", func() {
 	var err error
 	var nameSuffix string
 
+	ginkgo.BeforeEach(func() {
+		nameSuffix = rand.String(6)
+	})
+
 	ginkgo.Context("Creating a ManifestWorkReplicaSet and check created resources", func() {
 		ginkgo.It("Should create ManifestWorkReplicaSet successfullt", func() {
 			ginkgo.By("create manifestworkreplicaset")
