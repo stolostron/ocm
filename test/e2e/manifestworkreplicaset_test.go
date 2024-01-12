@@ -29,23 +29,6 @@ var _ = ginkgo.Describe("Test ManifestWorkReplicaSet", func() {
 	var err error
 	var nameSuffix string
 
-	ginkgo.BeforeEach(func() {
-		nameSuffix = rand.String(6)
-		// Enable manifestWorkReplicaSet feature if not enabled
-		gomega.Eventually(func() error {
-			return t.EnableWorkFeature("ManifestWorkReplicaSet")
-		}, t.EventuallyTimeout*5, t.EventuallyInterval*5).Should(gomega.Succeed())
-
-		// the work controller deployment should be running
-		gomega.Eventually(t.CheckHubReady, t.EventuallyTimeout, t.EventuallyInterval).Should(gomega.Succeed())
-	})
-
-	ginkgo.AfterEach(func() {
-		gomega.Eventually(func() error {
-			return t.RemoveWorkFeature("ManifestWorkReplicaSet")
-		}, t.EventuallyTimeout*5, t.EventuallyInterval*5).Should(gomega.Succeed())
-	})
-
 	ginkgo.Context("Creating a ManifestWorkReplicaSet and check created resources", func() {
 		ginkgo.It("Should create ManifestWorkReplicaSet successfullt", func() {
 			ginkgo.By("create manifestworkreplicaset")
