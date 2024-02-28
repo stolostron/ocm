@@ -607,7 +607,7 @@ var _ = ginkgo.Describe("Work agent", ginkgo.Label("work-agent", "sanity-check")
 					},
 				}
 				if !apiequality.Semantic.DeepEqual(values, expectedValues) {
-					return fmt.Errorf("status feedback values are not correct, we got %v", values)
+					return fmt.Errorf("status feedback values are not correct, we got %v, but expect %v", values, expectedValues)
 				}
 
 				if ok := haveManifestCondition(work.Status.ResourceStatus.Manifests, "StatusFeedbackSynced", []metav1.ConditionStatus{metav1.ConditionTrue}); !ok {
