@@ -33,7 +33,7 @@ const (
 	indexByAddon = "indexByAddon"
 
 	// TODO(qiujian16) expose it if necessary in the future.
-	addonCSRThreshold = 10
+	addonCSRThreshold = 15
 )
 
 // addOnRegistrationController monitors ManagedClusterAddOns on hub and starts addOn registration
