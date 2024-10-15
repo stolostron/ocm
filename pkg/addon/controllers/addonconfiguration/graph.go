@@ -369,15 +369,19 @@ func (n *installStrategyNode) addNode(addon *addonv1alpha1.ManagedClusterAddOn) 
 		// TODO we should also filter out the configs which are not supported configs.
 		overrideConfigMapByAddOnConfigs(n.children[addon.Namespace].desiredConfigs, addon.Spec.Configs)
 
-		// copy the spechash from mca status
+		// go through mca status ConfigReferences to copy the specHash
 		for _, configRef := range addon.Status.ConfigReferences {
 			if configRef.DesiredConfig == nil {
 				continue
 			}
-			if nodeDesiredConfigArray, ok := n.children[addon.Namespace].desiredConfigs[configRef.ConfigGroupResource]; ok {
-				for i, nodeDesiredConfig := range nodeDesiredConfigArray {
-					if nodeDesiredConfig.DesiredConfig.ConfigReferent == configRef.DesiredConfig.ConfigReferent {
-						n.children[addon.Namespace].desiredConfigs[configRef.ConfigGroupResource][i].DesiredConfig.SpecHash = configRef.DesiredConfig.SpecHash
+
+			// copy the specHash only if the config exists in addon.Spec.Configs
+			if configExistsInAddonSpec(configRef, addon.Spec.Configs) {
+				if nodeDesiredConfigArray, ok := n.children[addon.Namespace].desiredConfigs[configRef.ConfigGroupResource]; ok {
+					for i, nodeDesiredConfig := range nodeDesiredConfigArray {
+						if nodeDesiredConfig.DesiredConfig.ConfigReferent == configRef.DesiredConfig.ConfigReferent {
+							n.children[addon.Namespace].desiredConfigs[configRef.ConfigGroupResource][i].DesiredConfig.SpecHash = configRef.DesiredConfig.SpecHash
+						}
 					}
 				}
 			}
@@ -617,4 +621,16 @@ func overrideConfigMapByAddOnConfigs(
 
 		}
 	}
+}
+
+// Check if a config in the status exists in the addon.Spec.Configs
+func configExistsInAddonSpec(configRef addonv1alpha1.ConfigReference, addOnSpecConfigs []addonv1alpha1.AddOnConfig) bool {
+	// Iterate through the spec configs and return true if both ConfigGroupResource and ConfigReferent match
+	for _, specConfig := range addOnSpecConfigs {
+		if configRef.ConfigGroupResource == specConfig.ConfigGroupResource &&
+			configRef.DesiredConfig.ConfigReferent == specConfig.ConfigReferent {
+			return true
+		}
+	}
+	return false
 }
