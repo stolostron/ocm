@@ -202,20 +202,6 @@ var _ = ginkgo.Describe("Agent deploy", func() {
 	})
 
 	ginkgo.It("Should deploy agent for addon template", func() {
-		ginkgo.By("check mca condition")
-		assertManagedClusterAddOnConditions(addonName, clusterNames[0], metav1.Condition{
-			Type:    addonapiv1alpha1.ManagedClusterAddOnConditionConfigured,
-			Status:  metav1.ConditionTrue,
-			Reason:  "ConfigurationsConfigured",
-			Message: "Configurations configured",
-		})
-		assertManagedClusterAddOnConditions(addonName, clusterNames[1], metav1.Condition{
-			Type:    addonapiv1alpha1.ManagedClusterAddOnConditionConfigured,
-			Status:  metav1.ConditionFalse,
-			Reason:  "ConfigurationsNotConfigured",
-			Message: "Configurations updated and not configured yet",
-		})
-
 		ginkgo.By("check only 1 work rendered")
 		gomega.Eventually(func() error {
 			work, err := hubWorkClient.WorkV1().ManifestWorks(clusterNames[0]).List(
@@ -245,6 +231,20 @@ var _ = ginkgo.Describe("Agent deploy", func() {
 			return nil
 		}, eventuallyTimeout, eventuallyInterval).ShouldNot(gomega.HaveOccurred())
 
+		ginkgo.By("check mca condition")
+		assertManagedClusterAddOnConditions(addonName, clusterNames[0], metav1.Condition{
+			Type:    addonapiv1alpha1.ManagedClusterAddOnConditionConfigured,
+			Status:  metav1.ConditionTrue,
+			Reason:  "ConfigurationsConfigured",
+			Message: "Configurations configured",
+		})
+
+		assertManagedClusterAddOnConditions(addonName, clusterNames[1], metav1.Condition{
+			Type:    addonapiv1alpha1.ManagedClusterAddOnConditionConfigured,
+			Status:  metav1.ConditionFalse,
+			Reason:  "ConfigurationsNotConfigured",
+			Message: "Configurations updated and not configured yet",
+		})
 		ginkgo.By("update work status to trigger addon status")
 		updateManifestWorkStatus(hubWorkClient, clusterNames[0], manifestWorkName, metav1.ConditionTrue)
 
