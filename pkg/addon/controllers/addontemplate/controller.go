@@ -101,7 +101,7 @@ func NewAddonTemplateController(
 }
 
 func (c *addonTemplateController) stopUnusedManagers(
-	ctx context.Context, syncCtx factory.SyncContext, addOnName string) {
+	ctx context.Context, _ factory.SyncContext, addOnName string) {
 	// TODO: check if all managed cluster addon instances are deleted
 	stopFunc, ok := c.addonManagers[addOnName]
 	if ok {
