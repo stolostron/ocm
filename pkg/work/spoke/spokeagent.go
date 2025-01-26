@@ -44,6 +44,7 @@ const (
 	appliedManifestWorkFinalizeControllerWorkers = 10
 	manifestWorkFinalizeControllerWorkers        = 10
 	availableStatusControllerWorkers             = 10
+	manifestWorkAgentWorkers                     = 10
 )
 
 type WorkAgentConfig struct {
@@ -88,7 +89,11 @@ func (o *WorkAgentConfig) RunWorkloadAgent(ctx context.Context, controllerContex
 	if err != nil {
 		return err
 	}
-	spokeWorkInformerFactory := workinformers.NewSharedInformerFactory(spokeWorkClient, 5*time.Minute)
+
+	// Resyncing at a small interval may cause performance issues when the number of AppliedManifestWorks is large.
+	// Since the resync interval for the ManifestWork informer is set to 24 hours, use a different interval, such as
+	// 21 hours, for the AppliedManifestWork informer to prevent concurrent resyncs between the two informers.
+	spokeWorkInformerFactory := workinformers.NewSharedInformerFactory(spokeWorkClient, 21*time.Hour)
 
 	httpClient, err := rest.HTTPClientFor(spokeRestConfig)
 	if err != nil {
@@ -191,7 +196,7 @@ func (o *WorkAgentConfig) RunWorkloadAgent(ctx context.Context, controllerContex
 	go appliedManifestWorkFinalizeController.Run(ctx, appliedManifestWorkFinalizeControllerWorkers)
 	go unmanagedAppliedManifestWorkController.Run(ctx, 1)
 	go appliedManifestWorkController.Run(ctx, 1)
-	go manifestWorkController.Run(ctx, 1)
+	go manifestWorkController.Run(ctx, manifestWorkAgentWorkers)
 	go manifestWorkFinalizeController.Run(ctx, manifestWorkFinalizeControllerWorkers)
 	go availableStatusController.Run(ctx, availableStatusControllerWorkers)
 
@@ -261,9 +266,11 @@ func (o *WorkAgentConfig) newWorkClientAndInformer(
 		workClient = clientHolder.WorkInterface()
 	}
 
+	// resyncing at a small interval may cause performance issues when the number of ManifestWorks
+	// is large.
 	factory := workinformers.NewSharedInformerFactoryWithOptions(
 		workClient,
-		5*time.Minute,
+		24*time.Hour,
 		workinformers.WithNamespace(o.agentOptions.SpokeClusterName),
 	)
 	informer := factory.Work().V1().ManifestWorks()
