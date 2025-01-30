@@ -28,6 +28,8 @@ import (
 func main() {
 	rand.Seed(time.Now().UTC().UnixNano())
 
+	fmt.Println("Test, gp3!")
+
 	pflag.CommandLine.SetNormalizeFunc(utilflag.WordSepNormalizeFunc)
 	pflag.CommandLine.AddGoFlagSet(goflag.CommandLine)
 
