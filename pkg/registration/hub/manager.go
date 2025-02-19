@@ -144,6 +144,7 @@ func (m *HubManagerOptions) RunControllerManagerWithInformers(
 		kubeInformers.Rbac().V1().ClusterRoles(),
 		kubeInformers.Rbac().V1().RoleBindings(),
 		kubeInformers.Rbac().V1().ClusterRoleBindings(),
+		workInformers.Work().V1().ManifestWorks(),
 		approver,
 		controllerContext.EventRecorder,
 	)
@@ -224,18 +225,11 @@ func (m *HubManagerOptions) RunControllerManagerWithInformers(
 	}
 
 	gcController := gc.NewGCController(
-		kubeInformers.Rbac().V1().ClusterRoles().Lister(),
-		kubeInformers.Rbac().V1().ClusterRoleBindings().Lister(),
-		kubeInformers.Rbac().V1().RoleBindings().Lister(),
 		clusterInformers.Cluster().V1().ManagedClusters(),
-		workInformers.Work().V1().ManifestWorks().Lister(),
 		clusterClient,
-		kubeClient,
 		metadataClient,
-		approver,
 		controllerContext.EventRecorder,
 		m.GCResourceList,
-		features.HubMutableFeatureGate.Enabled(ocmfeature.ResourceCleanup),
 	)
 
 	go clusterInformers.Start(ctx.Done())
@@ -258,7 +252,9 @@ func (m *HubManagerOptions) RunControllerManagerWithInformers(
 		go globalManagedClusterSetController.Run(ctx, 1)
 	}
 
-	go gcController.Run(ctx, 1)
+	if features.HubMutableFeatureGate.Enabled(ocmfeature.ResourceCleanup) {
+		go gcController.Run(ctx, 1)
+	}
 
 	<-ctx.Done()
 	return nil
