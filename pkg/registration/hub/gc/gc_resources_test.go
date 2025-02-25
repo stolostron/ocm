@@ -4,7 +4,6 @@ import (
 	"context"
 	"testing"
 
-	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/stretchr/testify/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -22,38 +21,29 @@ import (
 
 func TestGCResourcesController(t *testing.T) {
 	cases := []struct {
-		name            string
-		cluster         *clusterv1.ManagedCluster
-		objs            []runtime.Object
-		expectedOp      gcReconcileOp
-		expectedErr     error
-		validateActions func(t *testing.T, kubeActions []clienttesting.Action)
+		name             string
+		cluster          *clusterv1.ManagedCluster
+		clusterNamespace string
+		objs             []runtime.Object
+		expectedError    error
+		validateActions  func(t *testing.T, kubeActions []clienttesting.Action)
 	}{
 		{
-			name:        "do nothing if the cluster is not deleting",
-			cluster:     testinghelpers.NewManagedCluster(),
-			expectedOp:  gcReconcileContinue,
-			expectedErr: nil,
-			validateActions: func(t *testing.T, kubeActions []clienttesting.Action) {
-				testingcommon.AssertNoActions(t, kubeActions)
-			},
-		},
-		{
-			name:        "delete addon if the cluster is deleting",
-			cluster:     testinghelpers.NewDeletingManagedCluster(),
-			objs:        []runtime.Object{newAddonMetadata(testinghelpers.TestManagedClusterName, "test", nil)},
-			expectedOp:  gcReconcileRequeue,
-			expectedErr: nil,
+			name:             "delete addon",
+			cluster:          testinghelpers.NewDeletingManagedCluster(),
+			clusterNamespace: testinghelpers.TestManagedClusterName,
+			objs:             []runtime.Object{newAddonMetadata(testinghelpers.TestManagedClusterName, "test", nil)},
+			expectedError:    requeueError,
 			validateActions: func(t *testing.T, kubeActions []clienttesting.Action) {
 				testingcommon.AssertActions(t, kubeActions, "list", "delete")
 			},
 		},
 		{
-			name:        "delete work if the cluster is deleting",
-			cluster:     testinghelpers.NewDeletingManagedCluster(),
-			objs:        []runtime.Object{newWorkMetadata(testinghelpers.TestManagedClusterName, "test", nil)},
-			expectedOp:  gcReconcileRequeue,
-			expectedErr: nil,
+			name:             "delete work",
+			cluster:          testinghelpers.NewDeletingManagedCluster(),
+			clusterNamespace: testinghelpers.TestManagedClusterName,
+			objs:             []runtime.Object{newWorkMetadata(testinghelpers.TestManagedClusterName, "test", nil)},
+			expectedError:    requeueError,
 			validateActions: func(t *testing.T, kubeActions []clienttesting.Action) {
 				testingcommon.AssertActions(t, kubeActions, "list", "list", "delete")
 			},
@@ -66,18 +56,15 @@ func TestGCResourcesController(t *testing.T) {
 			_ = workv1.Install(scheme)
 			_ = metav1.AddMetaToScheme(scheme)
 			metadataClient := fakemetadataclient.NewSimpleMetadataClient(scheme, c.objs...)
-			_ = newGCResourcesController(metadataClient, []schema.GroupVersionResource{addonGvr, workGvr},
-				events.NewInMemoryRecorder(""))
+			_ = newGCResourcesController(metadataClient, []schema.GroupVersionResource{addonGvr, workGvr})
 
 			ctrl := &gcResourcesController{
 				metadataClient:  metadataClient,
 				resourceGVRList: []schema.GroupVersionResource{addonGvr, workGvr},
-				eventRecorder:   events.NewInMemoryRecorder(""),
 			}
 
-			op, err := ctrl.reconcile(context.TODO(), c.cluster)
-			assert.Equal(t, c.expectedErr, err)
-			assert.Equal(t, c.expectedOp, op)
+			err := ctrl.reconcile(context.TODO(), c.cluster, c.clusterNamespace)
+			assert.Equal(t, c.expectedError, err)
 			c.validateActions(t, metadataClient.Actions())
 		})
 	}
