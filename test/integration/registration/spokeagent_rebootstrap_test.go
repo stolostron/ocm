@@ -27,6 +27,7 @@ import (
 	clusterclientset "open-cluster-management.io/api/client/cluster/clientset/versioned"
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
 
+	commonhelpers "open-cluster-management.io/ocm/pkg/common/helpers"
 	commonoptions "open-cluster-management.io/ocm/pkg/common/options"
 	"open-cluster-management.io/ocm/pkg/registration/clientcert"
 	"open-cluster-management.io/ocm/pkg/registration/hub"
@@ -126,11 +127,8 @@ var _ = ginkgo.Describe("Rebootstrap", func() {
 			if err != nil {
 				return false
 			}
-			if len(spokeCluster.Finalizers) != 1 {
-				return false
-			}
 
-			if spokeCluster.Finalizers[0] != clusterv1.ManagedClusterFinalizer {
+			if !commonhelpers.HasFinalizer(spokeCluster.Finalizers, clusterv1.ManagedClusterFinalizer) {
 				return false
 			}
 

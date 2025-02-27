@@ -13,6 +13,7 @@ import (
 
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
 
+	commonhelpers "open-cluster-management.io/ocm/pkg/common/helpers"
 	testinghelpers "open-cluster-management.io/ocm/pkg/registration/helpers/testing"
 )
 
@@ -103,6 +104,22 @@ var _ = ginkgo.Describe("Cluster deleting", func() {
 			}
 			return true
 		}, eventuallyTimeout, eventuallyInterval).Should(gomega.BeTrue())
+
+		// check finalizers are added
+		gomega.Eventually(func() error {
+			cluster, err := clusterClient.ClusterV1().ManagedClusters().Get(context.Background(),
+				managedCluster.Name, metav1.GetOptions{})
+			if err != nil {
+				return err
+			}
+			if !commonhelpers.HasFinalizer(cluster.Finalizers, clusterv1.ManagedClusterFinalizer) {
+				return fmt.Errorf("managedCluster.Finalizers does not contain api-resource-cleanup")
+			}
+			if !commonhelpers.HasFinalizer(cluster.Finalizers, commonhelpers.GcFinalizer) {
+				return fmt.Errorf("managedCluster.Finalizers does not contain resource-cleanup")
+			}
+			return nil
+		}, eventuallyTimeout, eventuallyInterval).Should(gomega.Succeed())
 
 		// delete cluster
 		err = clusterClient.ClusterV1().ManagedClusters().Delete(context.Background(), managedCluster.Name, metav1.DeleteOptions{})
