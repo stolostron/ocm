@@ -27,14 +27,14 @@ require (
 	golang.org/x/exp v0.0.0-20241217172543-b2144cdd0a67
 	gopkg.in/yaml.v2 v2.4.0
 	helm.sh/helm/v3 v3.16.3
-	k8s.io/api v0.31.4
-	k8s.io/apiextensions-apiserver v0.31.3
-	k8s.io/apimachinery v0.31.4
-	k8s.io/apiserver v0.31.4
-	k8s.io/client-go v0.31.4
-	k8s.io/component-base v0.31.4
+	k8s.io/api v0.32.2
+	k8s.io/apiextensions-apiserver v0.32.2
+	k8s.io/apimachinery v0.32.2
+	k8s.io/apiserver v0.32.2
+	k8s.io/client-go v0.32.2
+	k8s.io/component-base v0.32.2
 	k8s.io/klog/v2 v2.130.1
-	k8s.io/kube-aggregator v0.31.4
+	k8s.io/kube-aggregator v0.32.2
 	k8s.io/utils v0.0.0-20240921022957-49e7df575cb6
 	open-cluster-management.io/addon-framework v0.11.1-0.20250218075422-4329ebea390c
 	open-cluster-management.io/api v0.15.1-0.20250116010516-3a595d6a4e40
