@@ -10,7 +10,7 @@ require (
 	github.com/mochi-mqtt/server/v2 v2.6.5
 	github.com/onsi/ginkgo/v2 v2.20.0
 	github.com/onsi/gomega v1.34.1
-	github.com/openshift/api v0.0.0-20240527133614-ba11c1587003
+	github.com/openshift/api 635291d6fdf1
 	github.com/openshift/build-machinery-go v0.0.0-20240419090851-af9c868bcf52
 	github.com/openshift/library-go v0.0.0-20240621150525-4bb4238aef81
 	github.com/pkg/errors v0.9.1
