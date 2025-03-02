@@ -7,6 +7,7 @@ import (
 	"time"
 
 	cloudevents "github.com/cloudevents/sdk-go/v2"
+	cloudeventstypes "github.com/cloudevents/sdk-go/v2/types"
 
 	"k8s.io/klog/v2"
 
@@ -116,7 +117,7 @@ func (c *CloudEventAgentClient[T]) Resync(ctx context.Context, source string) er
 			return err
 		}
 
-		increaseCloudEventsSentCounter(evt.Source(), c.clusterName, eventDataType.String())
+		increaseCloudEventsSentCounter(evt.Source(), source, c.clusterName, eventDataType.String(), string(eventType.SubResource), string(eventType.Action))
 	}
 
 	return nil
@@ -142,7 +143,8 @@ func (c *CloudEventAgentClient[T]) Publish(ctx context.Context, eventType types.
 		return err
 	}
 
-	increaseCloudEventsSentCounter(evt.Source(), c.clusterName, eventType.CloudEventsDataType.String())
+	originalSource, _ := cloudeventstypes.ToString(evt.Context.GetExtensions()[types.ExtensionOriginalSource])
+	increaseCloudEventsSentCounter(evt.Source(), originalSource, c.clusterName, eventType.CloudEventsDataType.String(), string(eventType.SubResource), string(eventType.Action))
 
 	return nil
 }
@@ -163,7 +165,7 @@ func (c *CloudEventAgentClient[T]) receive(ctx context.Context, evt cloudevents.
 		return
 	}
 
-	increaseCloudEventsReceivedCounter(evt.Source(), c.clusterName, eventType.CloudEventsDataType.String())
+	increaseCloudEventsReceivedCounter(evt.Source(), c.clusterName, eventType.CloudEventsDataType.String(), string(eventType.SubResource), string(eventType.Action))
 
 	if eventType.Action == types.ResyncRequestAction {
 		if eventType.SubResource != types.SubResourceStatus {
@@ -182,6 +184,17 @@ func (c *CloudEventAgentClient[T]) receive(ctx context.Context, evt cloudevents.
 
 	if eventType.SubResource != types.SubResourceSpec {
 		klog.Warningf("unsupported event type %s, ignore", eventType)
+		return
+	}
+
+	evtExtensions := evt.Context.GetExtensions()
+	clusterName, err := cloudeventstypes.ToString(evtExtensions[types.ExtensionClusterName])
+	if err != nil {
+		klog.Errorf("failed to get clustername extension: %v", err)
+		return
+	}
+	if clusterName != c.clusterName {
+		klog.V(4).Infof("event clustername %s and agent clustername %s do not match, ignore", clusterName, c.clusterName)
 		return
 	}
 
