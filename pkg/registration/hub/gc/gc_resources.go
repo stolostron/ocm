@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 	"strconv"
+	"time"
 
-	"github.com/openshift/library-go/pkg/operator/events"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -15,12 +15,13 @@ import (
 	"k8s.io/klog/v2"
 
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
+
+	"open-cluster-management.io/ocm/pkg/common/helpers"
 )
 
 type gcResourcesController struct {
 	metadataClient  metadata.Interface
 	resourceGVRList []schema.GroupVersionResource
-	eventRecorder   events.Recorder
 }
 
 // the range of cleanupPriority is [0,100].
@@ -34,35 +35,28 @@ const (
 	maxCleanupPriority cleanupPriority = 100
 )
 
-func newGCResourcesController(
-	metadataClient metadata.Interface,
-	resourceList []schema.GroupVersionResource,
-	eventRecorder events.Recorder,
-) gcReconciler {
+var requeueError = helpers.NewRequeueError("gc requeue", 5*time.Second)
+
+func newGCResourcesController(metadataClient metadata.Interface,
+	resourceList []schema.GroupVersionResource) *gcResourcesController {
 	return &gcResourcesController{
 		metadataClient:  metadataClient,
 		resourceGVRList: resourceList,
-		eventRecorder:   eventRecorder.WithComponentSuffix("gc-resources"),
 	}
 }
 
-func (r *gcResourcesController) reconcile(ctx context.Context, cluster *clusterv1.ManagedCluster) (gcReconcileOp, error) {
+func (r *gcResourcesController) reconcile(ctx context.Context,
+	cluster *clusterv1.ManagedCluster, clusterNamespace string) error {
 	var errs []error
-
-	if cluster.DeletionTimestamp.IsZero() {
-		return gcReconcileContinue, nil
-	}
-
 	// delete the resources in order. to delete the next resource after all resource instances are deleted.
 	for _, resourceGVR := range r.resourceGVRList {
 		resourceList, err := r.metadataClient.Resource(resourceGVR).
-			Namespace(cluster.Name).List(ctx, metav1.ListOptions{})
+			Namespace(clusterNamespace).List(ctx, metav1.ListOptions{})
 		if errors.IsNotFound(err) {
 			continue
 		}
 		if err != nil {
-			return gcReconcileContinue, fmt.Errorf("failed to list resource %v. err:%v",
-				resourceGVR.Resource, err)
+			return fmt.Errorf("failed to list resource %v. err:%v", resourceGVR.Resource, err)
 		}
 		if len(resourceList.Items) == 0 {
 			continue
@@ -82,26 +76,27 @@ func (r *gcResourcesController) reconcile(ctx context.Context, cluster *clusterv
 		firstDeletePriority := getFirstDeletePriority(priorityResourceMap)
 		// delete the resource instances with the lowest priority in one reconciling.
 		for _, resourceName := range priorityResourceMap[firstDeletePriority] {
-			err = r.metadataClient.Resource(resourceGVR).Namespace(cluster.Name).
+			err = r.metadataClient.Resource(resourceGVR).Namespace(clusterNamespace).
 				Delete(ctx, resourceName, metav1.DeleteOptions{})
 			if err != nil && !errors.IsNotFound(err) {
 				errs = append(errs, err)
 			}
 		}
 		if len(errs) != 0 {
-			return gcReconcileContinue, fmt.Errorf("failed to clean up %v. err:%v",
-				resourceGVR.Resource, utilerrors.NewAggregate(errs))
+			return fmt.Errorf("failed to clean up %v. err:%v", resourceGVR.Resource, utilerrors.NewAggregate(errs))
 		}
-		return gcReconcileRequeue, nil
+		return requeueError
 	}
 
-	meta.SetStatusCondition(&cluster.Status.Conditions, metav1.Condition{
-		Type:    clusterv1.ManagedClusterConditionDeleting,
-		Status:  metav1.ConditionTrue,
-		Reason:  clusterv1.ConditionDeletingReasonNoResource,
-		Message: "No cleaned resource in cluster ns.",
-	})
-	return gcReconcileContinue, nil
+	if cluster != nil {
+		meta.SetStatusCondition(&cluster.Status.Conditions, metav1.Condition{
+			Type:    clusterv1.ManagedClusterConditionDeleting,
+			Status:  metav1.ConditionTrue,
+			Reason:  clusterv1.ConditionDeletingReasonNoResource,
+			Message: "No cleaned resource in cluster ns.",
+		})
+	}
+	return nil
 }
 
 func mapPriorityResource(resourceList *metav1.PartialObjectMetadataList) map[cleanupPriority][]string {
