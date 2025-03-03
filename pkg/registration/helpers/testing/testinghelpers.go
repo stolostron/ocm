@@ -19,6 +19,7 @@ import (
 	coordv1 "k8s.io/api/coordination/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
+	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kubeversion "k8s.io/client-go/pkg/version"
@@ -128,9 +129,17 @@ func NewManagedClusterWithStatus(capacity, allocatable clusterv1.ResourceList) *
 	return managedCluster
 }
 
-func NewDeniedManagedCluster() *clusterv1.ManagedCluster {
+func NewDeniedManagedCluster(acceptedConditionStatus string) *clusterv1.ManagedCluster {
 	managedCluster := NewAcceptedManagedCluster()
 	managedCluster.Spec.HubAcceptsClient = false
+
+	meta.SetStatusCondition(&managedCluster.Status.Conditions, NewManagedClusterCondition(
+		clusterv1.ManagedClusterConditionHubAccepted,
+		acceptedConditionStatus,
+		"",
+		"",
+		nil,
+	))
 	return managedCluster
 }
 
@@ -141,6 +150,16 @@ func NewDeletingManagedCluster() *clusterv1.ManagedCluster {
 			Name:              TestManagedClusterName,
 			DeletionTimestamp: &now,
 			Finalizers:        []string{clusterv1.ManagedClusterFinalizer},
+		},
+	}
+}
+func NewDeletingManagedClusterWithFinalizers(finalizers []string) *clusterv1.ManagedCluster {
+	now := metav1.Now()
+	return &clusterv1.ManagedCluster{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:              TestManagedClusterName,
+			DeletionTimestamp: &now,
+			Finalizers:        finalizers,
 		},
 	}
 }
