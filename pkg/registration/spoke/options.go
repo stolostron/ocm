@@ -78,7 +78,7 @@ func (o *SpokeAgentOptions) AddFlags(fs *pflag.FlagSet) {
 			"the value of --cluster-signing-duration command-line flag of the kube-controller-manager will be used.")
 	fs.StringToStringVar(&o.ClusterAnnotations, "cluster-annotations", o.ClusterAnnotations, `the annotations with the reserve
 	 prefix "agent.open-cluster-management.io" set on ManagedCluster when creating only, other actors can update it afterwards.`)
-	//Consider grouping these flags for driverOption in a new Option struct and add the flags using function driverOptions.AddFlags(fs).
+	// Consider grouping these flags for driverOption in a new Option struct and add the flags using function driverOptions.AddFlags(fs).
 	fs.StringVar(&o.RegistrationAuth, "registration-auth", o.RegistrationAuth,
 		"The type of authentication to use to authenticate with hub.")
 	fs.StringVar(&o.HubClusterArn, "hub-cluster-arn", o.HubClusterArn,
