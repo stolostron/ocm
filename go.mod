@@ -1,6 +1,6 @@
 module open-cluster-management.io/ocm
 
-go 1.22.5
+go 1.23.6
 
 require (
 	github.com/aws/aws-sdk-go-v2 v1.35.0
@@ -157,7 +157,7 @@ require (
 	go.uber.org/zap v1.27.0 // indirect
 	golang.org/x/crypto v0.32.0 // indirect
 	golang.org/x/net v0.34.0 // indirect
-	golang.org/x/oauth2 v0.22.0 // indirect
+	golang.org/x/oauth2 v0.27.0 // indirect
 	golang.org/x/sync v0.10.0 // indirect
 	golang.org/x/sys v0.29.0 // indirect
 	golang.org/x/term v0.28.0 // indirect
