@@ -72,7 +72,7 @@ func (c *manifestWorkSourceClient) Create(ctx context.Context, manifestWork *wor
 		newObj.Generation = 1
 		newObj.Namespace = c.namespace
 
-		//TODO support manifestbundles
+		// TODO support manifestbundles
 		eventType := types.CloudEventsType{
 			CloudEventsDataType: payload.ManifestEventDataType,
 			SubResource:         types.SubResourceSpec,
@@ -106,10 +106,10 @@ func (c *manifestWorkSourceClient) Update(ctx context.Context, manifestWork *wor
 	}
 
 	updatedObj := manifestWork.DeepCopy()
-	updatedObj.Generation = updatedObj.Generation + 1
+	updatedObj.Generation++
 	updatedObj.ResourceVersion = fmt.Sprintf("%d", updatedObj.Generation)
 
-	//TODO support manifestbundles
+	// TODO support manifestbundles
 	eventType := types.CloudEventsType{
 		CloudEventsDataType: payload.ManifestEventDataType,
 		SubResource:         types.SubResourceSpec,
@@ -142,7 +142,7 @@ func (c *manifestWorkSourceClient) Delete(ctx context.Context, name string, opts
 	now := metav1.Now()
 	deletedObj.DeletionTimestamp = &now
 
-	//TODO support manifestbundles
+	// TODO support manifestbundles
 	eventType := types.CloudEventsType{
 		CloudEventsDataType: payload.ManifestEventDataType,
 		SubResource:         types.SubResourceSpec,

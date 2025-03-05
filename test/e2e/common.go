@@ -804,7 +804,7 @@ func (t *Tester) OutputDebugLogs() {
 		klog.Errorf("failed to get manifestwork pods. error: %v", err)
 	}
 
-	agentPods := append(registrationPods.Items, manifestWorkPods.Items...)
+	agentPods := append(registrationPods.Items, manifestWorkPods.Items...) //nolint:gocritic
 	for _, pod := range agentPods {
 		klog.Infof("klusterlet agent pod %v/%v\n", pod.Namespace, pod.Name)
 		logs, err := t.SpokePodLog(pod.Name, pod.Namespace, int64(10))
