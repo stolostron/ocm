@@ -143,15 +143,16 @@ func TestSync(t *testing.T) {
 		if err := json.Unmarshal(data, ssar); err != nil {
 			t.Fatal(err)
 		}
-		if ssar.Spec.ResourceAttributes.Resource == "managedclusters" {
+		switch ssar.Spec.ResourceAttributes.Resource {
+		case "managedclusters":
 			if ssar.Spec.ResourceAttributes.Subresource == "status" {
 				ssar.Status.Allowed = response.allowToOperateManagedClusterStatus
 			} else {
 				ssar.Status.Allowed = response.allowToOperateManagedClusters
 			}
-		} else if ssar.Spec.ResourceAttributes.Resource == "manifestworks" {
+		case "manifestworks":
 			ssar.Status.Allowed = response.allowToOperateManifestWorks
-		} else {
+		default:
 			ssar.Status.Allowed = true
 		}
 

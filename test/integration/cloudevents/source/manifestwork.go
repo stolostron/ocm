@@ -106,7 +106,7 @@ func (c *manifestWorkSourceClient) Update(ctx context.Context, manifestWork *wor
 	}
 
 	updatedObj := manifestWork.DeepCopy()
-	updatedObj.Generation = updatedObj.Generation + 1
+	updatedObj.Generation++
 	updatedObj.ResourceVersion = fmt.Sprintf("%d", updatedObj.Generation)
 
 	//TODO support manifestbundles

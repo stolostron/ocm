@@ -119,7 +119,7 @@ func resetOrdinal(meta workapiv1.ManifestResourceMeta) workapiv1.ManifestResourc
 func mergeManifestCondition(condition, newCondition workapiv1.ManifestCondition) workapiv1.ManifestCondition {
 	return workapiv1.ManifestCondition{
 		ResourceMeta: newCondition.ResourceMeta,
-		//Note this func is only used for merging status conditions, the statusFeedbacks should keep the old one.
+		// Note this func is only used for merging status conditions, the statusFeedbacks should keep the old one.
 		StatusFeedbacks: condition.StatusFeedbacks,
 		Conditions:      MergeStatusConditions(condition.Conditions, newCondition.Conditions),
 	}
@@ -436,7 +436,7 @@ func BuildResourceMeta(
 	object runtime.Object,
 	restMapper meta.RESTMapper) (workapiv1.ManifestResourceMeta, schema.GroupVersionResource, error) {
 	resourceMeta := workapiv1.ManifestResourceMeta{
-		Ordinal: int32(index),
+		Ordinal: int32(index), //nolint:gosec
 	}
 
 	if object == nil || reflect.ValueOf(object).IsNil() {

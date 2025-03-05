@@ -648,13 +648,14 @@ func TestBuildResourceMeta(t *testing.T) {
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			meta, gvr, err := BuildResourceMeta(c.index, c.obj, restMapper)
-			if c.expectedErr == nil {
+			switch {
+			case c.expectedErr == nil:
 				if err != nil {
 					t.Errorf("Case name: %s, expect error nil, but got %v", c.name, err)
 				}
-			} else if err == nil {
+			case err == nil:
 				t.Errorf("Case name: %s, expect error %s, but got nil", c.name, c.expectedErr)
-			} else if c.expectedErr.Error() != err.Error() {
+			case c.expectedErr.Error() != err.Error():
 				t.Errorf("Case name: %s, expect error %s, but got %s", c.name, c.expectedErr, err)
 			}
 

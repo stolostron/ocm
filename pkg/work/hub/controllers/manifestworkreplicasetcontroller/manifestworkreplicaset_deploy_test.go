@@ -409,11 +409,12 @@ func TestDeployWithMultiPlacementsReconcileAsExpected(t *testing.T) {
 		},
 	}
 	for _, plcSummary := range mwrSet.Status.PlacementsSummary {
-		if plcSummary.Name == placement1.Name {
+		switch {
+		case plcSummary.Name == placement1.Name:
 			assert.Equal(t, plcSummary, expectPlcSummary1)
-		} else if plcSummary.Name == placement2.Name {
+		case plcSummary.Name == placement2.Name:
 			assert.Equal(t, plcSummary, expectPlcSummary2)
-		} else {
+		default:
 			t.Fatal("PlacementSummary Name not Exist")
 		}
 	}
