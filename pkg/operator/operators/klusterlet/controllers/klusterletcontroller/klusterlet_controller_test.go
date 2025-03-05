@@ -464,9 +464,9 @@ func ensureObject(t *testing.T, object runtime.Object, klusterlet *operatorapiv1
 	}
 
 	namespace := helpers.AgentNamespace(klusterlet)
-	switch o := object.(type) {
-	case *appsv1.Deployment:
-		if strings.Contains(access.GetName(), "registration") {
+	if o, ok := object.(*appsv1.Deployment); ok {
+		switch {
+		case strings.Contains(access.GetName(), "registration"):
 			testingcommon.AssertEqualNameNamespace(
 				t, access.GetName(), access.GetNamespace(),
 				fmt.Sprintf("%s-registration-agent", klusterlet.Name), namespace)
@@ -474,7 +474,7 @@ func ensureObject(t *testing.T, object runtime.Object, klusterlet *operatorapiv1
 				t.Errorf("Image does not match to the expected.")
 				return
 			}
-		} else if strings.Contains(access.GetName(), "work") {
+		case strings.Contains(access.GetName(), "work"):
 			testingcommon.AssertEqualNameNamespace(
 				t, access.GetName(), access.GetNamespace(),
 				fmt.Sprintf("%s-work-agent", klusterlet.Name), namespace)
@@ -482,7 +482,7 @@ func ensureObject(t *testing.T, object runtime.Object, klusterlet *operatorapiv1
 				t.Errorf("Image does not match to the expected.")
 				return
 			}
-		} else if strings.Contains(access.GetName(), "agent") {
+		case strings.Contains(access.GetName(), "agent"):
 			testingcommon.AssertEqualNameNamespace(
 				t, access.GetName(), access.GetNamespace(),
 				fmt.Sprintf("%s-agent", klusterlet.Name), namespace)
@@ -490,7 +490,7 @@ func ensureObject(t *testing.T, object runtime.Object, klusterlet *operatorapiv1
 				t.Errorf("Image does not match to the expected.")
 				return
 			}
-		} else {
+		default:
 			t.Errorf("unexpected deployment")
 			return
 		}
