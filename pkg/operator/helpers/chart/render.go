@@ -214,7 +214,7 @@ func renderManifests(chart *chart.Chart, values chartutil.Values) ([][]byte, err
 	// will create open-cluster-management-agent ns in klusterlet operator,
 	// so need make sure namespaces are at the top of slice.
 	if len(namespaceObjects) != 0 {
-		result := append(namespaceObjects, rawObjects...)
+		result := append(namespaceObjects, rawObjects...) //nolint:gocritic
 		return result, nil
 	}
 	return rawObjects, nil
