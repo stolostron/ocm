@@ -133,7 +133,7 @@ func (d *deployReconciler) reconcile(ctx context.Context, mwrSet *workapiv1alpha
 			existingClusterNames.Delete(cls.ClusterName)
 		}
 
-		total = total + int(placement.Status.NumberOfSelectedClusters)
+		total += int(placement.Status.NumberOfSelectedClusters)
 		plcSummary := workapiv1alpha1.PlacementSummary{
 			Name: placementRef.Name,
 			AvailableDecisionGroups: getAvailableDecisionGroupProgressMessage(len(placement.Status.DecisionGroups),
@@ -145,7 +145,7 @@ func (d *deployReconciler) reconcile(ctx context.Context, mwrSet *workapiv1alpha
 		plcSummary.Summary = mwrSetSummary
 		plcsSummary = append(plcsSummary, plcSummary)
 
-		count = count + len(existingClusterNames)
+		count += len(existingClusterNames)
 	}
 	// Set the placements summary
 	mwrSet.Status.PlacementsSummary = plcsSummary
@@ -194,14 +194,15 @@ func (d *deployReconciler) clusterRolloutStatusFunc(clusterName string, manifest
 	appliedCondition := apimeta.FindStatusCondition(manifestWork.Status.Conditions, workv1.WorkApplied)
 
 	// Applied condition not exist return status as ToApply.
-	if appliedCondition == nil {
+	switch {
+	case appliedCondition == nil:
 		return clsRolloutStatus, nil
-	} else if appliedCondition.Status == metav1.ConditionTrue ||
-		apimeta.IsStatusConditionTrue(manifestWork.Status.Conditions, workv1.WorkProgressing) {
+	case appliedCondition.Status == metav1.ConditionTrue ||
+		apimeta.IsStatusConditionTrue(manifestWork.Status.Conditions, workv1.WorkProgressing):
 		// Applied OR Progressing conditions status true return status as Progressing
 		// ManifestWork Progressing status is not defined however the check is made for future work availability.
 		clsRolloutStatus.Status = clustersdkv1alpha1.Progressing
-	} else if appliedCondition.Status == metav1.ConditionFalse {
+	case appliedCondition.Status == metav1.ConditionFalse:
 		// Applied Condition status false return status as failed
 		clsRolloutStatus.Status = clustersdkv1alpha1.Failed
 		clsRolloutStatus.LastTransitionTime = &appliedCondition.LastTransitionTime

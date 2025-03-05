@@ -1,6 +1,6 @@
 module open-cluster-management.io/ocm
 
-go 1.22.5
+go 1.23.6
 
 require (
 	github.com/davecgh/go-spew v1.1.1
@@ -130,7 +130,7 @@ require (
 	go.uber.org/multierr v1.11.0 // indirect
 	go.uber.org/zap v1.27.0 // indirect
 	golang.org/x/crypto v0.32.0 // indirect
-	golang.org/x/oauth2 v0.20.0 // indirect
+	golang.org/x/oauth2 v0.28.0 // indirect
 	golang.org/x/sync v0.10.0 // indirect
 	golang.org/x/sys v0.29.0 // indirect
 	golang.org/x/term v0.28.0 // indirect
