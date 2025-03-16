@@ -1,9 +1,11 @@
 module open-cluster-management.io/ocm
 
-go 1.21
+go 1.22
+
+toolchain go1.22.9
 
 require (
-	github.com/cloudevents/sdk-go/v2 v2.15.3-0.20240329120647-e6a74efbacbf
+	github.com/cloudevents/sdk-go/v2 v2.15.3-0.20250313141547-88bebb1fe04f
 	github.com/davecgh/go-spew v1.1.1
 	github.com/evanphx/json-patch v5.9.0+incompatible
 	github.com/ghodss/yaml v1.0.0
@@ -19,7 +21,7 @@ require (
 	github.com/prometheus/client_golang v1.18.0
 	github.com/spf13/cobra v1.8.0
 	github.com/spf13/pflag v1.0.5
-	github.com/stretchr/testify v1.9.0
+	github.com/stretchr/testify v1.10.0
 	github.com/valyala/fasttemplate v1.2.2
 	go.uber.org/zap v1.27.0
 	golang.org/x/exp v0.0.0-20230522175609-2e198f4a06a1
