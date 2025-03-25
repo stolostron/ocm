@@ -25,7 +25,15 @@ const (
 	indexByCluster = "indexByCluster"
 
 	// TODO(qiujian16) expose it if necessary in the future.
-	clusterCSRThreshold = 10
+	//
+	// During an upgrade to MCE 2.8, both the old agent and the new agent may run concurrently for a
+	// short period. This can cause issues for the local-cluster, as the old agent might create a hub
+	// kubeconfig with invalid data, while the new agent fails to generate a new CSR due to the CSR
+	// threshold. To resolve this, the CSR threshold is increased for MCE 2.8 agent only, allowing
+	// it to create additional CSRs during the upgrade if the old agent has already reached the
+	// threshold. From MCE 2.8 onward, leader election is properly configured, preventing this issue
+	// in future upgrades.
+	clusterCSRThreshold = 12
 )
 
 // CSROption includes options that is used to create and monitor csrs
