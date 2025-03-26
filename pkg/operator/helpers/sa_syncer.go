@@ -239,12 +239,13 @@ func applyKubeconfigSecret(ctx context.Context, templateKubeconfig *rest.Config,
 
 func assembleClusterConfig(templateKubeconfig *rest.Config) (*clientcmdapi.Cluster, error) {
 	var c *clientcmdapi.Cluster
-	if len(templateKubeconfig.CAData) != 0 {
+	switch {
+	case len(templateKubeconfig.CAData) != 0:
 		c = &clientcmdapi.Cluster{
 			Server:                   templateKubeconfig.Host,
 			CertificateAuthorityData: templateKubeconfig.CAData,
 		}
-	} else if len(templateKubeconfig.CAFile) != 0 {
+	case len(templateKubeconfig.CAFile) != 0:
 		caData, err := os.ReadFile(templateKubeconfig.CAFile)
 		if err != nil {
 			return nil, err
@@ -253,7 +254,7 @@ func assembleClusterConfig(templateKubeconfig *rest.Config) (*clientcmdapi.Clust
 			Server:                   templateKubeconfig.Host,
 			CertificateAuthorityData: caData,
 		}
-	} else {
+	default:
 		c = &clientcmdapi.Cluster{
 			Server:                templateKubeconfig.Host,
 			InsecureSkipTLSVerify: true,
