@@ -493,8 +493,8 @@ open-cluster-management.io/api v0.15.1-0.20250116010516-3a595d6a4e40 h1:LckTHZ68
 open-cluster-management.io/api v0.15.1-0.20250116010516-3a595d6a4e40/go.mod h1:9erZEWEn4bEqh0nIX2wA7f/s3KCuFycQdBrPrRzi0QM=
 open-cluster-management.io/sdk-go v0.15.1-0.20241125015855-1536c3970f8f h1:zeC7QrFNarfK2zY6jGtd+mX+yDrQQmnH/J8A7n5Nh38=
 open-cluster-management.io/sdk-go v0.15.1-0.20241125015855-1536c3970f8f/go.mod h1:fi5WBsbC5K3txKb8eRLuP0Sim/Oqz/PHX18skAEyjiA=
-sigs.k8s.io/apiserver-network-proxy/konnectivity-client v0.30.3 h1:2770sDpzrjjsAtVhSeUFseziht227YAWYHLGNM8QPwY=
-sigs.k8s.io/apiserver-network-proxy/konnectivity-client v0.30.3/go.mod h1:Ve9uj1L+deCXFrPOk1LpFXqTg7LCFzFso6PA48q/XZw=
+sigs.k8s.io/apiserver-network-proxy/konnectivity-client v0.32.0 h1:XotDXzqvJ8Nx5eiZZueLpTuafJz8SiodgOemI+w87QU=
+sigs.k8s.io/apiserver-network-proxy/konnectivity-client v0.32.0/go.mod h1:Ve9uj1L+deCXFrPOk1LpFXqTg7LCFzFso6PA48q/XZw=
 sigs.k8s.io/cluster-inventory-api v0.0.0-20240730014211-ef0154379848 h1:WYPi2PdQyZwZkHG648v2jQl6deyCgyjJ0fkLYgUJ618=
 sigs.k8s.io/cluster-inventory-api v0.0.0-20240730014211-ef0154379848/go.mod h1:/aN4e7RWOMHgT4xAjCNkV4YFcpKfpZCeumMIL7S+KNM=
 sigs.k8s.io/controller-runtime v0.19.3 h1:XO2GvC9OPftRst6xWCpTgBZO04S2cbp0Qqkj8bX1sPw=
