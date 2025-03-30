@@ -46,7 +46,7 @@ require (
 )
 
 require (
-	cloud.google.com/go/compute/metadata v0.5.0 // indirect
+	cloud.google.com/go/compute/metadata v0.6.0 // indirect
 	dario.cat/mergo v1.0.1 // indirect
 	github.com/BurntSushi/toml v1.4.0 // indirect
 	github.com/Masterminds/goutils v1.1.1 // indirect
