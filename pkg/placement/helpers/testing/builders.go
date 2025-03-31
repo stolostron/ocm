@@ -124,12 +124,12 @@ func (b *PlacementBuilder) AddToleration(toleration *clusterapiv1beta1.Toleratio
 }
 
 func (b *PlacementBuilder) WithNumOfSelectedClusters(nosc int, placementName string) *PlacementBuilder {
-	b.placement.Status.NumberOfSelectedClusters = int32(nosc)
+	b.placement.Status.NumberOfSelectedClusters = int32(nosc) //nolint:gosec
 	b.placement.Status.DecisionGroups = []clusterapiv1beta1.DecisionGroupStatus{
 		{
 			DecisionGroupIndex: 0,
 			DecisionGroupName:  "",
-			ClustersCount:      int32(nosc),
+			ClustersCount:      int32(nosc), //nolint:gosec
 			Decisions:          []string{PlacementDecisionName(placementName, 1)},
 		},
 	}
