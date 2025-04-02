@@ -421,8 +421,7 @@ func TestSyncDelete(t *testing.T) {
 	testingcommon.AssertEqualNumber(t, len(deleteCRDActions), 16)
 
 	for _, action := range deleteKubeActions {
-		switch action.Resource.Resource {
-		case "namespaces":
+		if action.Resource.Resource == "namespaces" {
 			testingcommon.AssertEqualNameNamespace(t, action.Name, "", clusterManagerNamespace, "")
 		}
 	}
@@ -446,7 +445,7 @@ func TestDeleteCRD(t *testing.T) {
 	getCount := 0
 	tc.apiExtensionClient.PrependReactor("get", "customresourcedefinitions", func(action clienttesting.Action) (handled bool, ret runtime.Object, err error) {
 		if getCount == 0 {
-			getCount = getCount + 1
+			getCount++
 			return true, crd, nil
 		}
 		return true, &apiextensionsv1.CustomResourceDefinition{}, errors.NewNotFound(
