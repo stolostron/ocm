@@ -381,7 +381,7 @@ github.com/mitchellh/copystructure
 github.com/mitchellh/reflectwalk
 # github.com/moby/docker-image-spec v1.3.1
 ## explicit; go 1.18
-# github.com/moby/sys/user v0.3.0
+# github.com/moby/sys/user v0.4.0
 ## explicit; go 1.17
 # github.com/moby/sys/userns v0.1.0
 ## explicit; go 1.21
