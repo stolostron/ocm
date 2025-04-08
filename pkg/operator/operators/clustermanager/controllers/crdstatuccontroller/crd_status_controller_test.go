@@ -29,7 +29,7 @@ func TestSync(t *testing.T) {
 	tc := newTestController(t, clusterManager)
 
 	syncContext := testingcommon.NewFakeSyncContext(t, "testhub")
-	//Do not support migration
+	// Do not support migration
 	err := tc.sync(context.Background(), syncContext)
 	if err != nil {
 		t.Fatalf("Expected no error when sync, %v", err)

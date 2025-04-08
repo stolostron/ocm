@@ -162,7 +162,7 @@ func (c *crdMigrationController) sync(ctx context.Context, controllerContext fac
 			return
 		}
 
-		//If migration not succeed, wait for all StorageVersionMigrations succeed.
+		// If migration not succeed, wait for all StorageVersionMigrations succeed.
 		if migrationCond.Status != metav1.ConditionTrue {
 			klog.V(4).Infof("Wait all StorageVersionMigrations succeed. migrationCond: %v. error: %v", migrationCond, err)
 			controllerContext.Queue().AddRateLimited(clusterManagerName)
