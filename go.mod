@@ -1,6 +1,8 @@
 module open-cluster-management.io/ocm
 
-go 1.22.5
+go 1.23
+
+toolchain go1.23.8
 
 require (
 	github.com/aws/aws-sdk-go-v2 v1.36.3
@@ -176,6 +178,6 @@ require (
 	k8s.io/kms v0.31.4 // indirect
 	k8s.io/kube-openapi v0.0.0-20240228011516-70dd3763d340 // indirect
 	sigs.k8s.io/apiserver-network-proxy/konnectivity-client v0.30.3 // indirect
-	sigs.k8s.io/json v0.0.0-20221116044647-bc3834ca7abd // indirect
+	sigs.k8s.io/json v0.0.0-20241014173422-cfa47c3a1cc8 // indirect
 	sigs.k8s.io/structured-merge-diff/v4 v4.4.1 // indirect
 )
