@@ -2,6 +2,7 @@ package managedcluster
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -11,7 +12,7 @@ import (
 	operatorhelpers "github.com/openshift/library-go/pkg/operator/v1helpers"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -114,8 +115,13 @@ func (c *managedClusterController) sync(ctx context.Context, syncCtx factory.Syn
 	logger := klog.FromContext(ctx)
 	logger.V(4).Info("Reconciling ManagedCluster", "managedClusterName", managedClusterName)
 	managedCluster, err := c.clusterLister.Get(managedClusterName)
-	if errors.IsNotFound(err) {
-		return c.removeClusterRbac(ctx, managedClusterName, true)
+	if apierrors.IsNotFound(err) {
+		err = c.removeClusterRbac(ctx, managedClusterName, true)
+		if errors.Is(err, requeueError) {
+			syncCtx.Queue().AddAfter(managedClusterName, requeueError.RequeueTime)
+			return nil
+		}
+		return err
 	}
 	if err != nil {
 		return err
@@ -130,6 +136,10 @@ func (c *managedClusterController) sync(ctx context.Context, syncCtx factory.Syn
 
 		err = c.removeClusterRbac(ctx, managedClusterName, true)
 		if err != nil {
+			if errors.Is(err, requeueError) {
+				syncCtx.Queue().AddAfter(managedClusterName, requeueError.RequeueTime)
+				return nil
+			}
 			return err
 		}
 
@@ -186,7 +196,12 @@ func (c *managedClusterController) sync(ctx context.Context, syncCtx factory.Syn
 		}
 
 		// Remove the cluster role binding files for registration-agent and work-agent.
-		return c.removeClusterRbac(ctx, managedClusterName, managedCluster.Spec.HubAcceptsClient)
+		err = c.removeClusterRbac(ctx, managedClusterName, managedCluster.Spec.HubAcceptsClient)
+		if errors.Is(err, requeueError) {
+			syncCtx.Queue().AddAfter(managedClusterName, requeueError.RequeueTime)
+			return nil
+		}
+		return err
 	}
 
 	// TODO consider to add the managedcluster-namespace.yaml back to staticFiles,
@@ -295,7 +310,7 @@ func (c *managedClusterController) removeClusterRbac(ctx context.Context, cluste
 	}
 
 	works, err := c.manifestWorkLister.ManifestWorks(clusterName).List(labels.Everything())
-	if err != nil && !errors.IsNotFound(err) {
+	if err != nil && !apierrors.IsNotFound(err) {
 		errs = append(errs, err)
 		return operatorhelpers.NewMultiLineAggregate(errs)
 	}
@@ -309,7 +324,7 @@ func (c *managedClusterController) removeClusterRbac(ctx context.Context, cluste
 func (c *managedClusterController) removeFinalizerFromWorkRoleBinding(ctx context.Context, clusterName string) error {
 	workRoleBinding, err := c.roleBindingLister.RoleBindings(clusterName).Get(workRoleBindingName(clusterName))
 	switch {
-	case errors.IsNotFound(err):
+	case apierrors.IsNotFound(err):
 		return nil
 	case err != nil:
 		return err
