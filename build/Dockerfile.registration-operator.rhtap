@@ -3,6 +3,10 @@ FROM brew.registry.redhat.io/rh-osbs/openshift-golang-builder:rhel_9_1.23 AS bui
 WORKDIR /go/src/open-cluster-management.io/ocm
 COPY . .
 ENV GO_PACKAGE open-cluster-management.io/ocm
+# hardcode the CI version to block konflux build issue (ACM-21721)
+# TODO: Pass the CI version from the top when triggering a build
+# ENV SOURCE_GIT_TAG=${CI_VERSION}
+ENV SOURCE_GIT_TAG=v2.9.0
 
 RUN GO_BUILD_PACKAGES=./cmd/registration-operator make build --warn-undefined-variables
 
