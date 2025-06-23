@@ -77,3 +77,6 @@ See the following options to connect with the community:
  - [Mailing group](https://groups.google.com/g/open-cluster-management)
  - [Community meetings](https://github.com/open-cluster-management-io/community/projects/1)
  - [YouTube channel](https://www.youtube.com/c/OpenClusterManagement)
+
+---
+*Last updated: 2025-06-23*
