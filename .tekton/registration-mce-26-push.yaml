@@ -23,6 +23,12 @@ spec:
     value: '{{revision}}'
   - name: output-image
     value: quay.io/redhat-user-workloads/crt-redhat-acm-tenant/release-mce-26/registration-mce-26:{{revision}}
+  - name: build-platforms
+    value:
+      - linux/x86_64
+      - linux/arm64
+      - linux/ppc64le
+      - linux/s390x
   - name: dockerfile
     value: build/Dockerfile.registration.rhtap
   - name: path-context
