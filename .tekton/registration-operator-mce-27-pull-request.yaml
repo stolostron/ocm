@@ -26,7 +26,7 @@ spec:
   - name: image-expires-after
     value: 5d
   - name: dockerfile
-    value: build/Dockerfile.registrationoperator.rhtap
+    value: build/Dockerfile.registration-operator.rhtap
   - name: path-context
     value: .
   pipelineRef:

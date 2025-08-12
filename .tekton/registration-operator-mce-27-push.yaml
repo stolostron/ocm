@@ -23,7 +23,7 @@ spec:
   - name: output-image
     value: quay.io/redhat-user-workloads/crt-redhat-acm-tenant/release-mce-27/registration-operator-mce-27:{{revision}}
   - name: dockerfile
-    value: build/Dockerfile.registrationoperator.rhtap
+    value: build/Dockerfile.registration-operator.rhtap
   - name: path-context
     value: .
   - name: send-slack-notification
