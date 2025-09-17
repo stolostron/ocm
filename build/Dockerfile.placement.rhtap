@@ -14,7 +14,8 @@ LABEL \
       io.k8s.description="placement" \
       io.k8s.display-name="placement" \
       com.redhat.component="multicluster-engine-placement-container" \
-      io.openshift.tags="data,images"
+      io.openshift.tags="data,images" \
+      cpe="cpe:/a:redhat:multicluster_engine:2.9::el9"
 
 ENV USER_UID=10001
 
