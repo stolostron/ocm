@@ -21,6 +21,7 @@ LABEL \
       io.k8s.description="registration-operator" \
       io.k8s.display-name="registration-operator" \
       com.redhat.component="multicluster-engine-registration-operator-container" \
+      cpe="cpe:/a:redhat:multicluster_engine:2.9::el9" \
       io.openshift.tags="data,images"
 
 ENV USER_UID=10001
