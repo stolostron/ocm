@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/base64"
 	errorhelpers "errors"
+	"fmt"
 	"os"
 	"strings"
 	"time"
@@ -232,6 +233,64 @@ func (n *clusterManagerController) sync(ctx context.Context, controllerContext f
 
 	// Determine if the gGRPC auth is enabled
 	config.GRPCAuthEnabled = helpers.GRPCAuthEnabled(clusterManager)
+
+	// Get ClusterProxy related configuration from cluster-manager.
+	if clusterManager.Spec.RegistrationConfiguration != nil &&
+		clusterManager.Spec.RegistrationConfiguration.RegistrationDrivers != nil &&
+		clusterManager.Spec.ServerConfiguration.FeatureGates != nil {
+
+		// First, check if RegistrationDriver contains `grpc` auth type
+		var grpcAuthEnabled bool
+		for _, registrationDriver := range clusterManager.Spec.RegistrationConfiguration.RegistrationDrivers {
+			if registrationDriver.AuthType == operatorapiv1.GRPCAuthType {
+				grpcAuthEnabled = true
+				break
+			}
+		}
+
+		// Then, check if featureGates contains ClusterProxy and is enabled
+		var clusterProxyEnabled bool
+		for _, fg := range clusterManager.Spec.ServerConfiguration.FeatureGates {
+			if fg.Feature == "ClusterProxy" && fg.Mode == operatorapiv1.FeatureGateModeTypeEnable { // TODO: @xuezhaojun Use feature package later
+				clusterProxyEnabled = true
+				break
+			}
+		}
+
+		clusterproxyconfig := manifests.ClusterProxyConfig{}
+		if clusterProxyEnabled && grpcAuthEnabled {
+			clusterproxyconfig.Enabled = true
+
+			clusterproxyconfig.UserServerImage = clusterManager.Spec.ServerConfiguration.ImagePullSpec
+			clusterproxyconfig.ProxyServerImage = clusterManager.Spec.ServerConfiguration.ImagePullSpec
+
+			userServerEndpointSet := false
+			for _, epe := range clusterManager.Spec.ServerConfiguration.EndpointsExposure {
+				if epe.Usage == "user-server" && epe.HTTPS != nil && epe.HTTPS.Hostname != nil {
+					userServerEndpointSet = true
+					clusterproxyconfig.UserServerHostname = epe.HTTPS.Hostname.Host
+					clusterproxyconfig.UserServerPort = 8091 // TODO: @xuezhaojun This should also be configurable in the future.
+					break
+				}
+			}
+
+			proxyServerEndpointSet := false
+			for _, epe := range clusterManager.Spec.ServerConfiguration.EndpointsExposure {
+				if epe.Usage == "proxy-server" && epe.HTTPS != nil && epe.HTTPS.Hostname != nil {
+					proxyServerEndpointSet = true
+					clusterproxyconfig.UserServerHostname = epe.HTTPS.Hostname.Host
+					clusterproxyconfig.UserServerPort = 8092 // TODO: @xuezhaojun This should also be configurable in the future.
+					break
+				}
+			}
+
+			if !userServerEndpointSet || !proxyServerEndpointSet {
+				return fmt.Errorf("endpoints exposure for user-server or proxy-server is not set")
+			}
+
+			config.ClusterProxyConfig = clusterproxyconfig
+		}
+	}
 
 	// Update finalizer at first
 	if clusterManager.DeletionTimestamp.IsZero() {

@@ -43,10 +43,24 @@ type HubConfig struct {
 	GRPCAuthEnabled                   bool
 	GRPCServerImage                   string
 	GRPCAutoApprovedUsers             string
+	ClusterProxyConfig                ClusterProxyConfig
 }
 
 type Webhook struct {
 	IsIPFormat bool
 	Port       int32
 	Address    string
+}
+
+type ClusterProxyConfig struct {
+	Enabled bool
+
+	UserServerImage  string
+	ProxyServerImage string
+
+	UserServerHostname string
+	UserServerPort     int32
+
+	ProxyServerHostname string
+	ProxyServerPort     int32
 }
