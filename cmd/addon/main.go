@@ -1,7 +1,7 @@
 package main
 
 import (
-	goflag "flag"
+	// goflag "flag"
 	"fmt"
 	"os"
 
