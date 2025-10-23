@@ -33,14 +33,26 @@ import (
 
 type GRPCServerOptions struct {
 	GRPCServerConfig string
+
+	EnableClusterProxy       bool
+	TunnelUserServerCertFile string
+	TunnelUserServerKeyFile  string
 }
 
 func NewGRPCServerOptions() *GRPCServerOptions {
-	return &GRPCServerOptions{}
+	return &GRPCServerOptions{
+		EnableClusterProxy: false,
+	}
 }
 
 func (o *GRPCServerOptions) AddFlags(fs *pflag.FlagSet) {
 	fs.StringVar(&o.GRPCServerConfig, "server-config", o.GRPCServerConfig, "Location of the server configuration file.")
+
+	fs.BoolVar(&o.EnableClusterProxy, "cluster-proxy-enable", o.EnableClusterProxy, "Enable cluster proxy.")
+	fs.StringVar(&o.TunnelUserServerCertFile, "tunnel-user-server-cert-file",
+		o.TunnelUserServerCertFile, "Path to the tunnel user server certificate file.")
+	fs.StringVar(&o.TunnelUserServerKeyFile, "tunnel-user-server-key-file",
+		o.TunnelUserServerKeyFile, "Path to the tunnel user server key file.")
 }
 
 func (o *GRPCServerOptions) Run(ctx context.Context, controllerContext *controllercmd.ControllerContext) error {
@@ -59,8 +71,19 @@ func (o *GRPCServerOptions) Run(ctx context.Context, controllerContext *controll
 		return err
 	}
 
-	// TODO: @xuezhaojun add userServer configuration
-	go tunnelserver.RunTunnelUserServer(ctx, ts, "", &tls.Config{})
+	// start tunnel user-server if cluster-proxy is enabled
+	if o.EnableClusterProxy {
+		cert, err := tls.LoadX509KeyPair(o.TunnelUserServerCertFile, o.TunnelUserServerKeyFile)
+		if err != nil {
+			return err
+		}
+		go tunnelserver.RunTunnelUserServer(ctx, ts, ":9092", &tls.Config{
+			MinVersion: tls.VersionTLS13,
+			Certificates: []tls.Certificate{
+				cert,
+			},
+		})
+	}
 
 	// start clients
 	go clients.Run(ctx)
@@ -82,15 +105,23 @@ func (o *GRPCServerOptions) Run(ctx context.Context, controllerContext *controll
 
 	// initlize and run grpc server
 	authorizer := grpcauthz.NewSARAuthorizer(clients.KubeClient)
-	return sdkgrpc.NewGRPCServer(serverOptions).
+
+	grpcServer := sdkgrpc.NewGRPCServer(serverOptions).
 		WithAuthenticator(grpcauthn.NewTokenAuthenticator(clients.KubeClient)).
 		WithAuthenticator(grpcauthn.NewMtlsAuthenticator()).
 		WithUnaryAuthorizer(authorizer).
 		WithStreamAuthorizer(authorizer).
 		WithRegisterFunc(func(s *grpc.Server) {
 			pbv1.RegisterCloudEventServiceServer(s, grpcEventServer)
-			tunnelpbv1.RegisterTunnelServiceServer(s, ts)
 		}).
-		WithExtraMetrics(cemetrics.CloudEventsGRPCMetrics()...).
-		Run(ctx)
+		WithExtraMetrics(cemetrics.CloudEventsGRPCMetrics()...)
+
+	// register tunnel service if cluster-proxy is enabled
+	if o.EnableClusterProxy {
+		grpcServer = grpcServer.WithRegisterFunc(func(s *grpc.Server) {
+			tunnelpbv1.RegisterTunnelServiceServer(s, ts)
+		})
+	}
+
+	return grpcServer.Run(ctx)
 }
