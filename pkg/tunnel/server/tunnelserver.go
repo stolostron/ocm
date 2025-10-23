@@ -7,12 +7,8 @@ import (
 	"io"
 	"net"
 	"net/http"
-	"sync"
 	"time"
 
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials"
-	"google.golang.org/grpc/keepalive"
 	"google.golang.org/grpc/metadata"
 	"k8s.io/klog/v2"
 	v1 "open-cluster-management.io/ocm/pkg/tunnel/api/v1"
@@ -34,310 +30,32 @@ import (
 //
 // This design ensures correct routing while minimizing unnecessary data transmission.
 
-// Config holds all configuration for the Hub Server
-type Config struct {
-	// Address to listen on for gRPC connections from agents
-	GRPCListenAddress string
-	// Address to listen on for HTTP connections from users
-	HTTPListenAddress string
-	// ServerOptions for gRPC server configuration
-	ServerOptions []grpc.ServerOption
-	// KeepAlive settings for server
-	KeepAliveParams *keepalive.ServerParameters
-	// TLS configuration for gRPC server (optional)
-	GRPCTLSConfig *tls.Config
-	// TLS configuration for HTTP server (optional)
-	HTTPTLSConfig *tls.Config
-}
-
-// Server implements the hub-side tunnel server with both gRPC and HTTP servers
-type Server struct {
-	config        *Config
-	grpcServer    *grpc.Server
-	httpServer    *http.Server
+// TunnelServer implements the hub-side tunnel server with both gRPC and HTTP servers
+type TunnelServer struct {
 	tunnelManager *TunnelManager
-	grpcListener  net.Listener
-	httpListener  net.Listener
 
-	// Server state
-	mu      sync.RWMutex
-	running bool
-	ready   bool
+	// user-server is a https server
+	http.Handler
 
 	// Embed the unimplemented server to satisfy the interface
 	v1.UnimplementedTunnelServiceServer
-
-	ClusterNameParser
 }
 
 // New creates a new Hub server instance
-func New(config *Config, parser ClusterNameParser) (*Server, error) {
-	if config == nil {
-		config = DefaultConfig()
-	}
-
-	// Set default keepalive parameters if not provided
-	if config.KeepAliveParams == nil {
-		config.KeepAliveParams = &keepalive.ServerParameters{
-			Time:    60 * time.Second, // Send keepalive every 60 seconds
-			Timeout: 5 * time.Second,  // Wait 5 seconds for keepalive response
-		}
-	}
-
-	// Add keepalive to server options
-	serverOpts := append(config.ServerOptions, grpc.KeepaliveParams(*config.KeepAliveParams))
-
-	// Add TLS credentials if TLS config is provided
-	if config.GRPCTLSConfig != nil {
-		creds := credentials.NewTLS(config.GRPCTLSConfig)
-		serverOpts = append(serverOpts, grpc.Creds(creds))
-		klog.InfoS("TLS enabled for gRPC server")
-	} else {
-		klog.InfoS("TLS not configured for gRPC server - using insecure connection")
-	}
-
-	// Create gRPC server
-	grpcServer := grpc.NewServer(serverOpts...)
-
+func New(parser ClusterNameParser) (*TunnelServer, error) {
 	// Create tunnel manager
 	tunnelManager := NewTunnelManager()
-
-	server := &Server{
-		config:        config,
-		grpcServer:    grpcServer,
+	return &TunnelServer{
 		tunnelManager: tunnelManager,
-	}
-
-	// Create HTTP server
-	handler := &httpHandler{
-		tunnelManager: tunnelManager,
-		parser:        parser,
-	}
-	// Wrap the handler to handle health checks
-	wrappedHandler := &healthCheckHandler{
-		handler: handler,
-	}
-	httpServer := &http.Server{
-		Addr:    config.HTTPListenAddress,
-		Handler: wrappedHandler,
-		// Disable automatic HTTP/2 upgrade to support SPDY protocol used by kubectl exec
-		// HTTP/2 cannot upgrade to SPDY, so we need to prevent automatic HTTP/2 negotiation
-		// This allows clients like kubectl to use SPDY for exec/port-forward operations
-		TLSNextProto: make(map[string]func(*http.Server, *tls.Conn, http.Handler)),
-	}
-
-	// Add TLS configuration to HTTP server if provided
-	if config.HTTPTLSConfig != nil {
-		httpServer.TLSConfig = config.HTTPTLSConfig.Clone()
-		klog.InfoS("TLS enabled for HTTP server")
-	} else {
-		klog.InfoS("TLS not configured for HTTP server - using insecure connection")
-	}
-
-	server.httpServer = httpServer
-
-	// Register the tunnel service
-	v1.RegisterTunnelServiceServer(grpcServer, server)
-
-	return server, nil
-}
-
-// DefaultConfig returns a default configuration for the hub server
-func DefaultConfig() *Config {
-	return &Config{
-		GRPCListenAddress: ":9091", // gRPC server for agents
-		HTTPListenAddress: ":9092", // HTTP server for users
-		KeepAliveParams: &keepalive.ServerParameters{
-			MaxConnectionIdle:     15 * time.Second,
-			MaxConnectionAge:      30 * time.Second,
-			MaxConnectionAgeGrace: 5 * time.Second,
-			Time:                  5 * time.Second,
-			Timeout:               1 * time.Second,
+		Handler: &userServerHTTPHandler{
+			tunnelManager: tunnelManager,
+			parser:        parser,
 		},
-	}
-}
-
-// Run starts the hub server and blocks until the context is canceled
-func (s *Server) Run(ctx context.Context) error {
-	s.mu.Lock()
-	if s.running {
-		s.mu.Unlock()
-		return fmt.Errorf("server is already running")
-	}
-	s.running = true
-	s.mu.Unlock()
-
-	klog.InfoS("Starting hub server", "grpc_address", s.config.GRPCListenAddress, "http_address", s.config.HTTPListenAddress)
-
-	// Create gRPC listener
-	grpcListener, err := net.Listen("tcp", s.config.GRPCListenAddress)
-	if err != nil {
-		s.mu.Lock()
-		s.running = false
-		s.mu.Unlock()
-		return fmt.Errorf("failed to listen on gRPC address %s: %w", s.config.GRPCListenAddress, err)
-	}
-	s.grpcListener = grpcListener
-
-	// Create HTTP listener if HTTP server is configured
-	if s.httpServer != nil {
-		httpListener, err := net.Listen("tcp", s.config.HTTPListenAddress)
-		if err != nil {
-			grpcListener.Close()
-			s.mu.Lock()
-			s.running = false
-			s.mu.Unlock()
-			return fmt.Errorf("failed to listen on HTTP address %s: %w", s.config.HTTPListenAddress, err)
-		}
-		s.httpListener = httpListener
-	}
-
-	// Mark server as ready
-	s.mu.Lock()
-	s.ready = true
-	s.mu.Unlock()
-
-	klog.InfoS("Hub server is ready", "grpc_address", grpcListener.Addr().String())
-	if s.httpListener != nil {
-		if s.config.HTTPTLSConfig != nil {
-			klog.InfoS("HTTPS server is ready", "https_address", s.httpListener.Addr().String())
-		} else {
-			klog.InfoS("HTTP server is ready", "http_address", s.httpListener.Addr().String())
-		}
-	}
-
-	// Start both servers in goroutines
-	errCh := make(chan error, 2)
-
-	// Start gRPC server
-	go func() {
-		klog.InfoS("Starting gRPC server", "address", grpcListener.Addr().String())
-		errCh <- s.grpcServer.Serve(grpcListener)
-	}()
-
-	// Start HTTP server if configured
-	if s.httpServer != nil && s.httpListener != nil {
-		go func() {
-			if s.config.HTTPTLSConfig != nil {
-				klog.InfoS("Starting HTTPS server", "address", s.httpListener.Addr().String())
-				errCh <- s.httpServer.ServeTLS(s.httpListener, "", "")
-			} else {
-				klog.InfoS("Starting HTTP server", "address", s.httpListener.Addr().String())
-				errCh <- s.httpServer.Serve(s.httpListener)
-			}
-		}()
-	}
-
-	// Wait for context cancellation or server error
-	select {
-	case <-ctx.Done():
-		klog.InfoS("Context canceled, shutting down hub server")
-		return s.shutdown()
-	case err := <-errCh:
-		s.mu.Lock()
-		s.running = false
-		s.ready = false
-		s.mu.Unlock()
-		if err != nil && err != http.ErrServerClosed {
-			return fmt.Errorf("server failed: %w", err)
-		}
-		return nil
-	}
-}
-
-// Shutdown gracefully shuts down the hub server
-func (s *Server) Shutdown(ctx context.Context) error {
-	s.mu.Lock()
-	if !s.running {
-		s.mu.Unlock()
-		return nil
-	}
-	s.mu.Unlock()
-
-	return s.shutdown()
-}
-
-// shutdown performs the actual shutdown logic
-func (s *Server) shutdown() error {
-	s.mu.Lock()
-	s.running = false
-	s.ready = false
-	s.mu.Unlock()
-
-	klog.InfoS("Shutting down hub server")
-
-	// Stop HTTP server first
-	if s.httpServer != nil {
-		shutdownCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-		defer cancel()
-		if err := s.httpServer.Shutdown(shutdownCtx); err != nil {
-			klog.ErrorS(err, "Failed to shutdown HTTP server gracefully")
-		}
-	}
-
-	// Stop gRPC server gracefully with timeout
-	done := make(chan struct{})
-	go func() {
-		s.grpcServer.GracefulStop()
-		close(done)
-	}()
-
-	// Wait for graceful stop or timeout
-	select {
-	case <-done:
-		// Graceful stop completed
-	case <-time.After(2 * time.Second):
-		// Force stop if graceful stop takes too long
-		klog.InfoS("Forcing gRPC server stop due to timeout")
-		s.grpcServer.Stop()
-	}
-
-	// Close listeners
-	if s.grpcListener != nil {
-		s.grpcListener.Close()
-	}
-	if s.httpListener != nil {
-		s.httpListener.Close()
-	}
-
-	// Close tunnel manager
-	if s.tunnelManager != nil {
-		s.tunnelManager.Close()
-	}
-
-	klog.InfoS("Hub server shutdown complete")
-	return nil
-}
-
-// Ready returns true if the server is ready to accept connections
-func (s *Server) Ready() bool {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	return s.ready
-}
-
-// GRPCAddress returns the actual gRPC server address
-func (s *Server) GRPCAddress() string {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	if s.grpcListener != nil {
-		return s.grpcListener.Addr().String()
-	}
-	return s.config.GRPCListenAddress
-}
-
-// HTTPAddress returns the actual HTTP server address
-func (s *Server) HTTPAddress() string {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	if s.httpListener != nil {
-		return s.httpListener.Addr().String()
-	}
-	return s.config.HTTPListenAddress
+	}, nil
 }
 
 // GetTunnel returns the tunnel for a specific cluster
-func (s *Server) GetTunnel(clusterName string) *Tunnel {
+func (s *TunnelServer) GetTunnel(clusterName string) *Tunnel {
 	if s.tunnelManager == nil {
 		return nil
 	}
@@ -346,7 +64,7 @@ func (s *Server) GetTunnel(clusterName string) *Tunnel {
 
 // Tunnel implements the TunnelService gRPC interface
 // This is called when an agent establishes a tunnel
-func (s *Server) Tunnel(stream v1.TunnelService_TunnelServer) error {
+func (s *TunnelServer) Tunnel(stream v1.TunnelService_TunnelServer) error {
 	// Extract cluster information from metadata
 	md, ok := metadata.FromIncomingContext(stream.Context())
 	if !ok {
@@ -383,32 +101,14 @@ func (s *Server) Tunnel(stream v1.TunnelService_TunnelServer) error {
 	return err
 }
 
-// httpHandler implements http.Handler and handles HTTP requests using Router
-type httpHandler struct {
+// userServerHTTPHandler implements http.Handler and handles HTTP requests using Router
+type userServerHTTPHandler struct {
 	tunnelManager *TunnelManager
 	parser        ClusterNameParser
 }
 
-// healthCheckHandler wraps the httpHandler to provide health check endpoint
-type healthCheckHandler struct {
-	handler *httpHandler
-}
-
-// ServeHTTP handles HTTP requests, including health checks
-func (h *healthCheckHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	// Handle health check endpoint
-	if r.URL.Path == "/health" {
-		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("OK"))
-		return
-	}
-
-	// Delegate all other requests to the main handler
-	h.handler.ServeHTTP(w, r)
-}
-
 // ServeHTTP handles HTTP requests and routes them to appropriate clusters using HTTP CONNECT tunneling
-func (h *httpHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+func (h *userServerHTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	klog.V(4).InfoS("Received HTTP request", "method", r.Method, "path", r.URL.Path, "remote_addr", r.RemoteAddr)
 
 	// Parse cluster name using the configured parser
@@ -491,7 +191,7 @@ func (h *httpHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 // forwardTraffic handles bidirectional data forwarding between client and agent
-func (h *httpHandler) forwardTraffic(ctx context.Context, clientConn net.Conn, packetConnection *packetConnection) {
+func (h *userServerHTTPHandler) forwardTraffic(ctx context.Context, clientConn net.Conn, packetConnection *packetConnection) {
 	// Create error channel for goroutines
 	errChan := make(chan error, 2)
 
@@ -535,7 +235,7 @@ type packetSender interface {
 }
 
 // sendInitialHTTPRequest sends the original HTTP request to the agent to establish the connection
-func (h *httpHandler) sendInitialHTTPRequest(pc packetSender, r *http.Request) error {
+func (h *userServerHTTPHandler) sendInitialHTTPRequest(pc packetSender, r *http.Request) error {
 	// Build the complete HTTP request
 	var requestData []byte
 
@@ -592,7 +292,7 @@ func (h *httpHandler) sendInitialHTTPRequest(pc packetSender, r *http.Request) e
 }
 
 // forwardClientToAgent forwards data from client connection to packet connection
-func (h *httpHandler) forwardClientToAgent(clientConn net.Conn, pc *packetConnection) error {
+func (h *userServerHTTPHandler) forwardClientToAgent(clientConn net.Conn, pc *packetConnection) error {
 	buffer := make([]byte, 32*1024) // 32KB buffer
 
 	for {
@@ -632,7 +332,7 @@ func (h *httpHandler) forwardClientToAgent(clientConn net.Conn, pc *packetConnec
 }
 
 // forwardAgentToClient forwards data from packet connection to client connection
-func (h *httpHandler) forwardAgentToClient(pc *packetConnection, clientConn net.Conn) error {
+func (h *userServerHTTPHandler) forwardAgentToClient(pc *packetConnection, clientConn net.Conn) error {
 	for {
 		packet := <-pc.Recv()
 		if packet == nil {
@@ -668,4 +368,38 @@ func (h *httpHandler) forwardAgentToClient(pc *packetConnection, clientConn net.
 			klog.V(5).InfoS("Forwarded data to client", "packet_connection_id", pc.ID(), "bytes", len(packet.Data))
 		}
 	}
+}
+
+func RunTunnelUserServer(ctx context.Context, ts *TunnelServer, address string, tlsConfig *tls.Config) error {
+	server := &http.Server{
+		Addr:      address,
+		Handler:   ts,
+		TLSConfig: tlsConfig,
+		// Disable automatic HTTP/2 upgrade to support SPDY protocol used by kubectl exec
+		// HTTP/2 cannot upgrade to SPDY, so we need to prevent automatic HTTP/2 negotiation
+		// This allows clients like kubectl to use SPDY for exec/port-forward operations
+		TLSNextProto: make(map[string]func(*http.Server, *tls.Conn, http.Handler)),
+	}
+
+	go func() {
+		<-ctx.Done()
+		klog.InfoS("Shutting down tunnel user server", "address", address)
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if err := server.Shutdown(shutdownCtx); err != nil {
+			klog.ErrorS(err, "Error shutting down tunnel user server", "address", address)
+		}
+	}()
+
+	klog.InfoS("Starting tunnel user server", "address", address)
+	var err error
+	if tlsConfig != nil {
+		err = server.ListenAndServeTLS("", "")
+	} else {
+		err = server.ListenAndServe()
+	}
+	if err != nil && err != http.ErrServerClosed {
+		return fmt.Errorf("failed to start tunnel user server: %w", err)
+	}
+	return nil
 }

@@ -2,11 +2,14 @@ package grpc
 
 import (
 	"context"
+	"crypto/tls"
 
 	"github.com/openshift/library-go/pkg/controller/controllercmd"
 	"github.com/spf13/pflag"
 	"google.golang.org/grpc"
 
+	tunnelpbv1 "open-cluster-management.io/ocm/pkg/tunnel/api/v1"
+	tunnelserver "open-cluster-management.io/ocm/pkg/tunnel/server"
 	addonce "open-cluster-management.io/sdk-go/pkg/cloudevents/clients/addon"
 	clusterce "open-cluster-management.io/sdk-go/pkg/cloudevents/clients/cluster"
 	csrce "open-cluster-management.io/sdk-go/pkg/cloudevents/clients/csr"
@@ -51,6 +54,14 @@ func (o *GRPCServerOptions) Run(ctx context.Context, controllerContext *controll
 		return err
 	}
 
+	ts, err := tunnelserver.New(tunnelserver.NewClusterNameParserImplt())
+	if err != nil {
+		return err
+	}
+
+	// TODO: @xuezhaojun add userServer configuration
+	go tunnelserver.RunTunnelUserServer(ctx, ts, "", &tls.Config{})
+
 	// start clients
 	go clients.Run(ctx)
 
@@ -78,6 +89,7 @@ func (o *GRPCServerOptions) Run(ctx context.Context, controllerContext *controll
 		WithStreamAuthorizer(authorizer).
 		WithRegisterFunc(func(s *grpc.Server) {
 			pbv1.RegisterCloudEventServiceServer(s, grpcEventServer)
+			tunnelpbv1.RegisterTunnelServiceServer(s, ts)
 		}).
 		WithExtraMetrics(cemetrics.CloudEventsGRPCMetrics()...).
 		Run(ctx)
