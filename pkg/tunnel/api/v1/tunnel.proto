@@ -1,0 +1,43 @@
+syntax = "proto3";
+
+package tunnel.v1;
+
+option go_package = "open-cluster-management.io/ocm/pkg/tunnel/api/v1";
+
+service TunnelService {
+  // The core RPC of the tunnel, a long-lived bidirectional stream
+  rpc Tunnel(stream Packet) returns (stream Packet) {}
+}
+
+// ControlCode defines the core intent of a Packet
+// This is the "verb" of the protocol
+enum ControlCode {
+  // Default value, indicates this is a standard business data packet
+  DATA = 0;
+
+  // Indicates an error occurred in processing the CONN for a conn_id
+  // The error_message field should contain error details
+  ERROR = 1;
+
+  // Graceful shutdown: Sent by agent to hub to indicate it's about to go offline
+  DRAIN = 2;
+}
+
+// Packet is the atomic unit transmitted in the tunnel
+message Packet {
+  // Used to associate requests and responses, implements multiplexing ID
+  // For tunnel-level messages (such as PING/PONG/DRAIN), can be 0
+  int64 conn_id = 1;
+
+  // [Key optimization] The intent code of the packet, makes processing logic clearer
+  ControlCode code = 2;
+
+  // Business payload, only meaningful when code = DATA
+  bytes data = 3;
+
+  // Error message, only meaningful when code = ERROR
+  string error_message = 4;
+
+  // Note: Connection lifecycle is implicit. Developers should carefully handle edge cases such as receiving DATA for a closed conn_id.
+  // Note: Target address routing is now handled by the service-proxy on the agent side.
+}
