@@ -64,6 +64,11 @@ spec:
         {{ if .HostedMode }}
           - "--kubeconfig=/var/run/secrets/hub/kubeconfig"
         {{ end }}
+        {{ if .ClusterProxyEnabled }}
+          - "--enable-cluster-proxy=true"
+          - "--tunnel-user-server-cert-file=/var/run/secrets/hub/grpc/tunnel-user-server-cert/tls.cert"
+          - "--tunnel-user-server-key-file=/var/run/secrets/hub/grpc/tunnel-user-server-cert/tls.key"
+        {{ end }}
         env:
           - name: POD_NAMESPACE
             valueFrom:
@@ -124,6 +129,11 @@ spec:
           name: kubeconfig
           readOnly: true
       {{ end }}
+      {{ if .ClusterProxyEnabled }}
+        - name: cluster-proxy-tunnel-user-server-cert
+          mountPath: /var/run/secrets/hub/grpc/tunnel-user-server-cert
+          readOnly: true
+      {{ end }}
       volumes:
       - name: tmpdir
         emptyDir: { }
@@ -141,4 +151,9 @@ spec:
       - name: kubeconfig
         secret:
           secretName: grpc-server-sa-kubeconfig
+      {{ end }}
+      {{ if .ClusterProxyEnabled }}
+      - name: cluster-proxy-tunnel-user-server-cert
+        secret:
+          secretName: cluster-proxy-tunnel-user-server-cert
       {{ end }}
