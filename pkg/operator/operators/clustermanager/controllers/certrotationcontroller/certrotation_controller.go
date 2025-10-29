@@ -256,6 +256,19 @@ func (c certRotationController) syncOne(ctx context.Context, clustermanager *ope
 		c.rotationMap[clustermanagerName] = rotations
 	}
 
+	// If cluster proxy is enabled, ensure the proxy server certs are created
+	if helpers.ClusterProxyEnabled(clustermanager) && !hasRotation(rotations.targetRotations, helpers.ClusterProxyServerSecret) {
+		rotations.targetRotations = append(rotations.targetRotations, certrotation.TargetRotation{
+			Namespace: clustermanagerNamespace,
+			Name:      helpers.ClusterProxyServerSecret,
+			Validity:  TargetCertValidity,
+			HostNames: helpers.ClusterProxyHostNames(clustermanagerNamespace, clustermanager),
+			Lister:    c.secretInformers[helpers.ClusterProxyServerSecret].Lister(),
+			Client:    c.kubeClient.CoreV1(),
+		})
+		c.rotationMap[clustermanagerName] = rotations
+	}
+
 	// reconcile cert/key pair for signer
 	signingCertKeyPair, err := rotations.signingRotation.EnsureSigningCertKeyPair()
 	if err != nil {

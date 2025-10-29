@@ -945,3 +945,51 @@ func GRPCServerHostNames(clustermanagerNamespace string, cm *operatorapiv1.Clust
 	}
 	return hostNames
 }
+
+func ClusterProxyEnabled(cm *operatorapiv1.ClusterManager) bool {
+	if cm.Spec.RegistrationConfiguration != nil &&
+		cm.Spec.RegistrationConfiguration.RegistrationDrivers != nil &&
+		cm.Spec.ServerConfiguration.FeatureGates != nil {
+
+		// First, check if RegistrationDriver contains `grpc` auth type
+		var grpcAuthEnabled bool
+		for _, registrationDriver := range cm.Spec.RegistrationConfiguration.RegistrationDrivers {
+			if registrationDriver.AuthType == operatorapiv1.GRPCAuthType {
+				grpcAuthEnabled = true
+				break
+			}
+		}
+
+		// Then, check if featureGates contains ClusterProxy and is enabled
+		var clusterProxyEnabled bool
+		for _, fg := range cm.Spec.ServerConfiguration.FeatureGates {
+			if fg.Feature == "ClusterProxy" && fg.Mode == operatorapiv1.FeatureGateModeTypeEnable { // TODO: @xuezhaojun Use feature package later
+				clusterProxyEnabled = true
+				break
+			}
+		}
+
+		return grpcAuthEnabled && clusterProxyEnabled
+	}
+
+	return false
+}
+
+func ClusterProxyHostNames(clustermanagerNamespace string, cm *operatorapiv1.ClusterManager) []string {
+	hostNames := []string{
+		fmt.Sprintf("%s-cluster-proxy.%s.svc", cm.Name, clustermanagerNamespace),
+		"localhost",
+		"127.0.0.1",
+	}
+	if cm.Spec.ServerConfiguration != nil {
+		for _, endpoint := range cm.Spec.ServerConfiguration.EndpointsExposure {
+			if endpoint.Protocol == "grpc" &&
+				endpoint.GRPC != nil &&
+				endpoint.GRPC.Type == operatorapiv1.EndpointTypeHostname &&
+				endpoint.Usage == "cluster-proxy-proxy-server" {
+				hostNames = append(hostNames, endpoint.GRPC.Hostname.Host)
+			}
+		}
+	}
+	return hostNames
+}

@@ -233,31 +233,8 @@ func (n *clusterManagerController) sync(ctx context.Context, controllerContext f
 	// Determine if the gGRPC auth is enabled
 	config.GRPCAuthEnabled = helpers.GRPCAuthEnabled(clusterManager)
 
-	// Get ClusterProxy related configuration from cluster-manager.
-	if clusterManager.Spec.RegistrationConfiguration != nil &&
-		clusterManager.Spec.RegistrationConfiguration.RegistrationDrivers != nil &&
-		clusterManager.Spec.ServerConfiguration.FeatureGates != nil {
-
-		// First, check if RegistrationDriver contains `grpc` auth type
-		var grpcAuthEnabled bool
-		for _, registrationDriver := range clusterManager.Spec.RegistrationConfiguration.RegistrationDrivers {
-			if registrationDriver.AuthType == operatorapiv1.GRPCAuthType {
-				grpcAuthEnabled = true
-				break
-			}
-		}
-
-		// Then, check if featureGates contains ClusterProxy and is enabled
-		var clusterProxyEnabled bool
-		for _, fg := range clusterManager.Spec.ServerConfiguration.FeatureGates {
-			if fg.Feature == "ClusterProxy" && fg.Mode == operatorapiv1.FeatureGateModeTypeEnable { // TODO: @xuezhaojun Use feature package later
-				clusterProxyEnabled = true
-				break
-			}
-		}
-
-		config.ClusterProxyEnabled = grpcAuthEnabled && clusterProxyEnabled
-	}
+	// Determine if the cluster proxy is enabled
+	config.ClusterProxyEnabled = helpers.ClusterProxyEnabled(clusterManager)
 
 	// Update finalizer at first
 	if clusterManager.DeletionTimestamp.IsZero() {

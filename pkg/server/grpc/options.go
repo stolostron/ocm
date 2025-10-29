@@ -118,6 +118,7 @@ func (o *GRPCServerOptions) Run(ctx context.Context, controllerContext *controll
 
 	// register tunnel service if cluster-proxy is enabled
 	if o.EnableClusterProxy {
+		// TODO：@xuezhaojun Add Authenticator and Authorizer in Unary and Stream for tunnel service, otherwise the request will be rejected.
 		grpcServer = grpcServer.WithRegisterFunc(func(s *grpc.Server) {
 			tunnelpbv1.RegisterTunnelServiceServer(s, ts)
 		})
