@@ -15,7 +15,8 @@ LABEL \
       io.k8s.description="work" \
       io.k8s.display-name="work" \
       com.redhat.component="multicluster-engine-work-container" \
-      io.openshift.tags="data,images"
+      io.openshift.tags="data,images" \
+      cpe="cpe:/a:redhat:multicluster_engine:2.9::el9"
 
 ENV USER_UID=10001
 
