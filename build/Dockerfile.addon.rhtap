@@ -14,6 +14,7 @@ LABEL \
       io.k8s.description="addon-manager" \
       io.k8s.display-name="addon-manager" \
       com.redhat.component="multicluster-engine-addon-manager-container" \
+      cpe="cpe:/a:redhat:multicluster_engine:2.9::el9" \
       io.openshift.tags="data,images"
 
 ENV USER_UID=10001
