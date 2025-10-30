@@ -9,6 +9,7 @@ import (
 
 	ocmfeature "open-cluster-management.io/api/feature"
 
+	clusterproxy "open-cluster-management.io/ocm/pkg/clusterproxy/spoke"
 	commonoptions "open-cluster-management.io/ocm/pkg/common/options"
 	"open-cluster-management.io/ocm/pkg/features"
 	"open-cluster-management.io/ocm/pkg/operator/operators/klusterlet"
@@ -60,8 +61,15 @@ func NewKlusterletAgentCmd() *cobra.Command {
 	commonOptions := commonoptions.NewAgentOptions()
 	workOptions := work.NewWorkloadAgentOptions()
 	registrationOption := registration.NewSpokeAgentOptions()
+	clusterProxyOptions := clusterproxy.NewClusterProxyAgentOptions()
 
-	agentConfig := singletonspoke.NewAgentConfig(commonOptions, registrationOption, workOptions, cancel)
+	agentConfig := singletonspoke.NewAgentConfig(
+		commonOptions,
+		registrationOption,
+		workOptions,
+		clusterProxyOptions,
+		cancel)
+
 	cmdConfig := commonOptions.CommonOpts.
 		NewControllerCommandConfig("klusterlet-agent", version.Get(), agentConfig.RunSpokeAgent, clock.RealClock{}).
 		WithHealthChecks(agentConfig.HealthCheckers()...)
@@ -74,6 +82,7 @@ func NewKlusterletAgentCmd() *cobra.Command {
 	commonOptions.AddFlags(flags)
 	workOptions.AddFlags(flags)
 	registrationOption.AddFlags(flags)
+	clusterProxyOptions.AddFlags(flags)
 
 	utilruntime.Must(features.SpokeMutableFeatureGate.Add(ocmfeature.DefaultSpokeRegistrationFeatureGates))
 	utilruntime.Must(features.SpokeMutableFeatureGate.Add(ocmfeature.DefaultSpokeWorkFeatureGates))

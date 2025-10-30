@@ -9,6 +9,7 @@ import (
 	"k8s.io/apiserver/pkg/server/healthz"
 	"k8s.io/klog/v2"
 
+	clusterproxy "open-cluster-management.io/ocm/pkg/clusterproxy/spoke"
 	commonoptions "open-cluster-management.io/ocm/pkg/common/options"
 	registration "open-cluster-management.io/ocm/pkg/registration/spoke"
 	work "open-cluster-management.io/ocm/pkg/work/spoke"
@@ -17,17 +18,20 @@ import (
 type AgentConfig struct {
 	registrationConfig *registration.SpokeAgentConfig
 	workConfig         *work.WorkAgentConfig
+	clusterProxyConfig *clusterproxy.ClusterProxyAgentConfig
 }
 
 func NewAgentConfig(
 	agentOption *commonoptions.AgentOptions,
 	registrationOption *registration.SpokeAgentOptions,
 	workOption *work.WorkloadAgentOptions,
+	clusterProxyOptions *clusterproxy.ClusterProxyAgentOptions,
 	cancel context.CancelFunc,
 ) *AgentConfig {
 	return &AgentConfig{
 		registrationConfig: registration.NewSpokeAgentConfig(agentOption, registrationOption, cancel),
 		workConfig:         work.NewWorkAgentConfig(agentOption, workOption),
+		clusterProxyConfig: clusterproxy.NewClusterProxyConfig(agentOption, clusterProxyOptions),
 	}
 }
 
@@ -59,6 +63,13 @@ func (a *AgentConfig) RunSpokeAgent(ctx context.Context, controllerContext *cont
 	// start work agent
 	go func() {
 		if err := a.workConfig.RunWorkloadAgent(ctx, controllerContext); err != nil {
+			klog.Fatal(err)
+		}
+	}()
+
+	// start cluster proxy agent
+	go func() {
+		if err := a.clusterProxyConfig.RunClusterProxyAgent(ctx, controllerContext); err != nil {
 			klog.Fatal(err)
 		}
 	}()

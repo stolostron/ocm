@@ -148,6 +148,9 @@ github.com/bwmarrin/snowflake
 # github.com/cenkalti/backoff/v4 v4.3.0
 ## explicit; go 1.18
 github.com/cenkalti/backoff/v4
+# github.com/cenkalti/backoff/v5 v5.0.3
+## explicit; go 1.23
+github.com/cenkalti/backoff/v5
 # github.com/cespare/xxhash/v2 v2.3.0
 ## explicit; go 1.11
 github.com/cespare/xxhash/v2
@@ -1745,7 +1748,7 @@ open-cluster-management.io/addon-framework/pkg/agent
 open-cluster-management.io/addon-framework/pkg/assets
 open-cluster-management.io/addon-framework/pkg/index
 open-cluster-management.io/addon-framework/pkg/utils
-# open-cluster-management.io/api v1.0.1-0.20250911094832-3b7c6bea0358
+# open-cluster-management.io/api v1.0.1-0.20250911094832-3b7c6bea0358 => ../ocm-api
 ## explicit; go 1.24.0
 open-cluster-management.io/api/addon/v1alpha1
 open-cluster-management.io/api/client/addon/clientset/versioned
@@ -1980,3 +1983,4 @@ sigs.k8s.io/structured-merge-diff/v4/value
 sigs.k8s.io/yaml
 sigs.k8s.io/yaml/goyaml.v2
 sigs.k8s.io/yaml/goyaml.v3
+# open-cluster-management.io/api => ../ocm-api

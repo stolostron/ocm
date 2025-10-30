@@ -8,6 +8,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/eks v1.73.3
 	github.com/aws/aws-sdk-go-v2/service/iam v1.47.5
 	github.com/aws/smithy-go v1.23.0
+	github.com/cenkalti/backoff/v5 v5.0.3
 	github.com/cloudevents/sdk-go/v2 v2.16.1
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc
 	github.com/evanphx/json-patch v5.9.11+incompatible
@@ -27,6 +28,7 @@ require (
 	github.com/stretchr/testify v1.11.1
 	github.com/valyala/fasttemplate v1.2.2
 	google.golang.org/grpc v1.68.1
+	google.golang.org/protobuf v1.36.6
 	gopkg.in/yaml.v2 v2.4.0
 	helm.sh/helm/v3 v3.18.5
 	k8s.io/api v0.33.4
@@ -170,7 +172,6 @@ require (
 	gomodules.xyz/jsonpatch/v2 v2.4.0 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20241209162323-e6fa225c2576 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20241209162323-e6fa225c2576 // indirect
-	google.golang.org/protobuf v1.36.6 // indirect
 	gopkg.in/evanphx/json-patch.v4 v4.12.0 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1 // indirect
@@ -182,3 +183,5 @@ require (
 	sigs.k8s.io/randfill v1.0.0 // indirect
 	sigs.k8s.io/structured-merge-diff/v4 v4.6.0 // indirect
 )
+
+replace open-cluster-management.io/api => ../ocm-api

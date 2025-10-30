@@ -64,6 +64,8 @@ github.com/bwmarrin/snowflake v0.3.0 h1:xm67bEhkKh6ij1790JB83OujPR5CzNe8QuQqAgIS
 github.com/bwmarrin/snowflake v0.3.0/go.mod h1:NdZxfVWX+oR6y2K0o6qAYv6gIOP9rjG0/E9WsDpxqwE=
 github.com/cenkalti/backoff/v4 v4.3.0 h1:MyRJ/UdXutAwSAT+s3wNd7MfTIcy71VQueUuFK343L8=
 github.com/cenkalti/backoff/v4 v4.3.0/go.mod h1:Y3VNntkOUPxTVeUxJ/G5vcM//AlwfmyYozVcomhLiZE=
+github.com/cenkalti/backoff/v5 v5.0.3 h1:ZN+IMa753KfX5hd8vVaMixjnqRZ3y8CuJKRKj1xcsSM=
+github.com/cenkalti/backoff/v5 v5.0.3/go.mod h1:rkhZdG3JZukswDf7f0cwqPNk4K0sa+F97BxZthm/crw=
 github.com/census-instrumentation/opencensus-proto v0.2.1/go.mod h1:f6KPmirojxKA12rnyqOA5BBL4O983OfeGPqjHWSTneU=
 github.com/cespare/xxhash/v2 v2.3.0 h1:UL815xU9SqsFlibzuggzjXhog7bL6oX9BbNZnL2UFvs=
 github.com/cespare/xxhash/v2 v2.3.0/go.mod h1:VGX0DQ3Q6kWi7AoAeZDth3/j3BFtOZR5XLFGgcrjCOs=
@@ -557,8 +559,6 @@ k8s.io/utils v0.0.0-20241210054802-24370beab758 h1:sdbE21q2nlQtFh65saZY+rRM6x6aJ
 k8s.io/utils v0.0.0-20241210054802-24370beab758/go.mod h1:OLgZIPagt7ERELqWJFomSt595RzquPNLL48iOWgYOg0=
 open-cluster-management.io/addon-framework v1.0.1-0.20250916042555-c8a4fa748ce9 h1:x0InHHM8GqY0qGYGyJx8SG7qNIOtMGs7n4EwowLksGA=
 open-cluster-management.io/addon-framework v1.0.1-0.20250916042555-c8a4fa748ce9/go.mod h1:IrMjmd3dLjJtrP2Aqa0Sf/3lDysJHa4j5lNQQ13NxVs=
-open-cluster-management.io/api v1.0.1-0.20250911094832-3b7c6bea0358 h1:IAaFH8HW+7G2I4htQJhVreD6KlQTwB+EkjPhuMthqoY=
-open-cluster-management.io/api v1.0.1-0.20250911094832-3b7c6bea0358/go.mod h1:lEc5Wkc9ON5ym/qAtIqNgrE7NW7IEOCOC611iQMlnKM=
 open-cluster-management.io/sdk-go v1.0.1-0.20250911065113-bff262df709b h1:tzgcM+yJJBgMwYYbjfzW4kL8p7bsHnScE5lS/69lksE=
 open-cluster-management.io/sdk-go v1.0.1-0.20250911065113-bff262df709b/go.mod h1:JVQupKu0xVcuVP4IUJF7hjvrXK8plZiwGPZcdqngjXk=
 sigs.k8s.io/about-api v0.0.0-20250131010323-518069c31c03 h1:1ShFiMjGQOR/8jTBkmZrk1gORxnvMwm1nOy2/DbHg4U=

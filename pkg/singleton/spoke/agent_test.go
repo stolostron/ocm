@@ -6,6 +6,7 @@ import (
 
 	"github.com/openshift/library-go/pkg/controller/controllercmd"
 
+	clusterproxy "open-cluster-management.io/ocm/pkg/clusterproxy/spoke"
 	commonoptions "open-cluster-management.io/ocm/pkg/common/options"
 	registration "open-cluster-management.io/ocm/pkg/registration/spoke"
 	work "open-cluster-management.io/ocm/pkg/work/spoke"
@@ -15,11 +16,12 @@ func TestNewAgentConfig(t *testing.T) {
 	agentOption := commonoptions.NewAgentOptions()
 	registrationOption := registration.NewSpokeAgentOptions()
 	workOption := work.NewWorkloadAgentOptions()
+	clusterproxyOptions := clusterproxy.NewClusterProxyAgentOptions()
 
 	// Create a simple cancel function
 	cancel := func() {}
 
-	config := NewAgentConfig(agentOption, registrationOption, workOption, cancel)
+	config := NewAgentConfig(agentOption, registrationOption, workOption, clusterproxyOptions, cancel)
 
 	if config == nil {
 		t.Fatal("NewAgentConfig() returned nil")
@@ -50,9 +52,10 @@ func TestAgentConfigHealthCheckers(t *testing.T) {
 	agentOption := commonoptions.NewAgentOptions()
 	registrationOption := registration.NewSpokeAgentOptions()
 	workOption := work.NewWorkloadAgentOptions()
+	clusterproxyOptions := clusterproxy.NewClusterProxyAgentOptions()
 	cancel := func() {}
 
-	config := NewAgentConfig(agentOption, registrationOption, workOption, cancel)
+	config := NewAgentConfig(agentOption, registrationOption, workOption, clusterproxyOptions, cancel)
 
 	// Test that HealthCheckers method exists and can be called
 	healthCheckers := config.HealthCheckers()
@@ -67,7 +70,7 @@ func TestAgentConfigHealthCheckers(t *testing.T) {
 
 func TestAgentConfigWithNilInputs(t *testing.T) {
 	// Test with nil inputs to ensure no immediate panic
-	config := NewAgentConfig(nil, nil, nil, nil)
+	config := NewAgentConfig(nil, nil, nil, nil, nil)
 
 	if config == nil {
 		t.Fatal("NewAgentConfig() returned nil even with nil inputs")
@@ -86,9 +89,10 @@ func TestRunSpokeAgentSignature(t *testing.T) {
 	agentOption := commonoptions.NewAgentOptions()
 	registrationOption := registration.NewSpokeAgentOptions()
 	workOption := work.NewWorkloadAgentOptions()
+	clusterproxyOptions := clusterproxy.NewClusterProxyAgentOptions()
 	cancel := func() {}
 
-	config := NewAgentConfig(agentOption, registrationOption, workOption, cancel)
+	config := NewAgentConfig(agentOption, registrationOption, workOption, clusterproxyOptions, cancel)
 
 	// Just verify the config was created - the compile-time assertion above
 	// ensures the method signature is correct
@@ -102,9 +106,10 @@ func TestAgentConfigFields(t *testing.T) {
 	agentOption := commonoptions.NewAgentOptions()
 	registrationOption := registration.NewSpokeAgentOptions()
 	workOption := work.NewWorkloadAgentOptions()
+	clusterproxyOptions := clusterproxy.NewClusterProxyAgentOptions()
 	cancel := func() {}
 
-	config := NewAgentConfig(agentOption, registrationOption, workOption, cancel)
+	config := NewAgentConfig(agentOption, registrationOption, workOption, clusterproxyOptions, cancel)
 
 	// Test that the configuration was set up properly
 	if config.registrationConfig == nil {
