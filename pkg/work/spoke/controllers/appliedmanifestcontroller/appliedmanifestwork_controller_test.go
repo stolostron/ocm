@@ -330,7 +330,7 @@ func TestFindUntrackedResources(t *testing.T) {
 		t.Run(c.name, func(t *testing.T) {
 			actual := findUntrackedResources(c.appliedResources, c.newAppliedResources)
 			if !reflect.DeepEqual(actual, c.expectedUntrackedResources) {
-				t.Errorf(diff.ObjectDiff(actual, c.expectedUntrackedResources))
+				t.Errorf("unexpected untracked resources: %s", diff.ObjectDiff(actual, c.expectedUntrackedResources))
 			}
 		})
 	}

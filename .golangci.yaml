@@ -159,8 +159,6 @@ linters-settings:
       - underef
       - unlambda
       - unnecessaryBlock
-      - unslice
-      - valSwap
       - weakCond
 
       # Unused

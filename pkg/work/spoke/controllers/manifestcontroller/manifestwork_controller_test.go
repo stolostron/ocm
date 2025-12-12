@@ -668,7 +668,7 @@ func TestBuildResourceMeta(t *testing.T) {
 
 			actual.Ordinal = c.expected.Ordinal
 			if !equality.Semantic.DeepEqual(actual, c.expected) {
-				t.Errorf(cmp.Diff(actual, c.expected))
+				t.Errorf("unexpected result: %s", cmp.Diff(actual, c.expected))
 			}
 		})
 	}
@@ -699,7 +699,7 @@ func TestBuildManifestResourceMeta(t *testing.T) {
 
 			actual.Ordinal = c.expected.Ordinal
 			if !equality.Semantic.DeepEqual(actual, c.expected) {
-				t.Errorf(cmp.Diff(actual, c.expected))
+				t.Errorf("unexpected result: %s", cmp.Diff(actual, c.expected))
 			}
 		})
 	}
