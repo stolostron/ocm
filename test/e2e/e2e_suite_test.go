@@ -142,12 +142,12 @@ var _ = BeforeSuite(func() {
 	By("Check Hub Ready")
 	Eventually(func() error {
 		return hub.CheckHubReady()
-	}).Should(Succeed())
+	}, 180*time.Second, 5*time.Second).Should(Succeed())
 
 	By("Check Klusterlet Operator Ready")
 	Eventually(func() error {
 		return framework.CheckDeploymentReady(context.TODO(), spoke.KubeClient, spoke.KlusterletOperatorNamespace, spoke.KlusterletOperator)
-	}).Should(Succeed())
+	}, 180*time.Second, 5*time.Second).Should(Succeed())
 
 	By("Enable Work Feature")
 	if nilExecutorValidating {
