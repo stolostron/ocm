@@ -955,10 +955,10 @@ func TestGetRelatedResource(t *testing.T) {
 
 			relatedResource, err := GenerateRelatedResource(objData)
 			if !errors.Is(err, c.expectedErr) {
-				t.Errorf(cmp.Diff(err, c.expectedErr))
+				t.Error(cmp.Diff(err, c.expectedErr))
 			}
 			if !reflect.DeepEqual(relatedResource, c.expectedRelatedResource) {
-				t.Errorf(cmp.Diff(err, c.expectedErr))
+				t.Error(cmp.Diff(relatedResource, c.expectedRelatedResource))
 			}
 		})
 
