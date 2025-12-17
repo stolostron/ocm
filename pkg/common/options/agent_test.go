@@ -13,8 +13,17 @@ func TestNewAgentOptions(t *testing.T) {
 	if opts.HubKubeconfigDir != "/spoke/hub-kubeconfig" {
 		t.Errorf("unexpected HubKubeconfigDir: %s", opts.HubKubeconfigDir)
 	}
-	if opts.ComponentNamespace != "open-cluster-management-agent" {
-		t.Errorf("unexpected ComponentNamespace: %s", opts.ComponentNamespace)
+	// ComponentNamespace defaults to "open-cluster-management-agent" but can be overridden
+	// by /var/run/secrets/kubernetes.io/serviceaccount/namespace when running in a pod (e.g., CI)
+	// Check that it's non-empty and valid
+	if len(opts.ComponentNamespace) == 0 {
+		t.Error("ComponentNamespace should not be empty")
+	}
+	// If not running in a pod, verify the default value
+	if _, err := os.Stat("/var/run/secrets/kubernetes.io/serviceaccount/namespace"); os.IsNotExist(err) {
+		if opts.ComponentNamespace != "open-cluster-management-agent" {
+			t.Errorf("unexpected ComponentNamespace: %s", opts.ComponentNamespace)
+		}
 	}
 }
 
