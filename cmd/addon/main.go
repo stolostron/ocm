@@ -31,7 +31,7 @@ func main() {
 
 func newAddonCommand() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "addon",
+		Use:   "addon test",
 		Short: "Manager of Addon",
 		Run: func(cmd *cobra.Command, args []string) {
 			_ = cmd.Help()
