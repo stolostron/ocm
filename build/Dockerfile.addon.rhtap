@@ -3,7 +3,7 @@ WORKDIR /go/src/open-cluster-management.io/ocm
 COPY . .
 ENV GO_PACKAGE open-cluster-management.io/ocm
 
-RUN GO_BUILD_PACKAGES=./cmd/addon make build --warn-undefined-variables
+RUN CGO_ENABLED=0 GO_BUILD_PACKAGES=./cmd/addon make build --warn-undefined-variables
 
 FROM registry.access.redhat.com/ubi9/ubi-minimal:latest
 
