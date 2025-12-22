@@ -6,8 +6,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/openshift/library-go/pkg/controller/factory"
-	"github.com/openshift/library-go/pkg/operator/events"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -19,6 +17,7 @@ import (
 	workinformer "open-cluster-management.io/api/client/work/informers/externalversions/work/v1"
 	worklister "open-cluster-management.io/api/client/work/listers/work/v1"
 	workapiv1 "open-cluster-management.io/api/work/v1"
+	"open-cluster-management.io/sdk-go/pkg/basecontroller/factory"
 	"open-cluster-management.io/sdk-go/pkg/patcher"
 
 	"open-cluster-management.io/ocm/pkg/common/queue"
@@ -30,10 +29,11 @@ const (
 	// If the AppliedManifestWork eviction grace period is set with a value that is larger than or equal to
 	// the bound, the eviction feature will be disabled.
 	EvictionGracePeriodBound = 100 * 365 * 24 * time.Hour
+
+	unManagedAppliedManifestWork = "UnManagedAppliedManifestWork"
 )
 
 type unmanagedAppliedWorkController struct {
-	recorder                  events.Recorder
 	manifestWorkLister        worklister.ManifestWorkNamespaceLister
 	appliedManifestWorkClient workv1client.AppliedManifestWorkInterface
 	patcher                   patcher.Patcher[*workapiv1.AppliedManifestWork, workapiv1.AppliedManifestWorkSpec, workapiv1.AppliedManifestWorkStatus]
@@ -54,7 +54,6 @@ type unmanagedAppliedWorkController struct {
 // default, 60 minutes), after one appliedmanifestwork is evicted from the managed cluster, its owned
 // resources will also be evicted from the managed cluster with Kubernetes garbage collection.
 func NewUnManagedAppliedWorkController(
-	recorder events.Recorder,
 	manifestWorkInformer workinformer.ManifestWorkInformer,
 	manifestWorkLister worklister.ManifestWorkNamespaceLister,
 	appliedManifestWorkClient workv1client.AppliedManifestWorkInterface,
@@ -63,7 +62,6 @@ func NewUnManagedAppliedWorkController(
 	hubHash, agentID string,
 ) factory.Controller {
 	controller := &unmanagedAppliedWorkController{
-		recorder:                  recorder,
 		manifestWorkLister:        manifestWorkLister,
 		appliedManifestWorkClient: appliedManifestWorkClient,
 		patcher: patcher.NewPatcher[
@@ -77,19 +75,22 @@ func NewUnManagedAppliedWorkController(
 	}
 
 	return factory.New().
-		WithInformersQueueKeyFunc(func(obj runtime.Object) string {
+		WithInformersQueueKeysFunc(func(obj runtime.Object) []string {
 			accessor, _ := meta.Accessor(obj)
-			return fmt.Sprintf("%s-%s", hubHash, accessor.GetName())
+			return []string{fmt.Sprintf("%s-%s", hubHash, accessor.GetName())}
 		}, manifestWorkInformer.Informer()).
 		WithFilteredEventsInformersQueueKeysFunc(
 			queue.QueueKeyByMetaName,
 			helper.AppliedManifestworkAgentIDFilter(agentID), appliedManifestWorkInformer.Informer()).
-		WithSync(controller.sync).ToController("UnManagedAppliedManifestWork", recorder)
+		WithSync(controller.sync).ToController(unManagedAppliedManifestWork)
 }
 
-func (m *unmanagedAppliedWorkController) sync(ctx context.Context, controllerContext factory.SyncContext) error {
-	appliedManifestWorkName := controllerContext.QueueKey()
-	klog.V(5).Infof("Reconciling AppliedManifestWork %q", appliedManifestWorkName)
+func (m *unmanagedAppliedWorkController) sync(ctx context.Context, controllerContext factory.SyncContext, appliedManifestWorkName string) error {
+	logger := klog.FromContext(ctx).WithName(appliedManifestWorkFinalizer).
+		WithValues("appliedManifestWorkName", appliedManifestWorkName)
+	ctx = klog.NewContext(ctx, logger)
+
+	logger.V(5).Info("Reconciling AppliedManifestWork")
 
 	appliedManifestWork, err := m.appliedManifestWorkLister.Get(appliedManifestWorkName)
 	if errors.IsNotFound(err) {
@@ -133,6 +134,8 @@ func (m *unmanagedAppliedWorkController) evictAppliedManifestWork(ctx context.Co
 	controllerContext factory.SyncContext, appliedManifestWork *workapiv1.AppliedManifestWork) error {
 	now := time.Now()
 
+	logger := klog.FromContext(ctx)
+
 	evictionStartTime := appliedManifestWork.Status.EvictionStartTime
 	if evictionStartTime == nil {
 		return m.patchEvictionStartTime(ctx, appliedManifestWork, &metav1.Time{Time: now})
@@ -147,8 +150,7 @@ func (m *unmanagedAppliedWorkController) evictAppliedManifestWork(ctx context.Co
 	if err != nil {
 		return err
 	}
-	m.recorder.Eventf("AppliedManifestWorkEvicted",
-		"AppliedManifestWork %s evicted by agent %s after eviction grace period", appliedManifestWork.Name, m.agentID)
+	logger.Info("AppliedManifestWork evicted after eviction grace period", "agentID", m.agentID)
 	return nil
 }
 

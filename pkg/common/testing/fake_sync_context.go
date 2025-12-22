@@ -3,25 +3,26 @@ package testing
 import (
 	"testing"
 
-	"github.com/openshift/library-go/pkg/operator/events"
-	"github.com/openshift/library-go/pkg/operator/events/eventstesting"
 	"k8s.io/client-go/util/workqueue"
+
+	sdkevents "open-cluster-management.io/sdk-go/pkg/basecontroller/events"
 )
 
 type FakeSyncContext struct {
 	spokeName string
-	recorder  events.Recorder
-	queue     workqueue.RateLimitingInterface
+	recorder  sdkevents.Recorder
+	queue     workqueue.TypedRateLimitingInterface[string]
 }
 
-func (f FakeSyncContext) Queue() workqueue.RateLimitingInterface { return f.queue }
-func (f FakeSyncContext) QueueKey() string                       { return f.spokeName }
-func (f FakeSyncContext) Recorder() events.Recorder              { return f.recorder }
+func (f FakeSyncContext) Queue() workqueue.TypedRateLimitingInterface[string] { return f.queue }
+func (f FakeSyncContext) Recorder() sdkevents.Recorder {
+	return f.recorder
+}
 
 func NewFakeSyncContext(t *testing.T, clusterName string) *FakeSyncContext {
 	return &FakeSyncContext{
 		spokeName: clusterName,
-		recorder:  eventstesting.NewTestingEventRecorder(t),
-		queue:     workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()),
+		recorder:  sdkevents.NewContextualLoggingEventRecorder(t.Name()),
+		queue:     workqueue.NewTypedRateLimitingQueue[string](workqueue.DefaultTypedControllerRateLimiter[string]()),
 	}
 }

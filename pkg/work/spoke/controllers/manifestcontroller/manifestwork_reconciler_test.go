@@ -376,7 +376,7 @@ func TestSync(t *testing.T) {
 				withKubeObject(c.spokeObject...).
 				withUnstructuredObject(c.spokeDynamicObject...)
 			syncContext := testingcommon.NewFakeSyncContext(t, workKey)
-			err := controller.toController().sync(context.TODO(), syncContext)
+			err := controller.toController().sync(context.TODO(), syncContext, work.Name)
 			if err != nil {
 				t.Errorf("Should be success with no err: %v", err)
 			}
@@ -419,7 +419,7 @@ func TestFailedToApplyResource(t *testing.T) {
 		return true, &corev1.Secret{}, fmt.Errorf("fake error")
 	})
 	syncContext := testingcommon.NewFakeSyncContext(t, workKey)
-	err := controller.toController().sync(context.TODO(), syncContext)
+	err := controller.toController().sync(context.TODO(), syncContext, work.Name)
 	if err == nil {
 		t.Errorf("Should return an err")
 	}
@@ -554,7 +554,7 @@ func TestUpdateStrategy(t *testing.T) {
 						map[string]interface{}{"spec": map[string]interface{}{"key1": "val1"}}), nil
 				})
 			syncContext := testingcommon.NewFakeSyncContext(t, workKey)
-			err := controller.toController().sync(context.TODO(), syncContext)
+			err := controller.toController().sync(context.TODO(), syncContext, work.Name)
 			if err != nil {
 				t.Errorf("Should be success with no err: %v", err)
 			}
@@ -591,7 +591,7 @@ func TestServerSideApplyConflict(t *testing.T) {
 		return true, nil, errors.NewConflict(schema.GroupResource{Resource: "newobjects"}, "n1", fmt.Errorf("conflict error"))
 	})
 	syncContext := testingcommon.NewFakeSyncContext(t, workKey)
-	err := controller.toController().sync(context.TODO(), syncContext)
+	err := controller.toController().sync(context.TODO(), syncContext, work.Name)
 	if err != nil {
 		t.Errorf("Should be success with no err: %v", err)
 	}
@@ -897,7 +897,7 @@ func TestOnAddFunc(t *testing.T) {
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			queue := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
+			queue := workqueue.NewTypedRateLimitingQueue[string](workqueue.DefaultTypedControllerRateLimiter[string]())
 			addFunc := onAddFunc(queue)
 
 			addFunc(c.obj)
@@ -1060,7 +1060,7 @@ func TestOnUpdateFunc(t *testing.T) {
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			queue := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
+			queue := workqueue.NewTypedRateLimitingQueue[string](workqueue.DefaultTypedControllerRateLimiter[string]())
 			updateFunc := onUpdateFunc(queue)
 
 			updateFunc(c.oldObj, c.newObj)

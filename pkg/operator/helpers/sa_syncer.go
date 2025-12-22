@@ -7,7 +7,6 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/resource/resourceapply"
 	authv1 "k8s.io/api/authentication/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -20,6 +19,10 @@ import (
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 	"k8s.io/klog/v2"
 	"k8s.io/utils/pointer"
+
+	"open-cluster-management.io/sdk-go/pkg/basecontroller/events"
+
+	commonrecorder "open-cluster-management.io/ocm/pkg/common/recorder"
 )
 
 type TokenGetterFunc func() (token []byte, expiration []byte, additionalData map[string][]byte, err error)
@@ -91,7 +94,7 @@ func SyncKubeConfigSecret(ctx context.Context, secretName, secretNamespace, kube
 		return err
 	}
 
-	if tokenValid(secret, tokenGetter) && clusterInfoNotChanged(secret, templateKubeconfig) {
+	if tokenValid(secret, tokenGetter) && clusterInfoNotChanged(ctx, secret, templateKubeconfig) {
 		return nil
 	}
 
@@ -135,11 +138,13 @@ func tokenValid(secret *corev1.Secret, tokenGetter TokenGetterFunc) bool {
 	return true
 }
 
-func clusterInfoNotChanged(secret *corev1.Secret, templateKubeconfig *rest.Config) bool {
+func clusterInfoNotChanged(ctx context.Context, secret *corev1.Secret, templateKubeconfig *rest.Config) bool {
+	logger := klog.FromContext(ctx)
+
 	// check if the templateKubeconfig is changed
 	templateCluster, err := assembleClusterConfig(templateKubeconfig)
 	if err != nil {
-		klog.Infof("Assemble template cluster config error: %s", err)
+		logger.Error(err, "Assemble template cluster config error")
 		return false
 	}
 
@@ -149,26 +154,27 @@ func clusterInfoNotChanged(secret *corev1.Secret, templateKubeconfig *rest.Confi
 	}
 	kubeconfig, err := clientcmd.Load(saKubeconfig)
 	if err != nil {
-		klog.Infof("Load kubeconfig error: %s", err)
+		logger.Error(err, "Load kubeconfig error")
 		return false
 	}
 	cluster, ok := kubeconfig.Clusters["cluster"]
 	if !ok {
-		klog.Infof("Cluster not found")
+		logger.Info("Cluster not found")
 		return false
 	}
 
 	if cluster.Server != templateCluster.Server {
-		klog.Infof("Cluster host changed from %s to %s", cluster.Server, templateCluster.Server)
+		logger.Info("Cluster host changed from",
+			"before", cluster.Server, "after", templateCluster.Server)
 		return false
 	}
 	if !bytes.Equal(cluster.CertificateAuthorityData, templateCluster.CertificateAuthorityData) {
-		klog.Infof("Cluster certificate authority data changed")
+		logger.Info("Cluster certificate authority data changed")
 		return false
 	}
 	if cluster.InsecureSkipTLSVerify != templateCluster.InsecureSkipTLSVerify {
-		klog.Infof("Cluster insecureSkipTLSVerify changed from %v to %v",
-			cluster.InsecureSkipTLSVerify, templateCluster.InsecureSkipTLSVerify)
+		logger.Info("Cluster insecureSkipTLSVerify changed",
+			"before", cluster.InsecureSkipTLSVerify, "after", templateCluster.InsecureSkipTLSVerify)
 		return false
 	}
 
@@ -233,7 +239,8 @@ func applyKubeconfigSecret(ctx context.Context, templateKubeconfig *rest.Config,
 		secret.Data[k] = v
 	}
 
-	_, _, err = resourceapply.ApplySecret(ctx, secretClient, recorder, secret)
+	recorderWrapper := commonrecorder.NewEventsRecorderWrapper(ctx, recorder)
+	_, _, err = resourceapply.ApplySecret(ctx, secretClient, recorderWrapper, secret)
 	return err
 }
 

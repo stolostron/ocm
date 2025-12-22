@@ -7,13 +7,14 @@ import (
 	cloudevents "github.com/cloudevents/sdk-go/v2"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
+	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/klog/v2"
 
 	addonclientset "open-cluster-management.io/api/client/addon/clientset/versioned"
 	addoninformerv1alpha1 "open-cluster-management.io/api/client/addon/informers/externalversions/addon/v1alpha1"
 	addonlisterv1alpha1 "open-cluster-management.io/api/client/addon/listers/addon/v1alpha1"
-	addonce "open-cluster-management.io/sdk-go/pkg/cloudevents/clients/addon"
+	addonce "open-cluster-management.io/sdk-go/pkg/cloudevents/clients/addon/v1alpha1"
 	"open-cluster-management.io/sdk-go/pkg/cloudevents/generic/types"
 	"open-cluster-management.io/sdk-go/pkg/cloudevents/server"
 
@@ -90,32 +91,33 @@ func (s *AddonService) HandleStatusUpdate(ctx context.Context, evt *cloudevents.
 	}
 }
 
-func (s *AddonService) RegisterHandler(handler server.EventHandler) {
-	if _, err := s.addonInformer.Informer().AddEventHandler(s.EventHandlerFuncs(handler)); err != nil {
-		klog.Errorf("failed to register addon informer event handler, %v", err)
+func (s *AddonService) RegisterHandler(ctx context.Context, handler server.EventHandler) {
+	logger := klog.FromContext(ctx)
+	if _, err := s.addonInformer.Informer().AddEventHandler(s.EventHandlerFuncs(ctx, handler)); err != nil {
+		logger.Error(err, "failed to register addon informer event handler")
 	}
 }
 
-func (s *AddonService) EventHandlerFuncs(handler server.EventHandler) *cache.ResourceEventHandlerFuncs {
+func (s *AddonService) EventHandlerFuncs(ctx context.Context, handler server.EventHandler) *cache.ResourceEventHandlerFuncs {
 	return &cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
 			key, err := cache.MetaNamespaceKeyFunc(obj)
 			if err != nil {
-				klog.Errorf("failed to get key for addon %v", err)
+				utilruntime.HandleErrorWithContext(ctx, err, "failed to get key for addon")
 				return
 			}
-			if err := handler.OnCreate(context.Background(), addonce.ManagedClusterAddOnEventDataType, key); err != nil {
-				klog.Error(err)
+			if err := handler.OnCreate(ctx, addonce.ManagedClusterAddOnEventDataType, key); err != nil {
+				utilruntime.HandleErrorWithContext(ctx, err, "failed to create addon", "key", key)
 			}
 		},
 		UpdateFunc: func(oldObj, newObj interface{}) {
 			key, err := cache.MetaNamespaceKeyFunc(newObj)
 			if err != nil {
-				klog.Errorf("failed to get key for addon %v", err)
+				utilruntime.HandleErrorWithContext(ctx, err, "failed to get key for addon")
 				return
 			}
-			if err := handler.OnUpdate(context.Background(), addonce.ManagedClusterAddOnEventDataType, key); err != nil {
-				klog.Error(err)
+			if err := handler.OnUpdate(ctx, addonce.ManagedClusterAddOnEventDataType, key); err != nil {
+				utilruntime.HandleErrorWithContext(ctx, err, "failed to update addon", "key", key)
 			}
 		},
 	}

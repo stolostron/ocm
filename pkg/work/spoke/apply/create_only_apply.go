@@ -2,9 +2,7 @@ package apply
 
 import (
 	"context"
-	"fmt"
 
-	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/resource/resourcemerge"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -12,8 +10,10 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
+	"k8s.io/klog/v2"
 
 	workapiv1 "open-cluster-management.io/api/work/v1"
+	"open-cluster-management.io/sdk-go/pkg/basecontroller/events"
 
 	"open-cluster-management.io/ocm/pkg/work/helper"
 )
@@ -31,8 +31,9 @@ func (c *CreateOnlyApply) Apply(ctx context.Context,
 	required *unstructured.Unstructured,
 	owner metav1.OwnerReference,
 	_ *workapiv1.ManifestConfigOption,
-	recorder events.Recorder) (runtime.Object, error) {
+	_ events.Recorder) (runtime.Object, error) {
 
+	logger := klog.FromContext(ctx)
 	obj, err := c.client.
 		Resource(gvr).
 		Namespace(required.GetNamespace()).
@@ -42,8 +43,8 @@ func (c *CreateOnlyApply) Apply(ctx context.Context,
 		obj, err = c.client.Resource(gvr).Namespace(required.GetNamespace()).Create(
 			ctx, resourcemerge.WithCleanLabelsAndAnnotations(required).(*unstructured.Unstructured), metav1.CreateOptions{})
 		if err != nil {
-			recorder.Eventf(fmt.Sprintf(
-				"%s Created", required.GetKind()), "Created %s/%s because it was missing", required.GetNamespace(), required.GetName())
+			logger.Info("Resource created because of missing",
+				"gvr", gvr.String(), "resourceNamespace", required.GetNamespace(), "resourceName", required.GetName())
 		}
 	}
 

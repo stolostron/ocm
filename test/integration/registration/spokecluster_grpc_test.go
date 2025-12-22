@@ -16,7 +16,7 @@ import (
 
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
 	operatorv1 "open-cluster-management.io/api/operator/v1"
-	addonce "open-cluster-management.io/sdk-go/pkg/cloudevents/clients/addon"
+	addonce "open-cluster-management.io/sdk-go/pkg/cloudevents/clients/addon/v1alpha1"
 	clusterce "open-cluster-management.io/sdk-go/pkg/cloudevents/clients/cluster"
 	csrce "open-cluster-management.io/sdk-go/pkg/cloudevents/clients/csr"
 	eventce "open-cluster-management.io/sdk-go/pkg/cloudevents/clients/event"
@@ -83,19 +83,22 @@ var _ = ginkgo.Describe("Registration using GRPC", ginkgo.Ordered, ginkgo.Label(
 		hook, err := util.NewGRPCServerRegistrationHook(hubCfg)
 		gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
-		go hook.Run(grpcServerCtx)
-
 		grpcEventServer := cloudeventsgrpc.NewGRPCBroker()
-		grpcEventServer.RegisterService(clusterce.ManagedClusterEventDataType,
+		grpcEventServer.RegisterService(grpcServerCtx, clusterce.ManagedClusterEventDataType,
 			cluster.NewClusterService(hook.ClusterClient, hook.ClusterInformers.Cluster().V1().ManagedClusters()))
-		grpcEventServer.RegisterService(csrce.CSREventDataType,
+		grpcEventServer.RegisterService(grpcServerCtx, csrce.CSREventDataType,
 			csr.NewCSRService(hook.KubeClient, hook.KubeInformers.Certificates().V1().CertificateSigningRequests()))
-		grpcEventServer.RegisterService(addonce.ManagedClusterAddOnEventDataType,
+		grpcEventServer.RegisterService(grpcServerCtx, addonce.ManagedClusterAddOnEventDataType,
 			addon.NewAddonService(hook.AddOnClient, hook.AddOnInformers.Addon().V1alpha1().ManagedClusterAddOns()))
-		grpcEventServer.RegisterService(eventce.EventEventDataType,
+		grpcEventServer.RegisterService(grpcServerCtx, eventce.EventEventDataType,
 			event.NewEventService(hook.KubeClient))
-		grpcEventServer.RegisterService(leasece.LeaseEventDataType,
+		grpcEventServer.RegisterService(grpcServerCtx, leasece.LeaseEventDataType,
 			lease.NewLeaseService(hook.KubeClient, hook.KubeInformers.Coordination().V1().Leases()))
+
+		go func() {
+			defer ginkgo.GinkgoRecover()
+			hook.Run(grpcServerCtx)
+		}()
 
 		authorizer := util.NewMockAuthorizer()
 		server := sdkgrpc.NewGRPCServer(gRPCServerOptions).

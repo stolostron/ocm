@@ -2,15 +2,16 @@ package spoke
 
 import (
 	"context"
+	"os"
 	"time"
 
 	"github.com/openshift/library-go/pkg/controller/controllercmd"
 	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
-	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
+	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 
 	workclientset "open-cluster-management.io/api/client/work/clientset/versioned"
@@ -22,7 +23,7 @@ import (
 	cloudeventswork "open-cluster-management.io/sdk-go/pkg/cloudevents/clients/work"
 	"open-cluster-management.io/sdk-go/pkg/cloudevents/clients/work/agent/codec"
 	"open-cluster-management.io/sdk-go/pkg/cloudevents/clients/work/store"
-	"open-cluster-management.io/sdk-go/pkg/cloudevents/generic"
+	"open-cluster-management.io/sdk-go/pkg/cloudevents/generic/options/builder"
 
 	"open-cluster-management.io/ocm/pkg/common/options"
 	"open-cluster-management.io/ocm/pkg/features"
@@ -61,6 +62,14 @@ func NewWorkAgentConfig(commonOpts *options.AgentOptions, opts *WorkloadAgentOpt
 
 // RunWorkloadAgent starts the controllers on agent to process work from hub.
 func (o *WorkAgentConfig) RunWorkloadAgent(ctx context.Context, controllerContext *controllercmd.ControllerContext) error {
+	// setting up contextual logger
+	logger := klog.NewKlogr()
+	podName := os.Getenv("POD_NAME")
+	if podName != "" {
+		logger = logger.WithValues("podName", podName, "clusterName", o.agentOptions.SpokeClusterName)
+	}
+	ctx = klog.NewContext(ctx, logger)
+
 	// load spoke client config and create spoke clients,
 	// the work agent may not running in the spoke/managed cluster.
 	spokeRestConfig, err := o.agentOptions.SpokeKubeConfig(controllerContext.KubeConfig)
@@ -103,7 +112,7 @@ func (o *WorkAgentConfig) RunWorkloadAgent(ctx context.Context, controllerContex
 		return err
 	}
 
-	hubHost, hubWorkClient, hubWorkInformer, err := o.newWorkClientAndInformer(ctx, restMapper)
+	hubHost, hubWorkClient, hubWorkInformer, err := o.newWorkClientAndInformer(ctx)
 	if err != nil {
 		return err
 	}
@@ -120,12 +129,10 @@ func (o *WorkAgentConfig) RunWorkloadAgent(ctx context.Context, controllerContex
 		spokeKubeClient,
 		hubWorkInformer,
 		o.agentOptions.SpokeClusterName,
-		controllerContext.EventRecorder,
 		restMapper,
 	).NewExecutorValidator(ctx, features.SpokeMutableFeatureGate.Enabled(ocmfeature.ExecutorValidatingCaches))
 
 	manifestWorkController := manifestcontroller.NewManifestWorkController(
-		controllerContext.EventRecorder,
 		spokeDynamicClient,
 		spokeKubeClient,
 		spokeAPIExtensionClient,
@@ -139,20 +146,17 @@ func (o *WorkAgentConfig) RunWorkloadAgent(ctx context.Context, controllerContex
 		validator,
 	)
 	addFinalizerController := finalizercontroller.NewAddFinalizerController(
-		controllerContext.EventRecorder,
 		hubWorkClient,
 		hubWorkInformer,
 		hubWorkInformer.Lister().ManifestWorks(o.agentOptions.SpokeClusterName),
 	)
 	appliedManifestWorkFinalizeController := finalizercontroller.NewAppliedManifestWorkFinalizeController(
-		controllerContext.EventRecorder,
 		spokeDynamicClient,
 		spokeWorkClient.WorkV1().AppliedManifestWorks(),
 		spokeWorkInformerFactory.Work().V1().AppliedManifestWorks(),
 		agentID,
 	)
 	manifestWorkFinalizeController := finalizercontroller.NewManifestWorkFinalizeController(
-		controllerContext.EventRecorder,
 		hubWorkClient,
 		hubWorkInformer,
 		hubWorkInformer.Lister().ManifestWorks(o.agentOptions.SpokeClusterName),
@@ -161,7 +165,6 @@ func (o *WorkAgentConfig) RunWorkloadAgent(ctx context.Context, controllerContex
 		hubHash,
 	)
 	unmanagedAppliedManifestWorkController := finalizercontroller.NewUnManagedAppliedWorkController(
-		controllerContext.EventRecorder,
 		hubWorkInformer,
 		hubWorkInformer.Lister().ManifestWorks(o.agentOptions.SpokeClusterName),
 		spokeWorkClient.WorkV1().AppliedManifestWorks(),
@@ -170,7 +173,6 @@ func (o *WorkAgentConfig) RunWorkloadAgent(ctx context.Context, controllerContex
 		hubHash, agentID,
 	)
 	availableStatusController, err := statuscontroller.NewAvailableStatusController(
-		controllerContext.EventRecorder,
 		spokeDynamicClient,
 		hubWorkClient,
 		hubWorkInformer,
@@ -199,7 +201,6 @@ func (o *WorkAgentConfig) RunWorkloadAgent(ctx context.Context, controllerContex
 
 func (o *WorkAgentConfig) newWorkClientAndInformer(
 	ctx context.Context,
-	restMapper meta.RESTMapper,
 ) (string, workv1client.ManifestWorkInterface, workv1informers.ManifestWorkInformer, error) {
 	var workClient workclientset.Interface
 	var watcherStore *store.AgentInformerWatcherStore
@@ -226,7 +227,7 @@ func (o *WorkAgentConfig) newWorkClientAndInformer(
 
 		watcherStore = store.NewAgentInformerWatcherStore()
 
-		serverHost, config, err := generic.NewConfigLoader(o.workOptions.WorkloadSourceDriver, o.workOptions.WorkloadSourceConfig).
+		serverHost, config, err := builder.NewConfigLoader(o.workOptions.WorkloadSourceDriver, o.workOptions.WorkloadSourceConfig).
 			LoadConfig()
 		if err != nil {
 			return "", nil, nil, err
@@ -253,11 +254,6 @@ func (o *WorkAgentConfig) newWorkClientAndInformer(
 		workinformers.WithNamespace(o.agentOptions.SpokeClusterName),
 	)
 	informer := factory.Work().V1().ManifestWorks()
-
-	// For cloudevents work client, we use the informer store as the client store
-	if watcherStore != nil {
-		watcherStore.SetInformer(informer.Informer())
-	}
 
 	return hubHost, workClient.WorkV1().ManifestWorks(o.agentOptions.SpokeClusterName), informer, nil
 }

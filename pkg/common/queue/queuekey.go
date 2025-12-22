@@ -1,13 +1,14 @@
 package queue
 
 import (
-	"github.com/openshift/library-go/pkg/controller/factory"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/tools/cache"
+
+	"open-cluster-management.io/sdk-go/pkg/basecontroller/factory"
 )
 
-func FileterByLabel(key string) factory.EventFilterFunc {
+func FileterByLabel(key string) func(obj interface{}) bool {
 	return func(obj interface{}) bool {
 		accessor, _ := meta.Accessor(obj)
 		return len(accessor.GetLabels()) > 0 && len(accessor.GetLabels()[key]) > 0

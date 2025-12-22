@@ -3,7 +3,6 @@ package auth
 import (
 	"context"
 
-	"github.com/openshift/library-go/pkg/operator/events"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -33,7 +32,6 @@ type validatorFactory struct {
 	kubeClient           kubernetes.Interface
 	manifestWorkInformer workinformers.ManifestWorkInformer
 	clusterName          string
-	recorder             events.Recorder
 	restMapper           meta.RESTMapper
 }
 
@@ -42,28 +40,25 @@ func NewFactory(
 	kubeClient kubernetes.Interface,
 	manifestWorkInformer workinformers.ManifestWorkInformer,
 	clusterName string,
-	recorder events.Recorder,
 	restMapper meta.RESTMapper) *validatorFactory {
 	return &validatorFactory{
 		config:               config,
 		kubeClient:           kubeClient,
 		manifestWorkInformer: manifestWorkInformer,
 		clusterName:          clusterName,
-		recorder:             recorder,
 		restMapper:           restMapper,
 	}
 }
 
 func (f *validatorFactory) NewExecutorValidator(ctx context.Context, isCacheValidator bool) ExecutorValidator {
-	klog.Infof("Executor caches enabled: %v", isCacheValidator)
+	logger := klog.FromContext(ctx)
+	logger.Info("Executor caches enabled", "cacheValidator", isCacheValidator)
 	sarValidator := basic.NewSARValidator(f.config, f.kubeClient)
 	if !isCacheValidator {
 		return sarValidator
 	}
 
 	cacheValidator := cache.NewExecutorCacheValidator(
-		ctx,
-		f.recorder,
 		f.kubeClient,
 		f.manifestWorkInformer.Lister().ManifestWorks(f.clusterName),
 		f.restMapper,

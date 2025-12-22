@@ -2,11 +2,9 @@ package apply
 
 import (
 	"context"
-	"fmt"
 	"reflect"
 	"strings"
 
-	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/resource/resourceapply"
 	"github.com/openshift/library-go/pkg/operator/resource/resourcemerge"
 	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
@@ -18,9 +16,13 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/klog/v2"
 	"k8s.io/utils/pointer"
 
 	workapiv1 "open-cluster-management.io/api/work/v1"
+	"open-cluster-management.io/sdk-go/pkg/basecontroller/events"
+
+	commonrecorder "open-cluster-management.io/ocm/pkg/common/recorder"
 )
 
 type UpdateApply struct {
@@ -48,14 +50,15 @@ func (c *UpdateApply) Apply(
 	owner metav1.OwnerReference,
 	_ *workapiv1.ManifestConfigOption,
 	recorder events.Recorder) (runtime.Object, error) {
-
 	clientHolder := resourceapply.NewClientHolder().
 		WithAPIExtensionsClient(c.apiExtensionClient).
 		WithKubernetes(c.kubeclient).
 		WithDynamicClient(c.dynamicClient)
 
+	recorderWrapper := commonrecorder.NewEventsRecorderWrapper(ctx, recorder)
+
 	required.SetOwnerReferences([]metav1.OwnerReference{owner})
-	results := resourceapply.ApplyDirectly(ctx, clientHolder, recorder, c.staticResourceCache, func(name string) ([]byte, error) {
+	results := resourceapply.ApplyDirectly(ctx, clientHolder, recorderWrapper, c.staticResourceCache, func(name string) ([]byte, error) {
 		return required.MarshalJSON()
 	}, "manifest")
 
@@ -84,6 +87,7 @@ func (c *UpdateApply) applyUnstructured(
 	gvr schema.GroupVersionResource,
 	recorder events.Recorder,
 	cache resourceapply.ResourceCache) (*unstructured.Unstructured, bool, error) {
+	logger := klog.FromContext(ctx)
 	existing, err := c.dynamicClient.
 		Resource(gvr).
 		Namespace(required.GetNamespace()).
@@ -91,8 +95,8 @@ func (c *UpdateApply) applyUnstructured(
 	if apierrors.IsNotFound(err) {
 		actual, err := c.dynamicClient.Resource(gvr).Namespace(required.GetNamespace()).Create(
 			ctx, resourcemerge.WithCleanLabelsAndAnnotations(required).(*unstructured.Unstructured), metav1.CreateOptions{})
-		recorder.Eventf(fmt.Sprintf(
-			"%s Created", required.GetKind()), "Created %s/%s because it was missing", required.GetNamespace(), required.GetName())
+		logger.Info("Created resource because it was missing",
+			"gvr", gvr.String(), "resourceNamespace", required.GetNamespace(), "resourceName", required.GetName())
 		cache.UpdateCachedResourceMetadata(required, actual)
 		return actual, true, err
 	}
@@ -130,8 +134,8 @@ func (c *UpdateApply) applyUnstructured(
 	required.SetResourceVersion(existing.GetResourceVersion())
 	actual, err := c.dynamicClient.Resource(gvr).Namespace(required.GetNamespace()).Update(
 		ctx, required, metav1.UpdateOptions{})
-	recorder.Eventf(fmt.Sprintf(
-		"%s Updated", required.GetKind()), "Updated %s/%s", required.GetNamespace(), required.GetName())
+	logger.Info("Updated resource",
+		"gvr", gvr.String(), "resourceNamespace", required.GetNamespace(), "resourceName", required.GetName())
 	cache.UpdateCachedResourceMetadata(required, actual)
 	return actual, true, err
 }

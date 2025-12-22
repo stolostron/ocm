@@ -5,8 +5,6 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/openshift/library-go/pkg/controller/factory"
-	"github.com/openshift/library-go/pkg/operator/events"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -18,6 +16,8 @@ import (
 	"k8s.io/klog/v2"
 
 	workapiv1 "open-cluster-management.io/api/work/v1"
+	"open-cluster-management.io/sdk-go/pkg/basecontroller/events"
+	"open-cluster-management.io/sdk-go/pkg/basecontroller/factory"
 
 	commonhelper "open-cluster-management.io/ocm/pkg/common/helpers"
 	"open-cluster-management.io/ocm/pkg/work/helper"
@@ -85,7 +85,7 @@ func (m *manifestworkReconciler) reconcile(
 		// and requeue the item
 		var authError *basic.NotAllowedError
 		if errors.As(result.Error, &authError) {
-			logger.V(2).Info("apply work failed", "name", manifestWork.Name, "error", result.Error)
+			logger.V(2).Info("apply work failed", "error", result.Error)
 			result.Error = nil
 
 			if authError.RequeueTime < requeueTime {

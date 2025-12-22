@@ -5,15 +5,14 @@ import (
 	"testing"
 	"time"
 
-	"github.com/openshift/library-go/pkg/operator/events"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	clienttesting "k8s.io/client-go/testing"
-	"k8s.io/utils/clock"
 
 	fakeworkclient "open-cluster-management.io/api/client/work/clientset/versioned/fake"
 	workinformers "open-cluster-management.io/api/client/work/informers/externalversions"
 	workapiv1 "open-cluster-management.io/api/work/v1"
+	workapiv1alpha1 "open-cluster-management.io/api/work/v1alpha1"
 
 	testingcommon "open-cluster-management.io/ocm/pkg/common/testing"
 )
@@ -73,6 +72,27 @@ func TestManifestWorkGarbageCollectionController(t *testing.T) {
 			expectedDeleteActions:  1,
 			expectedRequeueActions: 0,
 		},
+		{
+			name: "ManifestWork with ManifestWorkReplicaSet label - should skip GC",
+			works: []runtime.Object{
+				createCompletedManifestWorkWithLabel("test", "default", 300, time.Now().Add(-400*time.Second), map[string]string{
+					workapiv1alpha1.ManifestWorkReplicaSetControllerNameLabelKey: "test-replicaset",
+				}),
+			},
+			expectedDeleteActions:  0,
+			expectedRequeueActions: 0,
+		},
+		{
+			name: "ManifestWork with other labels but no ReplicaSet label - should continue with GC",
+			works: []runtime.Object{
+				createCompletedManifestWorkWithLabel("test", "default", 300, time.Now().Add(-400*time.Second), map[string]string{
+					"app": "test-app",
+					"env": "production",
+				}),
+			},
+			expectedDeleteActions:  1,
+			expectedRequeueActions: 0,
+		},
 	}
 
 	for _, c := range cases {
@@ -90,7 +110,7 @@ func TestManifestWorkGarbageCollectionController(t *testing.T) {
 			workInformerFactory.WaitForCacheSync(ctx.Done())
 
 			syncContext := testingcommon.NewFakeSyncContext(t, "default/test")
-			err := controller.sync(ctx, syncContext)
+			err := controller.sync(ctx, syncContext, "default/test")
 			if err != nil {
 				t.Errorf("Unexpected error: %v", err)
 			}
@@ -130,10 +150,8 @@ func TestManifestWorkGarbageCollectionController(t *testing.T) {
 func TestNewManifestWorkGarbageCollectionController(t *testing.T) {
 	fakeWorkClient := fakeworkclient.NewSimpleClientset()
 	workInformerFactory := workinformers.NewSharedInformerFactory(fakeWorkClient, time.Minute*10)
-	recorder := events.NewInMemoryRecorder("test", clock.RealClock{})
 
 	ctrl := NewManifestWorkGarbageCollectionController(
-		recorder,
 		fakeWorkClient,
 		workInformerFactory.Work().V1().ManifestWorks(),
 	)
@@ -181,5 +199,11 @@ func createCompletedManifestWorkWithTTL(name, namespace string, ttlSeconds int64
 	}
 
 	mw.Status.Conditions = []metav1.Condition{completedCondition}
+	return mw
+}
+
+func createCompletedManifestWorkWithLabel(name, namespace string, ttlSeconds int64, completedTime time.Time, labels map[string]string) *workapiv1.ManifestWork {
+	mw := createCompletedManifestWorkWithTTL(name, namespace, ttlSeconds, completedTime)
+	mw.Labels = labels
 	return mw
 }

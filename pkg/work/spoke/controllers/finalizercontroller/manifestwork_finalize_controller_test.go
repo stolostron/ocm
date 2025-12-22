@@ -205,7 +205,7 @@ func TestSyncManifestWorkController(t *testing.T) {
 			}
 
 			controllerContext := testingcommon.NewFakeSyncContext(t, c.workName)
-			err := controller.sync(context.TODO(), controllerContext)
+			err := controller.sync(context.TODO(), controllerContext, c.workName)
 			if err != nil {
 				t.Errorf("Expect no sync error, but got %v", err)
 			}

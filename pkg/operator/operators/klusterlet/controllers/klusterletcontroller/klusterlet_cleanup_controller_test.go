@@ -10,7 +10,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	clienttesting "k8s.io/client-go/testing"
-	"k8s.io/klog/v2"
 
 	operatorapiv1 "open-cluster-management.io/api/operator/v1"
 	workv1 "open-cluster-management.io/api/work/v1"
@@ -37,7 +36,7 @@ func TestSyncDelete(t *testing.T) {
 	controller := newTestController(t, klusterlet, syncContext.Recorder(), appliedManifestWorks, false,
 		namespace, bootstrapKubeConfigSecret)
 
-	err := controller.cleanupController.sync(context.TODO(), syncContext)
+	err := controller.cleanupController.sync(context.TODO(), syncContext, "klusterlet")
 	if err != nil {
 		t.Errorf("Expected non error when sync, %v", err)
 	}
@@ -47,7 +46,6 @@ func TestSyncDelete(t *testing.T) {
 	for _, action := range kubeActions {
 		if action.GetVerb() == deleteVerb {
 			deleteAction := action.(clienttesting.DeleteActionImpl)
-			klog.Infof("kube delete name: %v\t resource:%v \t namespace:%v", deleteAction.Name, deleteAction.GetResource(), deleteAction.GetNamespace())
 			deleteActions = append(deleteActions, deleteAction)
 		}
 	}
@@ -93,10 +91,10 @@ func TestSyncDeleteHosted(t *testing.T) {
 		newAppliedManifestWorks("testhost-2", []string{workv1.AppliedManifestWorkFinalizer}, false),
 	}
 	syncContext := testingcommon.NewFakeSyncContext(t, klusterlet.Name)
-	controller := newTestControllerHosted(t, klusterlet, syncContext.Recorder(), appliedManifestWorks,
+	controller := newTestControllerHosted(t, klusterlet, appliedManifestWorks,
 		bootstrapKubeConfigSecret, namespace /*externalManagedSecret*/)
 
-	err := controller.cleanupController.sync(context.TODO(), syncContext)
+	err := controller.cleanupController.sync(context.TODO(), syncContext, "klusterlet")
 	if err != nil {
 		t.Errorf("Expected non error when sync, %v", err)
 	}
@@ -106,7 +104,6 @@ func TestSyncDeleteHosted(t *testing.T) {
 	for _, action := range kubeActions {
 		if action.GetVerb() == deleteVerb {
 			deleteAction := action.(clienttesting.DeleteActionImpl)
-			klog.Infof("management kube delete name: %v\t resource:%v \t namespace:%v", deleteAction.Name, deleteAction.GetResource(), deleteAction.GetNamespace())
 			deleteActionsManagement = append(deleteActionsManagement, deleteAction)
 		}
 	}
@@ -121,7 +118,6 @@ func TestSyncDeleteHosted(t *testing.T) {
 	for _, action := range controller.managedKubeClient.Actions() {
 		if action.GetVerb() == deleteVerb {
 			deleteAction := action.(clienttesting.DeleteActionImpl)
-			klog.Infof("managed kube delete name: %v\t resource:%v \t namespace:%v", deleteAction.Name, deleteAction.GetResource(), deleteAction.GetNamespace())
 			deleteActionsManaged = append(deleteActionsManaged, deleteAction)
 		}
 	}
@@ -158,9 +154,9 @@ func TestSyncDeleteHostedDeleteAgentNamespace(t *testing.T) {
 	now := metav1.Now()
 	klusterlet.ObjectMeta.SetDeletionTimestamp(&now)
 	syncContext := testingcommon.NewFakeSyncContext(t, "klusterlet")
-	controller := newTestControllerHosted(t, klusterlet, syncContext.Recorder(), nil).setDefaultManagedClusterClientsBuilder()
+	controller := newTestControllerHosted(t, klusterlet, nil).setDefaultManagedClusterClientsBuilder()
 
-	err := controller.cleanupController.sync(context.TODO(), syncContext)
+	err := controller.cleanupController.sync(context.TODO(), syncContext, "klusterlet")
 	if err != nil {
 		t.Errorf("Expected non error when sync, %v", err)
 	}
@@ -175,9 +171,9 @@ func TestSyncDeleteHostedDeleteWaitKubeconfig(t *testing.T) {
 	now := metav1.Now()
 	klusterlet.ObjectMeta.SetDeletionTimestamp(&now)
 	syncContext := testingcommon.NewFakeSyncContext(t, "klusterlet")
-	controller := newTestControllerHosted(t, klusterlet, syncContext.Recorder(), nil).setDefaultManagedClusterClientsBuilder()
+	controller := newTestControllerHosted(t, klusterlet, nil).setDefaultManagedClusterClientsBuilder()
 
-	err := controller.cleanupController.sync(context.TODO(), syncContext)
+	err := controller.cleanupController.sync(context.TODO(), syncContext, "klusterlet")
 	if err != nil {
 		t.Errorf("Expected non error when sync, %v", err)
 	}
@@ -196,9 +192,9 @@ func TestSyncAddHostedFinalizerWhenKubeconfigReady(t *testing.T) {
 		klusterletHostedFinalizer)
 
 	syncContext := testingcommon.NewFakeSyncContext(t, "klusterlet")
-	c := newTestControllerHosted(t, klusterlet, syncContext.Recorder(), nil)
+	c := newTestControllerHosted(t, klusterlet, nil)
 
-	err := c.cleanupController.sync(context.TODO(), syncContext)
+	err := c.cleanupController.sync(context.TODO(), syncContext, "klusterlet")
 	if err != nil {
 		t.Errorf("Expected non error when sync, %v", err)
 	}
@@ -218,7 +214,7 @@ func TestSyncAddHostedFinalizerWhenKubeconfigReady(t *testing.T) {
 	if err := c.operatorStore.Update(klusterlet); err != nil {
 		t.Fatal(err)
 	}
-	err = c.cleanupController.sync(context.TODO(), syncContext)
+	err = c.cleanupController.sync(context.TODO(), syncContext, "klusterlet")
 	if err != nil {
 		t.Errorf("Expected non error when sync, %v", err)
 	}

@@ -6,8 +6,6 @@ import (
 	"time"
 
 	"github.com/openshift/library-go/pkg/assets"
-	"github.com/openshift/library-go/pkg/controller/factory"
-	"github.com/openshift/library-go/pkg/operator/events"
 	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -24,6 +22,7 @@ import (
 	operatorlister "open-cluster-management.io/api/client/operator/listers/operator/v1"
 	workv1client "open-cluster-management.io/api/client/work/clientset/versioned/typed/work/v1"
 	operatorapiv1 "open-cluster-management.io/api/operator/v1"
+	"open-cluster-management.io/sdk-go/pkg/basecontroller/factory"
 	"open-cluster-management.io/sdk-go/pkg/patcher"
 
 	"open-cluster-management.io/ocm/manifests"
@@ -57,8 +56,7 @@ func NewKlusterletCleanupController(
 	operatorNamespace string,
 	controlPlaneNodeLabelSelector string,
 	deploymentReplicas int32,
-	disableAddonNamespace bool,
-	recorder events.Recorder) factory.Controller {
+	disableAddonNamespace bool) factory.Controller {
 	controller := &klusterletCleanupController{
 		kubeClient: kubeClient,
 		patcher: patcher.NewPatcher[
@@ -67,7 +65,7 @@ func NewKlusterletCleanupController(
 		klusterletLister:              klusterletInformer.Lister(),
 		kubeVersion:                   kubeVersion,
 		operatorNamespace:             operatorNamespace,
-		managedClusterClientsBuilder:  newManagedClusterClientsBuilder(kubeClient, apiExtensionClient, appliedManifestWorkClient, recorder),
+		managedClusterClientsBuilder:  newManagedClusterClientsBuilder(kubeClient, apiExtensionClient, appliedManifestWorkClient),
 		controlPlaneNodeLabelSelector: controlPlaneNodeLabelSelector,
 		deploymentReplicas:            deploymentReplicas,
 		disableAddonNamespace:         disableAddonNamespace,
@@ -80,12 +78,13 @@ func NewKlusterletCleanupController(
 			secretInformers[helpers.ExternalManagedKubeConfig].Informer()).
 		WithInformersQueueKeysFunc(helpers.KlusterletDeploymentQueueKeyFunc(controller.klusterletLister), deploymentInformer.Informer()).
 		WithInformersQueueKeysFunc(queue.QueueKeyByMetaName, klusterletInformer.Informer()).
-		ToController("KlusterletCleanupController", recorder)
+		ToController("KlusterletCleanupController")
 }
 
-func (n *klusterletCleanupController) sync(ctx context.Context, controllerContext factory.SyncContext) error {
-	klusterletName := controllerContext.QueueKey()
-	klog.V(4).Infof("Reconciling Klusterlet %q", klusterletName)
+func (n *klusterletCleanupController) sync(ctx context.Context, controllerContext factory.SyncContext, klusterletName string) error {
+	logger := klog.FromContext(ctx).WithValues("klusterlet", klusterletName)
+	logger.V(4).Info("Reconciling Klusterlet")
+	ctx = klog.NewContext(ctx, logger)
 	originalKlusterlet, err := n.klusterletLister.Get(klusterletName)
 	if errors.IsNotFound(err) {
 		// Klusterlet not found, could have been deleted, do nothing.
@@ -105,7 +104,7 @@ func (n *klusterletCleanupController) sync(ctx context.Context, controllerContex
 	}
 	replica := n.deploymentReplicas
 	if replica <= 0 {
-		replica = helpers.DetermineReplica(ctx, n.kubeClient, klusterlet.Spec.DeployOption.Mode, n.kubeVersion, n.controlPlaneNodeLabelSelector)
+		replica = helpers.DetermineReplica(ctx, n.kubeClient, klusterlet.Spec.DeployOption.Mode, n.controlPlaneNodeLabelSelector)
 	}
 	// Klusterlet is deleting, we remove its related resources on managed and management cluster
 	config := klusterletConfig{
@@ -148,7 +147,7 @@ func (n *klusterletCleanupController) sync(ctx context.Context, controllerContex
 		managedClusterClients, err := n.managedClusterClientsBuilder.
 			withMode(config.InstallMode).
 			withKubeConfigSecret(config.AgentNamespace, config.ExternalManagedKubeConfigSecret).
-			build(ctx)
+			build(ctx, controllerContext)
 		// stop when hosted kubeconfig is not found. the klustelet controller will monitor the secret and retrigger
 		// reconciliation of cleanup controller when secret is created again.
 		if errors.IsNotFound(err) {
@@ -216,20 +215,21 @@ func (n *klusterletCleanupController) sync(ctx context.Context, controllerContex
 func (n *klusterletCleanupController) checkConnectivity(ctx context.Context,
 	amwClient workv1client.AppliedManifestWorkInterface,
 	klusterlet *operatorapiv1.Klusterlet) (cleanupManagedClusterResources bool, err error) {
+	logger := klog.FromContext(ctx).WithValues("klusterlet", klusterlet.Name)
 	_, err = amwClient.List(ctx, metav1.ListOptions{})
 	if err == nil {
 		return true, nil
 	}
 	if errors.IsNotFound(err) {
-		klog.Infof("AppliedManifestWork not found, klusterlet %s", klusterlet.Name)
+		logger.Info("AppliedManifestWork not found")
 		return true, nil
 	}
 
 	// if the managed cluster is destroyed, the returned err is TCP timeout or TCP no such host,
 	// the k8s.io/apimachinery/pkg/api/errors.IsTimeout,IsServerTimeout can not match this error
 	if isTCPTimeOutError(err) || isTCPNoSuchHostError(err) || isTCPConnectionRefusedError(err) {
-		klog.V(4).Infof("Check the connectivity for klusterlet %s, annotation: %s, err: %v",
-			klusterlet.Name, klusterlet.Annotations, err)
+		logger.V(4).Info("check the connectivity for klusterlet",
+			"annotations", klusterlet.Annotations, "err", err)
 		if klusterlet.Annotations == nil {
 			klusterlet.Annotations = make(map[string]string, 0)
 		}
@@ -241,14 +241,13 @@ func (n *klusterletCleanupController) checkConnectivity(ctx context.Context,
 		}
 		evictionTime, perr := time.Parse(time.RFC3339, evictionTimeStr)
 		if perr != nil {
-			klog.Infof("Parse eviction time %v for klusterlet %s error %s", evictionTimeStr, klusterlet.Name, perr)
+			logger.Error(perr, "Parse eviction time for klusterlet", "evictionTime", evictionTimeStr)
 			klusterlet.Annotations[managedResourcesEvictionTimestampAnno] = time.Now().Format(time.RFC3339)
 			return true, err
 		}
 
 		if evictionTime.Add(5 * time.Minute).Before(time.Now()) {
-			klog.Infof("Try to connect managed cluster timed out for 5 minutes, klusterlet %s, ignore the resources",
-				klusterlet.Name)
+			logger.Info("Try to connect managed cluster timed out for 5 minutes, ignore the resources")
 			// ignore the resources on the managed cluster, return false here
 			return false, nil
 		}

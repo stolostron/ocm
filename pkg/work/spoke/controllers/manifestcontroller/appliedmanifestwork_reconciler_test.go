@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/davecgh/go-spew/spew"
-	"github.com/openshift/library-go/pkg/controller/factory"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -20,6 +19,7 @@ import (
 	fakeworkclient "open-cluster-management.io/api/client/work/clientset/versioned/fake"
 	workinformers "open-cluster-management.io/api/client/work/informers/externalversions"
 	workapiv1 "open-cluster-management.io/api/work/v1"
+	"open-cluster-management.io/sdk-go/pkg/basecontroller/factory"
 	"open-cluster-management.io/sdk-go/pkg/patcher"
 
 	testingcommon "open-cluster-management.io/ocm/pkg/common/testing"
@@ -298,7 +298,7 @@ func TestSyncManifestWork(t *testing.T) {
 			}
 
 			controllerContext := testingcommon.NewFakeSyncContext(t, testingWork.Name)
-			err := controller.sync(context.TODO(), controllerContext)
+			err := controller.sync(context.TODO(), controllerContext, testingWork.Name)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -310,8 +310,16 @@ func TestSyncManifestWork(t *testing.T) {
 					deleteActions = append(deleteActions, action.(clienttesting.DeleteActionImpl))
 				}
 			}
-			if !reflect.DeepEqual(c.expectedDeleteActions, deleteActions) {
-				t.Fatal(spew.Sdump(deleteActions))
+			if len(deleteActions) != len(c.expectedDeleteActions) {
+				t.Fatalf("expected %d deleteActions, got %d", len(c.expectedDeleteActions), len(deleteActions))
+			}
+			for idx, action := range deleteActions {
+				if action.GetVerb() != c.expectedDeleteActions[idx].GetVerb() ||
+					!reflect.DeepEqual(action.GetResource(), c.expectedDeleteActions[idx].GetResource()) ||
+					action.GetName() != c.expectedDeleteActions[idx].GetName() ||
+					action.GetNamespace() != c.expectedDeleteActions[idx].GetNamespace() {
+					t.Fatalf("expected delete action '%v', got '%v'", c.expectedDeleteActions[idx], action)
+				}
 			}
 
 			queueLen := controllerContext.Queue().Len()

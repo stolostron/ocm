@@ -7,8 +7,6 @@ import (
 	"path"
 	"time"
 
-	"github.com/openshift/library-go/pkg/controller/factory"
-	"github.com/openshift/library-go/pkg/operator/events"
 	"gopkg.in/yaml.v2"
 	certificatesv1 "k8s.io/api/certificates/v1"
 	coordv1 "k8s.io/api/coordination/v1"
@@ -23,7 +21,10 @@ import (
 	clusterinformers "open-cluster-management.io/api/client/cluster/informers/externalversions"
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
 	operatorv1 "open-cluster-management.io/api/operator/v1"
+	"open-cluster-management.io/sdk-go/pkg/basecontroller/events"
+	"open-cluster-management.io/sdk-go/pkg/basecontroller/factory"
 	cloudeventsaddon "open-cluster-management.io/sdk-go/pkg/cloudevents/clients/addon"
+	cloudeventsaddonv1alpha1 "open-cluster-management.io/sdk-go/pkg/cloudevents/clients/addon/v1alpha1"
 	cloudeventscluster "open-cluster-management.io/sdk-go/pkg/cloudevents/clients/cluster"
 	cloudeventscsr "open-cluster-management.io/sdk-go/pkg/cloudevents/clients/csr"
 	cloudeventsevent "open-cluster-management.io/sdk-go/pkg/cloudevents/clients/event"
@@ -31,7 +32,7 @@ import (
 	cloudeventsoptions "open-cluster-management.io/sdk-go/pkg/cloudevents/clients/options"
 	cloudeventsstore "open-cluster-management.io/sdk-go/pkg/cloudevents/clients/store"
 	"open-cluster-management.io/sdk-go/pkg/cloudevents/constants"
-	"open-cluster-management.io/sdk-go/pkg/cloudevents/generic"
+	"open-cluster-management.io/sdk-go/pkg/cloudevents/generic/options/builder"
 	"open-cluster-management.io/sdk-go/pkg/cloudevents/generic/options/cert"
 	"open-cluster-management.io/sdk-go/pkg/cloudevents/generic/options/grpc"
 
@@ -84,7 +85,32 @@ func (d *GRPCDriver) BuildClients(ctx context.Context, secretOption register.Sec
 	clusterClient := clusterClientHolder.ClusterInterface()
 	clusterInformers := clusterinformers.NewSharedInformerFactory(
 		clusterClient, 10*time.Minute).Cluster().V1().ManagedClusters()
-	clusterWatchStore.SetInformer(clusterInformers.Informer())
+
+	csrClientHolder, err := cloudeventscsr.NewAgentClientHolder(ctx,
+		cloudeventsoptions.NewGenericClientOptions(
+			config,
+			cloudeventscsr.NewCSRCodec(),
+			secretOption.ClusterName,
+		).WithClusterName(secretOption.ClusterName),
+	)
+	if err != nil {
+		return nil, err
+	}
+	csrControl := &ceCSRControl{csrClientHolder: csrClientHolder}
+	if err := d.csrDriver.SetCSRControl(csrControl, secretOption.ClusterName); err != nil {
+		return nil, err
+	}
+	d.control = csrControl
+
+	// Initialize the cluster client and CSR control in the bootstrap phase.
+	// Other clients should not be initialized, since they require
+	// permissions that are not allowed in the bootstrap phase.
+	if bootstrapped {
+		return &register.Clients{
+			ClusterClient:   clusterClient,
+			ClusterInformer: clusterInformers,
+		}, nil
+	}
 
 	leaseWatchStore := cloudeventsstore.NewSimpleStore[*coordv1.Lease]()
 	leaseClient, err := cloudeventslease.NewLeaseClient(
@@ -117,7 +143,7 @@ func (d *GRPCDriver) BuildClients(ctx context.Context, secretOption register.Sec
 		ctx,
 		cloudeventsoptions.NewGenericClientOptions(
 			config,
-			cloudeventsaddon.NewManagedClusterAddOnCodec(),
+			cloudeventsaddonv1alpha1.NewManagedClusterAddOnCodec(),
 			secretOption.ClusterName,
 		).WithClusterName(secretOption.ClusterName).WithClientWatcherStore(addonWatchStore))
 	if err != nil {
@@ -126,23 +152,6 @@ func (d *GRPCDriver) BuildClients(ctx context.Context, secretOption register.Sec
 	addonInformer := addoninformers.NewSharedInformerFactoryWithOptions(
 		addonClient, 10*time.Minute, addoninformers.WithNamespace(secretOption.ClusterName)).
 		Addon().V1alpha1().ManagedClusterAddOns()
-	addonWatchStore.SetInformer(addonInformer.Informer())
-
-	csrClientHolder, err := cloudeventscsr.NewAgentClientHolder(ctx,
-		cloudeventsoptions.NewGenericClientOptions(
-			config,
-			cloudeventscsr.NewCSRCodec(),
-			secretOption.ClusterName,
-		).WithClusterName(secretOption.ClusterName),
-	)
-	if err != nil {
-		return nil, err
-	}
-	csrControl := &ceCSRControl{csrClientHolder: csrClientHolder}
-	if err := d.csrDriver.SetCSRControl(csrControl, secretOption.ClusterName); err != nil {
-		return nil, err
-	}
-	d.control = csrControl
 
 	clients := &register.Clients{
 		ClusterClient:   clusterClient,
@@ -227,7 +236,7 @@ func (d *GRPCDriver) loadConfig(secretOption register.SecretOption, bootstrapped
 	var config any
 	var configFile string
 	if bootstrapped {
-		_, config, err = generic.NewConfigLoader(constants.ConfigTypeGRPC, d.opt.BootstrapConfigFile).LoadConfig()
+		_, config, err = builder.NewConfigLoader(constants.ConfigTypeGRPC, d.opt.BootstrapConfigFile).LoadConfig()
 		if err != nil {
 			return nil, nil, fmt.Errorf(
 				"failed to load hub bootstrap registration config from file %q: %w",
@@ -236,7 +245,7 @@ func (d *GRPCDriver) loadConfig(secretOption register.SecretOption, bootstrapped
 
 		configFile = d.opt.BootstrapConfigFile
 	} else {
-		_, config, err = generic.NewConfigLoader(constants.ConfigTypeGRPC, d.opt.ConfigFile).LoadConfig()
+		_, config, err = builder.NewConfigLoader(constants.ConfigTypeGRPC, d.opt.ConfigFile).LoadConfig()
 		if err != nil {
 			return nil, nil, fmt.Errorf(
 				"failed to load hub registration config from file %q: %w",
@@ -315,7 +324,7 @@ func (c *ceCSRControl) Create(ctx context.Context, recorder events.Recorder, obj
 	if err != nil {
 		return "", err
 	}
-	recorder.Eventf("CSRCreated", "A csr %q is created", req.Name)
+	recorder.Eventf(ctx, "CSRCreated", "A csr %q is created", req.Name)
 	return req.Name, nil
 }
 

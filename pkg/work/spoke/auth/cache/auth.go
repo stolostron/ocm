@@ -6,8 +6,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/openshift/library-go/pkg/controller/factory"
-	"github.com/openshift/library-go/pkg/operator/events"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -18,6 +16,7 @@ import (
 
 	worklister "open-cluster-management.io/api/client/work/listers/work/v1"
 	workapiv1 "open-cluster-management.io/api/work/v1"
+	"open-cluster-management.io/sdk-go/pkg/basecontroller/factory"
 
 	"open-cluster-management.io/ocm/pkg/work/spoke/auth/basic"
 	"open-cluster-management.io/ocm/pkg/work/spoke/auth/store"
@@ -42,8 +41,6 @@ type sarCacheValidator struct {
 
 // NewExecutorCacheValidator creates a sarCacheValidator
 func NewExecutorCacheValidator(
-	ctx context.Context,
-	recorder events.Recorder,
 	spokeKubeClient kubernetes.Interface,
 	manifestWorkLister worklister.ManifestWorkNamespaceLister,
 	restMapper meta.RESTMapper,
@@ -69,7 +66,7 @@ func NewExecutorCacheValidator(
 		spokeInformer:                    spokeKubeInformerFactory,
 	}
 
-	v.cacheController = NewExecutorCacheController(ctx, recorder,
+	v.cacheController = NewExecutorCacheController(
 		v.spokeInformer.Rbac().V1().ClusterRoleBindings(),
 		v.spokeInformer.Rbac().V1().RoleBindings(),
 		v.spokeInformer.Rbac().V1().ClusterRoles(),
@@ -101,6 +98,7 @@ func (v *sarCacheValidator) Start(ctx context.Context) {
 func (v *sarCacheValidator) Validate(ctx context.Context, executor *workapiv1.ManifestWorkExecutor,
 	gvr schema.GroupVersionResource, namespace, name string,
 	ownedByTheWork bool, obj *unstructured.Unstructured) error {
+	logger := klog.FromContext(ctx)
 	if executor == nil {
 		return nil
 	}
@@ -128,7 +126,8 @@ func (v *sarCacheValidator) Validate(ctx context.Context, executor *workapiv1.Ma
 			return err
 		}
 	} else {
-		klog.V(4).Infof("Get auth from cache executor %s, dimension: %+v allow: %v", executorKey, dimension, *allowed)
+		logger.V(4).Info("Get auth from cache executor",
+			"executorKey", executorKey, "dimension", dimension, "allowed", *allowed)
 		if !*allowed {
 			return &basic.NotAllowedError{
 				Err: fmt.Errorf("not allowed to apply the resource %s %s, %s %s",

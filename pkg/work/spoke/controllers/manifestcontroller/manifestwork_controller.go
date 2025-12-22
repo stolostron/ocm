@@ -5,8 +5,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/openshift/library-go/pkg/controller/factory"
-	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/pkg/errors"
 	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	apiequality "k8s.io/apimachinery/pkg/api/equality"
@@ -26,6 +24,8 @@ import (
 	workinformer "open-cluster-management.io/api/client/work/informers/externalversions/work/v1"
 	worklister "open-cluster-management.io/api/client/work/listers/work/v1"
 	workapiv1 "open-cluster-management.io/api/work/v1"
+	"open-cluster-management.io/sdk-go/pkg/basecontroller/factory"
+	"open-cluster-management.io/sdk-go/pkg/logging"
 	"open-cluster-management.io/sdk-go/pkg/patcher"
 
 	commonhelper "open-cluster-management.io/ocm/pkg/common/helpers"
@@ -38,6 +38,8 @@ var (
 	// Used to requeue a ManifestWork after it has been successfully reconciled.
 	ResyncInterval = 4 * time.Minute
 )
+
+const controllerName = "ManifestWorkController"
 
 type workReconcile interface {
 	reconcile(ctx context.Context,
@@ -62,7 +64,6 @@ type ManifestWorkController struct {
 
 // NewManifestWorkController returns a ManifestWorkController
 func NewManifestWorkController(
-	recorder events.Recorder,
 	spokeDynamicClient dynamic.Interface,
 	spokeKubeClient kubernetes.Interface,
 	spokeAPIExtensionClient apiextensionsclient.Interface,
@@ -75,7 +76,7 @@ func NewManifestWorkController(
 	restMapper meta.RESTMapper,
 	validator auth.ExecutorValidator) factory.Controller {
 
-	syncCtx := factory.NewSyncContext("manifestwork-controller", recorder)
+	syncCtx := factory.NewSyncContext("manifestwork-controller")
 
 	controller := &ManifestWorkController{
 		manifestWorkPatcher: patcher.NewPatcher[
@@ -115,17 +116,15 @@ func NewManifestWorkController(
 			appliedManifestWorkInformer.Informer(),
 		).
 		WithSyncContext(syncCtx).
-		WithSync(controller.sync).ToController("ManifestWorkAgent", recorder)
+		WithSync(controller.sync).ToController(controllerName)
 }
 
 // sync is the main reconcile loop for manifest work. It is triggered in two scenarios
 // 1. ManifestWork API changes
 // 2. Resources defined in manifest changed on spoke
-func (m *ManifestWorkController) sync(ctx context.Context, controllerContext factory.SyncContext) error {
-	logger := klog.FromContext(ctx).WithName("ManifestWorkController")
-
-	manifestWorkName := controllerContext.QueueKey()
-	logger.V(4).Info("Reconciling ManifestWork", "name", manifestWorkName)
+func (m *ManifestWorkController) sync(ctx context.Context, controllerContext factory.SyncContext, manifestWorkName string) error {
+	logger := klog.FromContext(ctx).WithValues("manifestWorkName", manifestWorkName)
+	logger.V(5).Info("Reconciling ManifestWork")
 
 	oldManifestWork, err := m.manifestWorkLister.Get(manifestWorkName)
 	if apierrors.IsNotFound(err) {
@@ -136,6 +135,10 @@ func (m *ManifestWorkController) sync(ctx context.Context, controllerContext fac
 		return err
 	}
 	manifestWork := oldManifestWork.DeepCopy()
+
+	// set tracing key from work if there is any
+	logger = logging.SetLogTracingByObject(logger, manifestWork)
+	ctx = klog.NewContext(ctx, logger)
 
 	// no work to do if we're deleted
 	if !manifestWork.DeletionTimestamp.IsZero() {
@@ -192,7 +195,7 @@ func (m *ManifestWorkController) sync(ctx context.Context, controllerContext fac
 		return utilerrors.NewAggregate(errs)
 	}
 
-	logger.V(2).Info("Requeue manifestwork", "name", manifestWork.Name, "requeue time", requeueTime)
+	logger.V(2).Info("Requeue manifestwork", "requeue time", requeueTime)
 	controllerContext.Queue().AddAfter(manifestWorkName, requeueTime)
 
 	return nil
@@ -227,7 +230,7 @@ func (m *ManifestWorkController) applyAppliedManifestWork(ctx context.Context, w
 	return appliedManifestWork, err
 }
 
-func onAddFunc(queue workqueue.RateLimitingInterface) func(obj interface{}) {
+func onAddFunc(queue workqueue.TypedRateLimitingInterface[string]) func(obj interface{}) {
 	return func(obj interface{}) {
 		accessor, err := meta.Accessor(obj)
 		if err != nil {
@@ -240,7 +243,7 @@ func onAddFunc(queue workqueue.RateLimitingInterface) func(obj interface{}) {
 	}
 }
 
-func onUpdateFunc(queue workqueue.RateLimitingInterface) func(oldObj, newObj interface{}) {
+func onUpdateFunc(queue workqueue.TypedRateLimitingInterface[string]) func(oldObj, newObj interface{}) {
 	return func(oldObj, newObj interface{}) {
 		newWork, ok := newObj.(*workapiv1.ManifestWork)
 		if !ok {

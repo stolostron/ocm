@@ -18,7 +18,7 @@ import (
 	"open-cluster-management.io/sdk-go/pkg/cloudevents/clients/work"
 	"open-cluster-management.io/sdk-go/pkg/cloudevents/clients/work/source/codec"
 	"open-cluster-management.io/sdk-go/pkg/cloudevents/clients/work/store"
-	"open-cluster-management.io/sdk-go/pkg/cloudevents/generic"
+	"open-cluster-management.io/sdk-go/pkg/cloudevents/generic/options/builder"
 
 	"open-cluster-management.io/ocm/pkg/features"
 	"open-cluster-management.io/ocm/pkg/work/hub/controllers/manifestworkgarbagecollection"
@@ -77,7 +77,7 @@ func (c *WorkHubManagerConfig) RunWorkHubManager(ctx context.Context, controller
 
 		watcherStore = store.NewSourceInformerWatcherStore(ctx)
 
-		_, config, err := generic.NewConfigLoader(c.workOptions.WorkDriver, c.workOptions.WorkDriverConfig).LoadConfig()
+		_, config, err := builder.NewConfigLoader(c.workOptions.WorkDriver, c.workOptions.WorkDriverConfig).LoadConfig()
 		if err != nil {
 			return err
 		}
@@ -123,7 +123,6 @@ func RunControllerManagerWithInformers(
 	replicaSetInformerFactory := workinformers.NewSharedInformerFactory(replicaSetClient, 30*time.Minute)
 
 	manifestWorkReplicaSetController := manifestworkreplicasetcontroller.NewManifestWorkReplicaSetController(
-		controllerContext.EventRecorder,
 		replicaSetClient,
 		workapplier.NewWorkApplierWithTypedClient(workClient, workInformer.Lister()),
 		replicaSetInformerFactory.Work().V1alpha1().ManifestWorkReplicaSets(),
@@ -133,7 +132,6 @@ func RunControllerManagerWithInformers(
 	)
 
 	manifestWorkGarbageCollectionController := manifestworkgarbagecollection.NewManifestWorkGarbageCollectionController(
-		controllerContext.EventRecorder,
 		workClient,
 		workInformer,
 	)

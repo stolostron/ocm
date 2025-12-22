@@ -6,12 +6,12 @@ import (
 	"fmt"
 	"os"
 	"reflect"
+	"slices"
 	"sort"
 	"strings"
 
 	"github.com/ghodss/yaml"
 	"github.com/openshift/api"
-	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/resource/resourceapply"
 	"github.com/openshift/library-go/pkg/operator/resource/resourcemerge"
 	admissionv1 "k8s.io/api/admissionregistration/v1"
@@ -36,11 +36,13 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/component-base/featuregate"
-	"k8s.io/klog/v2"
 	apiregistrationv1 "k8s.io/kube-aggregator/pkg/apis/apiregistration/v1"
 	apiregistrationclient "k8s.io/kube-aggregator/pkg/client/clientset_generated/clientset/typed/apiregistration/v1"
 
 	operatorapiv1 "open-cluster-management.io/api/operator/v1"
+	"open-cluster-management.io/sdk-go/pkg/basecontroller/events"
+
+	commonrecorder "open-cluster-management.io/ocm/pkg/common/recorder"
 )
 
 const (
@@ -232,10 +234,11 @@ func ApplyDeployment(
 	deployment.(*appsv1.Deployment).Spec.Template.Spec.NodeSelector = nodePlacement.NodeSelector
 	deployment.(*appsv1.Deployment).Spec.Template.Spec.Tolerations = nodePlacement.Tolerations
 
+	recorderWrapper := commonrecorder.NewEventsRecorderWrapper(ctx, recorder)
 	updatedDeployment, updated, err := resourceapply.ApplyDeployment(
 		ctx,
 		client.AppsV1(),
-		recorder,
+		recorderWrapper,
 		deployment.(*appsv1.Deployment), generationStatus.LastGeneration)
 	if err != nil {
 		return updatedDeployment, generationStatus, fmt.Errorf("%q (%T): %v", file, deployment, err)
@@ -281,6 +284,7 @@ func ApplyDirectly(
 	manifests resourceapply.AssetFunc,
 	files ...string) []resourceapply.ApplyResult {
 	var ret []resourceapply.ApplyResult
+	recorderWrapper := commonrecorder.NewEventsRecorderWrapper(ctx, recorder)
 
 	var genericApplyFiles []string
 	for _, file := range files {
@@ -320,7 +324,7 @@ func ApplyDirectly(
 	applyResults := resourceapply.ApplyDirectly(
 		ctx,
 		clientHolder,
-		recorder,
+		recorderWrapper,
 		cache,
 		manifests,
 		genericApplyFiles...,
@@ -431,24 +435,12 @@ func LoadClientConfigFromSecret(secret *corev1.Secret) (*rest.Config, error) {
 // - kube version: if the kube version is less than v1.14 reutn 1
 // - node: list master nodes in the cluster and return 1 if the
 // number of master nodes is equal or less than 1. Return 3 otherwise.
-func DetermineReplica(ctx context.Context, kubeClient kubernetes.Interface, mode operatorapiv1.InstallMode, kubeVersion *version.Version,
+func DetermineReplica(ctx context.Context, kubeClient kubernetes.Interface, mode operatorapiv1.InstallMode,
 	controlPlaneNodeLabelSelector string) int32 {
 	// For hosted mode, there may be many cluster-manager/klusterlet running on the management cluster,
 	// set the replica to 1 to reduce the footprint of the management cluster.
 	if IsHosted(mode) {
 		return singleReplica
-	}
-
-	if kubeVersion != nil {
-		// If the cluster does not support lease.coordination.k8s.io/v1, set the replica to 1.
-		// And then the leader election of agent running on this cluster should be disabled, because
-		// it leverages the lease API. Kubernetes starts support lease/v1 from v1.14.
-		if cnt, err := kubeVersion.Compare("v1.14.0"); err != nil {
-			klog.Warningf("set replica to %d because it's failed to check whether the cluster supports lease/v1 or not: %v", singleReplica, err)
-			return singleReplica
-		} else if cnt == -1 {
-			return singleReplica
-		}
 	}
 
 	return DetermineReplicaByNodes(ctx, kubeClient, controlPlaneNodeLabelSelector)
@@ -580,20 +572,22 @@ func RemoveRelatedResourcesStatus(
 }
 
 func SetRelatedResourcesStatusesWithObj(
-	relatedResourcesStatuses *[]operatorapiv1.RelatedResourceMeta, objData []byte) {
+	ctx context.Context, relatedResourcesStatuses *[]operatorapiv1.RelatedResourceMeta, objData []byte) {
 	res, err := GenerateRelatedResource(objData)
 	if err != nil {
-		klog.Errorf("failed to generate relatedResource %v, and skip to set into status. %v", objData, err)
+		utilruntime.HandleErrorWithContext(ctx, err,
+			"failed to generate relatedResource and skip to set into status", "object", string(objData))
 		return
 	}
 	SetRelatedResourcesStatuses(relatedResourcesStatuses, res)
 }
 
 func RemoveRelatedResourcesStatusesWithObj(
-	relatedResourcesStatuses *[]operatorapiv1.RelatedResourceMeta, objData []byte) {
+	ctx context.Context, relatedResourcesStatuses *[]operatorapiv1.RelatedResourceMeta, objData []byte) {
 	res, err := GenerateRelatedResource(objData)
 	if err != nil {
-		klog.Errorf("failed to generate relatedResource %v, and skip to set into status. %v", objData, err)
+		utilruntime.HandleErrorWithContext(ctx, err,
+			"failed to generate relatedResource and skip to set into status", "object", string(objData))
 		return
 	}
 	RemoveRelatedResourcesStatuses(relatedResourcesStatuses, res)
@@ -629,28 +623,29 @@ func ResourceType(resourceRequirementAcquirer operatorapiv1.ResourceRequirementA
 }
 
 // ResourceRequirements get resource requirements overridden by user for ResourceQosClassResourceRequirement type
-func ResourceRequirements(resourceRequirementAcquirer operatorapiv1.ResourceRequirementAcquirer) ([]byte, error) {
+func ResourceRequirements(ctx context.Context, resourceRequirementAcquirer operatorapiv1.ResourceRequirementAcquirer) ([]byte, error) {
 	r := resourceRequirementAcquirer.GetResourceRequirement()
 	if r == nil || r.Type == operatorapiv1.ResourceQosClassBestEffort {
 		return nil, nil
 	}
 	marshal, err := yaml.Marshal(r.ResourceRequirements)
 	if err != nil {
-		klog.Errorf("failed to marshal resource requirement: %v", err)
+		utilruntime.HandleErrorWithContext(ctx, err, "failed to marshal resource requirement")
 		return nil, err
 	}
 	return marshal, nil
 }
 
 // AgentPriorityClassName return the name of the PriorityClass that should be used for the klusterlet agents
-func AgentPriorityClassName(klusterlet *operatorapiv1.Klusterlet, kubeVersion *version.Version) string {
+func AgentPriorityClassName(ctx context.Context, klusterlet *operatorapiv1.Klusterlet, kubeVersion *version.Version) string {
 	if kubeVersion == nil || klusterlet == nil {
 		return ""
 	}
 
 	// priorityclass.scheduling.k8s.io/v1 is supported since v1.14.
 	if cnt, err := kubeVersion.Compare("v1.14.0"); err != nil {
-		klog.Warningf("Ignore PriorityClass because it's failed to check whether the cluster supports PriorityClass/v1 or not: %v", err)
+		utilruntime.HandleErrorWithContext(ctx, err,
+			"ignore PriorityClass because it's failed to check whether the cluster supports PriorityClass/v1")
 		return ""
 	} else if cnt == -1 {
 		return ""
@@ -675,7 +670,7 @@ func SyncSecret(ctx context.Context, client, targetClient coreclientv1.SecretsGe
 			return nil, false, nil
 		}
 		if deleteErr == nil {
-			recorder.Eventf("TargetSecretDeleted", "Deleted target secret %s/%s because source config does not exist", targetNamespace, targetName)
+			recorder.Eventf(ctx, "TargetSecretDeleted", "Deleted target secret %s/%s because source config does not exist", targetNamespace, targetName)
 			return nil, true, nil
 		}
 		return nil, false, deleteErr
@@ -705,7 +700,8 @@ func SyncSecret(ctx context.Context, client, targetClient coreclientv1.SecretsGe
 		source.ResourceVersion = ""
 		source.OwnerReferences = ownerRefs
 		source.Labels = labels
-		return resourceapply.ApplySecret(ctx, targetClient, recorder, source)
+		recorderWrapper := commonrecorder.NewEventsRecorderWrapper(ctx, recorder)
+		return resourceapply.ApplySecret(ctx, targetClient, recorderWrapper, source)
 	}
 }
 
@@ -932,16 +928,82 @@ func GRPCAuthEnabled(cm *operatorapiv1.ClusterManager) bool {
 	return false
 }
 
-func GRPCServerHostNames(clustermanagerNamespace string, cm *operatorapiv1.ClusterManager) []string {
-	hostNames := []string{fmt.Sprintf("%s-grpc-server.%s.svc", cm.Name, clustermanagerNamespace)}
+func GRPCServerHostNames(kubeClient kubernetes.Interface, clusterManagerNamespace string, cm *operatorapiv1.ClusterManager) ([]string, error) {
+	hostNames := []string{fmt.Sprintf("%s-grpc-server.%s.svc", cm.Name, clusterManagerNamespace)}
 	if cm.Spec.ServerConfiguration != nil {
 		for _, endpoint := range cm.Spec.ServerConfiguration.EndpointsExposure {
-			if endpoint.Protocol == "grpc" && endpoint.GRPC != nil && endpoint.GRPC.Type == operatorapiv1.EndpointTypeHostname {
-				if endpoint.GRPC.Hostname != nil && strings.TrimSpace(endpoint.GRPC.Hostname.Host) != "" {
+			if endpoint.Protocol != operatorapiv1.GRPCAuthType {
+				continue
+			}
+			if endpoint.GRPC == nil {
+				continue
+			}
+			switch endpoint.GRPC.Type {
+			case operatorapiv1.EndpointTypeHostname:
+				if endpoint.GRPC.Hostname != nil &&
+					strings.TrimSpace(endpoint.GRPC.Hostname.Host) != "" &&
+					!slices.Contains(hostNames, endpoint.GRPC.Hostname.Host) {
 					hostNames = append(hostNames, endpoint.GRPC.Hostname.Host)
 				}
+
+			case operatorapiv1.EndpointTypeLoadBalancer:
+				if endpoint.GRPC.LoadBalancer != nil &&
+					strings.TrimSpace(endpoint.GRPC.LoadBalancer.Host) != "" &&
+					!slices.Contains(hostNames, endpoint.GRPC.LoadBalancer.Host) {
+					hostNames = append(hostNames, endpoint.GRPC.LoadBalancer.Host)
+				}
+
+				serviceName := fmt.Sprintf("%s-grpc-server", cm.Name)
+				gRPCService, err := kubeClient.CoreV1().Services(clusterManagerNamespace).
+					Get(context.TODO(), serviceName, metav1.GetOptions{})
+				if err != nil {
+					return hostNames, fmt.Errorf("failed to find service %s in namespace %s",
+						serviceName, clusterManagerNamespace)
+				}
+
+				if len(gRPCService.Status.LoadBalancer.Ingress) == 0 {
+					return hostNames, fmt.Errorf("failed to find ingress in the status of the service %s in namespace %s",
+						serviceName, clusterManagerNamespace)
+				}
+
+				if len(gRPCService.Status.LoadBalancer.Ingress[0].IP) == 0 &&
+					len(gRPCService.Status.LoadBalancer.Ingress[0].Hostname) == 0 {
+					return hostNames, fmt.Errorf("failed to find ip or hostname in the ingress "+
+						"in the status of the service %s in namespace %s", serviceName, clusterManagerNamespace)
+				}
+
+				if len(gRPCService.Status.LoadBalancer.Ingress[0].IP) != 0 &&
+					!slices.Contains(hostNames, gRPCService.Status.LoadBalancer.Ingress[0].IP) {
+					hostNames = append(hostNames, gRPCService.Status.LoadBalancer.Ingress[0].IP)
+				}
+
+				if len(gRPCService.Status.LoadBalancer.Ingress[0].Hostname) != 0 &&
+					!slices.Contains(hostNames, gRPCService.Status.LoadBalancer.Ingress[0].Hostname) {
+					hostNames = append(hostNames, gRPCService.Status.LoadBalancer.Ingress[0].Hostname)
+				}
+
+			case operatorapiv1.EndpointTypeRoute:
+				// TODO: append route.host to the hostName
 			}
 		}
 	}
-	return hostNames
+
+	return hostNames, nil
+}
+
+func GRPCServerEndpointType(cm *operatorapiv1.ClusterManager) string {
+	if cm.Spec.ServerConfiguration != nil {
+		// there is only one gRPC endpoint in EndpointsExposure
+		for _, endpoint := range cm.Spec.ServerConfiguration.EndpointsExposure {
+			if endpoint.Protocol != operatorapiv1.GRPCAuthType {
+				continue
+			}
+			if endpoint.GRPC == nil {
+				return string(operatorapiv1.EndpointTypeHostname)
+			}
+			return string(endpoint.GRPC.Type)
+		}
+	}
+
+	return string(operatorapiv1.EndpointTypeHostname)
 }

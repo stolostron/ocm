@@ -6,7 +6,6 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/openshift/library-go/pkg/operator/events/eventstesting"
 	authv1 "k8s.io/api/authentication/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -15,6 +14,8 @@ import (
 	testclient "k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/rest"
 	clienttesting "k8s.io/client-go/testing"
+
+	"open-cluster-management.io/sdk-go/pkg/basecontroller/events"
 )
 
 func TestTokenGetter(t *testing.T) {
@@ -75,7 +76,6 @@ func TestTokenGetter(t *testing.T) {
 			})
 			tokenGetter := SATokenGetter(context.TODO(), saName, saNamespace, client)
 			token, _, additionalData, err := tokenGetter()
-			fmt.Printf("client action is %v\n", client.Actions())
 			if err != nil && !tt.wantErr {
 				t.Error(err)
 			}
@@ -276,7 +276,7 @@ func TestApplyKubeconfigSecret(t *testing.T) {
 			err := SyncKubeConfigSecret(
 				context.TODO(), secretName, secretNamespace,
 				"/tmp/kubeconfig", tkc, client.CoreV1(), tokenGetter,
-				eventstesting.NewTestingEventRecorder(t), nil)
+				events.NewContextualLoggingEventRecorder(t.Name()), nil)
 			if err != nil && !tt.wantErr {
 				t.Error(err)
 			}

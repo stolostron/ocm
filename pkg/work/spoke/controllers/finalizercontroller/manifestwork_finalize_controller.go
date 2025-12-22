@@ -5,8 +5,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/openshift/library-go/pkg/controller/factory"
-	"github.com/openshift/library-go/pkg/operator/events"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -17,11 +15,15 @@ import (
 	workinformer "open-cluster-management.io/api/client/work/informers/externalversions/work/v1"
 	worklister "open-cluster-management.io/api/client/work/listers/work/v1"
 	workapiv1 "open-cluster-management.io/api/work/v1"
+	"open-cluster-management.io/sdk-go/pkg/basecontroller/factory"
+	"open-cluster-management.io/sdk-go/pkg/logging"
 	"open-cluster-management.io/sdk-go/pkg/patcher"
 
 	"open-cluster-management.io/ocm/pkg/common/queue"
 	"open-cluster-management.io/ocm/pkg/work/helper"
 )
+
+const manifestWorkFinalizer = "ManifestWorkFinalizer"
 
 // ManifestWorkFinalizeController handles cleanup of manifestwork resources before deletion is allowed.
 type ManifestWorkFinalizeController struct {
@@ -34,7 +36,6 @@ type ManifestWorkFinalizeController struct {
 }
 
 func NewManifestWorkFinalizeController(
-	recorder events.Recorder,
 	manifestWorkClient workv1client.ManifestWorkInterface,
 	manifestWorkInformer workinformer.ManifestWorkInformer,
 	manifestWorkLister worklister.ManifestWorkNamespaceLister,
@@ -56,17 +57,20 @@ func NewManifestWorkFinalizeController(
 
 	return factory.New().
 		WithInformersQueueKeysFunc(queue.QueueKeyByMetaName, manifestWorkInformer.Informer()).
-		WithFilteredEventsInformersQueueKeyFunc(
+		WithFilteredEventsInformersQueueKeysFunc(
 			helper.AppliedManifestworkQueueKeyFunc(hubHash),
 			helper.AppliedManifestworkHubHashFilter(hubHash),
 			appliedManifestWorkInformer.Informer()).
-		WithSync(controller.sync).ToController("ManifestWorkFinalizer", recorder)
+		WithSync(controller.sync).ToController(manifestWorkFinalizer)
 }
 
-func (m *ManifestWorkFinalizeController) sync(ctx context.Context, controllerContext factory.SyncContext) error {
-	manifestWorkName := controllerContext.QueueKey()
+func (m *ManifestWorkFinalizeController) sync(ctx context.Context, controllerContext factory.SyncContext, manifestWorkName string) error {
 	appliedManifestWorkName := fmt.Sprintf("%s-%s", m.hubHash, manifestWorkName)
-	klog.V(5).Infof("Reconciling ManifestWork %q", manifestWorkName)
+
+	logger := klog.FromContext(ctx).WithName(appliedManifestWorkFinalizer).
+		WithValues("appliedManifestWorkName", appliedManifestWorkName, "manifestWorkName", manifestWorkName)
+
+	logger.V(5).Info("Reconciling ManifestWork")
 
 	manifestWork, err := m.manifestWorkLister.Get(manifestWorkName)
 
@@ -78,6 +82,9 @@ func (m *ManifestWorkFinalizeController) sync(ctx context.Context, controllerCon
 	case err != nil:
 		return err
 	case !manifestWork.DeletionTimestamp.IsZero():
+		// set tracing key from work if there is any
+		logger = logging.SetLogTracingByObject(logger, manifestWork)
+		ctx = klog.NewContext(ctx, logger)
 		err := m.deleteAppliedManifestWork(ctx, manifestWork, appliedManifestWorkName)
 		if err != nil {
 			return err

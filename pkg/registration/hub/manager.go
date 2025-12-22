@@ -2,10 +2,10 @@ package hub
 
 import (
 	"context"
+	"os"
 	"time"
 
 	"github.com/openshift/library-go/pkg/controller/controllercmd"
-	"github.com/openshift/library-go/pkg/controller/factory"
 	"github.com/spf13/pflag"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -13,6 +13,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/metadata"
 	"k8s.io/client-go/rest"
+	"k8s.io/klog/v2"
 	generate "k8s.io/kubectl/pkg/generate"
 	cpclientset "sigs.k8s.io/cluster-inventory-api/client/clientset/versioned"
 	cpinformerv1alpha1 "sigs.k8s.io/cluster-inventory-api/client/informers/externalversions"
@@ -28,8 +29,9 @@ import (
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
 	ocmfeature "open-cluster-management.io/api/feature"
 	operatorv1 "open-cluster-management.io/api/operator/v1"
+	"open-cluster-management.io/sdk-go/pkg/basecontroller/events"
+	"open-cluster-management.io/sdk-go/pkg/basecontroller/factory"
 
-	commonhelpers "open-cluster-management.io/ocm/pkg/common/helpers"
 	"open-cluster-management.io/ocm/pkg/features"
 	"open-cluster-management.io/ocm/pkg/registration/hub/addon"
 	"open-cluster-management.io/ocm/pkg/registration/hub/clusterprofile"
@@ -111,6 +113,14 @@ func (m *HubManagerOptions) AddFlags(fs *pflag.FlagSet) {
 
 // RunControllerManager starts the controllers on hub to manage spoke cluster registration.
 func (m *HubManagerOptions) RunControllerManager(ctx context.Context, controllerContext *controllercmd.ControllerContext) error {
+	// setting up contextual logger
+	logger := klog.NewKlogr()
+	podName := os.Getenv("POD_NAME")
+	if podName != "" {
+		logger = logger.WithValues("podName", podName)
+	}
+	ctx = klog.NewContext(ctx, logger)
+
 	kubeClient, err := kubernetes.NewForConfig(controllerContext.KubeConfig)
 	if err != nil {
 		return err
@@ -197,7 +207,7 @@ func (m *HubManagerOptions) RunControllerManagerWithInformers(
 			if len(m.AutoApprovedCSRUsers) > 0 {
 				autoApprovedCSRUsers = m.AutoApprovedCSRUsers
 			}
-			csrDriver, err := csr.NewCSRHubDriver(kubeClient, kubeInformers, autoApprovedCSRUsers, controllerContext.EventRecorder)
+			csrDriver, err := csr.NewCSRHubDriver(kubeClient, kubeInformers, autoApprovedCSRUsers)
 			if err != nil {
 				return err
 			}
@@ -212,8 +222,7 @@ func (m *HubManagerOptions) RunControllerManagerWithInformers(
 			grpcHubDriver, err := grpc.NewGRPCHubDriver(
 				kubeClient, kubeInformers,
 				m.GRPCCAKeyFile, m.GRPCCAFile, m.GRPCSigningDuration,
-				m.AutoApprovedGRPCUsers,
-				controllerContext.EventRecorder)
+				m.AutoApprovedGRPCUsers)
 			if err != nil {
 				return err
 			}
@@ -239,17 +248,15 @@ func (m *HubManagerOptions) RunControllerManagerWithInformers(
 		kubeInformers.Rbac().V1().ClusterRoleBindings(),
 		workInformers.Work().V1().ManifestWorks(),
 		hubDriver,
-		controllerContext.EventRecorder,
 		labelsMap,
 	)
 
 	taintController := taint.NewTaintController(
 		clusterClient,
 		clusterInformers.Cluster().V1().ManagedClusters(),
-		controllerContext.EventRecorder,
 	)
 
-	mcRecorder, err := commonhelpers.NewEventRecorder(ctx, clusterscheme.Scheme, kubeClient.EventsV1(), "registration-controller")
+	mcRecorder, err := events.NewEventRecorder(ctx, clusterscheme.Scheme, kubeClient.EventsV1(), "registration-controller")
 	if err != nil {
 		return err
 	}
@@ -258,7 +265,6 @@ func (m *HubManagerOptions) RunControllerManagerWithInformers(
 		clusterClient,
 		clusterInformers.Cluster().V1().ManagedClusters(),
 		kubeInformers.Coordination().V1().Leases(),
-		controllerContext.EventRecorder,
 		mcRecorder,
 	)
 
@@ -266,35 +272,30 @@ func (m *HubManagerOptions) RunControllerManagerWithInformers(
 		clusterClient,
 		clusterInformers.Cluster().V1().ManagedClusters(),
 		kubeInformers.Coordination().V1().Leases(),
-		controllerContext.EventRecorder,
 	)
 
 	managedClusterSetController := managedclusterset.NewManagedClusterSetController(
 		clusterClient,
 		clusterInformers.Cluster().V1().ManagedClusters(),
 		clusterInformers.Cluster().V1beta2().ManagedClusterSets(),
-		controllerContext.EventRecorder,
 	)
 
 	managedNamespaceController := managedcluster.NewManagedNamespaceController(
 		clusterClient,
 		clusterInformers.Cluster().V1().ManagedClusters(),
 		clusterInformers.Cluster().V1beta2().ManagedClusterSets(),
-		controllerContext.EventRecorder,
 	)
 
 	managedClusterSetBindingController := managedclustersetbinding.NewManagedClusterSetBindingController(
 		clusterClient,
 		clusterInformers.Cluster().V1beta2().ManagedClusterSets(),
 		clusterInformers.Cluster().V1beta2().ManagedClusterSetBindings(),
-		controllerContext.EventRecorder,
 	)
 
 	clusterroleController := clusterrole.NewManagedClusterClusterroleController(
 		kubeClient,
 		clusterInformers.Cluster().V1().ManagedClusters(),
 		kubeInformers.Rbac().V1().ClusterRoles(),
-		controllerContext.EventRecorder,
 		labelsMap,
 	)
 
@@ -302,14 +303,12 @@ func (m *HubManagerOptions) RunControllerManagerWithInformers(
 		addOnClient,
 		addOnInformers.Addon().V1alpha1().ManagedClusterAddOns(),
 		clusterInformers.Cluster().V1().ManagedClusters(),
-		controllerContext.EventRecorder,
 	)
 
 	addOnFeatureDiscoveryController := addon.NewAddOnFeatureDiscoveryController(
 		clusterClient,
 		clusterInformers.Cluster().V1().ManagedClusters(),
 		addOnInformers.Addon().V1alpha1().ManagedClusterAddOns(),
-		controllerContext.EventRecorder,
 	)
 
 	var defaultManagedClusterSetController, globalManagedClusterSetController factory.Controller
@@ -317,12 +316,10 @@ func (m *HubManagerOptions) RunControllerManagerWithInformers(
 		defaultManagedClusterSetController = managedclusterset.NewDefaultManagedClusterSetController(
 			clusterClient.ClusterV1beta2(),
 			clusterInformers.Cluster().V1beta2().ManagedClusterSets(),
-			controllerContext.EventRecorder,
 		)
 		globalManagedClusterSetController = managedclusterset.NewGlobalManagedClusterSetController(
 			clusterClient.ClusterV1beta2(),
 			clusterInformers.Cluster().V1beta2().ManagedClusterSets(),
-			controllerContext.EventRecorder,
 		)
 	}
 
@@ -332,7 +329,6 @@ func (m *HubManagerOptions) RunControllerManagerWithInformers(
 			clusterInformers.Cluster().V1().ManagedClusters(),
 			clusterProfileClient,
 			clusterProfileInformers.Apis().V1alpha1().ClusterProfiles(),
-			controllerContext.EventRecorder,
 		)
 	}
 
@@ -354,7 +350,6 @@ func (m *HubManagerOptions) RunControllerManagerWithInformers(
 			clusterClient,
 			clusterInformers.Cluster().V1().ManagedClusters(),
 			providers,
-			controllerContext.EventRecorder,
 		)
 	}
 
@@ -362,7 +357,6 @@ func (m *HubManagerOptions) RunControllerManagerWithInformers(
 		clusterInformers.Cluster().V1().ManagedClusters(),
 		clusterClient,
 		metadataClient,
-		controllerContext.EventRecorder,
 		m.GCResourceList,
 	)
 

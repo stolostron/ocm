@@ -5,8 +5,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/openshift/library-go/pkg/controller/factory"
-	"github.com/openshift/library-go/pkg/operator/events"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -22,6 +20,8 @@ import (
 	workinformer "open-cluster-management.io/api/client/work/informers/externalversions/work/v1"
 	worklister "open-cluster-management.io/api/client/work/listers/work/v1"
 	workapiv1 "open-cluster-management.io/api/work/v1"
+	"open-cluster-management.io/sdk-go/pkg/basecontroller/factory"
+	"open-cluster-management.io/sdk-go/pkg/logging"
 	"open-cluster-management.io/sdk-go/pkg/patcher"
 
 	commonhelper "open-cluster-management.io/ocm/pkg/common/helpers"
@@ -31,7 +31,11 @@ import (
 	"open-cluster-management.io/ocm/pkg/work/spoke/statusfeedback"
 )
 
-const statusFeedbackConditionType = "StatusFeedbackSynced"
+const (
+	statusFeedbackConditionType = "StatusFeedbackSynced"
+
+	controllerName = "AvailableStatusController"
+)
 
 // AvailableStatusController is to update the available status conditions of both manifests and manifestworks.
 // It is also used to get the status value based on status feedback configuration and get condition values
@@ -48,7 +52,6 @@ type AvailableStatusController struct {
 
 // NewAvailableStatusController returns a AvailableStatusController
 func NewAvailableStatusController(
-	recorder events.Recorder,
 	spokeDynamicClient dynamic.Interface,
 	manifestWorkClient workv1client.ManifestWorkInterface,
 	manifestWorkInformer workinformer.ManifestWorkInformer,
@@ -74,11 +77,13 @@ func NewAvailableStatusController(
 
 	return factory.New().
 		WithInformersQueueKeysFunc(queue.QueueKeyByMetaName, manifestWorkInformer.Informer()).
-		WithSync(controller.sync).ToController("AvailableStatusController", recorder), nil
+		WithSync(controller.sync).ToController(controllerName), nil
 }
 
-func (c *AvailableStatusController) sync(ctx context.Context, controllerContext factory.SyncContext) error {
-	manifestWorkName := controllerContext.QueueKey()
+func (c *AvailableStatusController) sync(ctx context.Context, controllerContext factory.SyncContext, manifestWorkName string) error {
+	logger := klog.FromContext(ctx).WithValues("manifestWorkName", manifestWorkName)
+	logger.V(4).Info("Reconciling ManifestWork")
+
 	// sync a particular manifestwork
 	manifestWork, err := c.manifestWorkLister.Get(manifestWorkName)
 	if errors.IsNotFound(err) {
@@ -88,6 +93,10 @@ func (c *AvailableStatusController) sync(ctx context.Context, controllerContext 
 	if err != nil {
 		return fmt.Errorf("unable to fetch manifestwork %q: %w", manifestWorkName, err)
 	}
+
+	// set tracing key from work if there is any
+	logger = logging.SetLogTracingByObject(logger, manifestWork)
+	ctx = klog.NewContext(ctx, logger)
 
 	err = c.syncManifestWork(ctx, manifestWork)
 	if err != nil {
@@ -100,7 +109,6 @@ func (c *AvailableStatusController) sync(ctx context.Context, controllerContext 
 }
 
 func (c *AvailableStatusController) syncManifestWork(ctx context.Context, originalManifestWork *workapiv1.ManifestWork) error {
-	klog.V(5).Infof("Reconciling ManifestWork %q", originalManifestWork.Name)
 	manifestWork := originalManifestWork.DeepCopy()
 
 	// do nothing when finalizer is not added.

@@ -2,6 +2,7 @@ package klusterlet
 
 import (
 	"context"
+	"os"
 	"time"
 
 	"github.com/openshift/library-go/pkg/controller/controllercmd"
@@ -12,6 +13,7 @@ import (
 	"k8s.io/client-go/informers"
 	corev1informers "k8s.io/client-go/informers/core/v1"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/klog/v2"
 
 	operatorclient "open-cluster-management.io/api/client/operator/clientset/versioned"
 	operatorinformer "open-cluster-management.io/api/client/operator/informers/externalversions"
@@ -34,6 +36,14 @@ type Options struct {
 
 // RunKlusterletOperator starts a new klusterlet operator
 func (o *Options) RunKlusterletOperator(ctx context.Context, controllerContext *controllercmd.ControllerContext) error {
+	// setting up contextual logger
+	logger := klog.NewKlogr()
+	podName := os.Getenv("POD_NAME")
+	if podName != "" {
+		logger = logger.WithValues("podName", podName)
+	}
+	ctx = klog.NewContext(ctx, logger)
+
 	// Build kube client and informer
 	kubeClient, err := kubernetes.NewForConfig(controllerContext.KubeConfig)
 	if err != nil {
@@ -111,8 +121,7 @@ func (o *Options) RunKlusterletOperator(ctx context.Context, controllerContext *
 		o.ControlPlaneNodeLabelSelector,
 		o.DeploymentReplicas,
 		o.DisableAddonNamespace,
-		o.EnableSyncLabels,
-		controllerContext.EventRecorder)
+		o.EnableSyncLabels)
 
 	klusterletCleanupController := klusterletcontroller.NewKlusterletCleanupController(
 		kubeClient,
@@ -126,15 +135,13 @@ func (o *Options) RunKlusterletOperator(ctx context.Context, controllerContext *
 		helpers.GetOperatorNamespace(),
 		o.ControlPlaneNodeLabelSelector,
 		o.DeploymentReplicas,
-		o.DisableAddonNamespace,
-		controllerContext.EventRecorder)
+		o.DisableAddonNamespace)
 
 	ssarController := ssarcontroller.NewKlusterletSSARController(
 		kubeClient,
 		operatorClient.OperatorV1().Klusterlets(),
 		operatorInformer.Operator().V1().Klusterlets(),
 		secretInformers,
-		controllerContext.EventRecorder,
 	)
 
 	statusController := statuscontroller.NewKlusterletStatusController(
@@ -142,14 +149,12 @@ func (o *Options) RunKlusterletOperator(ctx context.Context, controllerContext *
 		operatorClient.OperatorV1().Klusterlets(),
 		operatorInformer.Operator().V1().Klusterlets(),
 		deploymentInformer.Apps().V1().Deployments(),
-		controllerContext.EventRecorder,
 	)
 
 	addonController := addonsecretcontroller.NewAddonPullImageSecretController(
 		kubeClient,
 		helpers.GetOperatorNamespace(),
 		kubeInformer.Core().V1().Namespaces(),
-		controllerContext.EventRecorder,
 	)
 
 	go operatorInformer.Start(ctx.Done())
