@@ -163,7 +163,7 @@ func TestMergeManifestConditions(t *testing.T) {
 				}
 
 				if !equality.Semantic.DeepEqual(actualCondition, expectedCondition) {
-					t.Errorf(cmp.Diff(actualCondition, expectedCondition))
+					t.Errorf("unexpected condition: %s", cmp.Diff(actualCondition, expectedCondition))
 				}
 			}
 		})
@@ -227,7 +227,7 @@ func TestMergeStatusConditions(t *testing.T) {
 					actual.LastTransitionTime = metav1.Time{}
 				}
 				if !equality.Semantic.DeepEqual(actual, expect) {
-					t.Errorf(cmp.Diff(actual, expect))
+					t.Errorf("unexpected condition: %s", cmp.Diff(actual, expect))
 				}
 			}
 		})
@@ -347,7 +347,7 @@ func TestDeleteAppliedResourcess(t *testing.T) {
 			}
 
 			if !equality.Semantic.DeepEqual(actual, c.expectedResourcesPendingFinalization) {
-				t.Errorf(cmp.Diff(actual, c.expectedResourcesPendingFinalization))
+				t.Errorf("unexpected resources pending finalization: %s", cmp.Diff(actual, c.expectedResourcesPendingFinalization))
 			}
 		})
 	}
