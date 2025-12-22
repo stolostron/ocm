@@ -8,7 +8,7 @@ ARG MCE_VERSION
 ENV SOURCE_GIT_TAG=${MCE_VERSION}
 RUN echo "SOURCE_GIT_TAG=${SOURCE_GIT_TAG}"
 
-RUN GO_BUILD_PACKAGES=./cmd/registration-operator make build --warn-undefined-variables
+RUN CGO_ENABLED=0 GO_BUILD_PACKAGES=./cmd/registration-operator make build --warn-undefined-variables
 
 FROM registry.access.redhat.com/ubi9/ubi-minimal:latest
 
