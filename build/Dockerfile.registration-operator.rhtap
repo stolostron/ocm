@@ -14,6 +14,7 @@ FROM registry.access.redhat.com/ubi9/ubi-minimal:latest
 
 LABEL \
       name="multicluster-engine/registration-operator-rhel9" \
+      cpe="cpe:/a:redhat:multicluster_engine:2.7::el9" \
       summary="registration-operator" \
       description="registration-operator" \
       io.k8s.description="registration-operator" \
