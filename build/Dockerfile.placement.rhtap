@@ -10,6 +10,7 @@ FROM registry.access.redhat.com/ubi9/ubi-minimal:latest
 LABEL \
       url="https://github.com/stolostron/ocm" \
       name="multicluster-engine/placement-rhel9" \
+      cpe="cpe:/a:redhat:multicluster_engine:2.10::el9" \
       summary="placement" \
       description="placement" \
       io.k8s.description="placement" \
