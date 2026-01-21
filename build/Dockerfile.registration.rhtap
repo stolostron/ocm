@@ -9,6 +9,7 @@ FROM registry.access.redhat.com/ubi9/ubi-minimal:latest
 
 LABEL \
       name="multicluster-engine/registration-rhel9" \
+      cpe="cpe:/a:redhat:multicluster_engine:2.6::el9" \
       summary="registration" \
       description="registration" \
       io.k8s.description="registration" \
