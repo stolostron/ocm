@@ -10,6 +10,7 @@ FROM registry.access.redhat.com/ubi9/ubi-minimal:latest
 LABEL \
       url="https://github.com/stolostron/ocm" \
       name="multicluster-engine/addon-manager-rhel9" \
+      cpe="cpe:/a:redhat:multicluster_engine:2.11::el9" \
       summary="addon-manager" \
       description="addon-manager" \
       io.k8s.description="addon-manager" \
