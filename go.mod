@@ -28,7 +28,7 @@ require (
 	github.com/valyala/fasttemplate v1.2.2
 	google.golang.org/grpc v1.78.0
 	gopkg.in/yaml.v2 v2.4.0
-	helm.sh/helm/v3 v3.19.4
+	helm.sh/helm/v3 v3.19.5
 	k8s.io/api v0.34.3
 	k8s.io/apiextensions-apiserver v0.34.3
 	k8s.io/apimachinery v0.34.3
@@ -40,8 +40,8 @@ require (
 	k8s.io/kubectl v0.34.3
 	k8s.io/utils v0.0.0-20250604170112-4c0f3b243397
 	open-cluster-management.io/addon-framework v1.1.1-0.20251222073158-b5846d76add9
-	open-cluster-management.io/api v1.1.1-0.20260108015315-68cef17a0643
-	open-cluster-management.io/sdk-go v1.1.1-0.20260112054941-b6c1a665df1b
+	open-cluster-management.io/api v1.1.1-0.20260126032025-b449b3b4e4b9
+	open-cluster-management.io/sdk-go v1.1.1-0.20260120013142-6d087c9a2a3d
 	sigs.k8s.io/about-api v0.0.0-20250131010323-518069c31c03
 	sigs.k8s.io/cluster-inventory-api v0.0.0-20251124125836-445319b6307a
 	sigs.k8s.io/controller-runtime v0.22.4
