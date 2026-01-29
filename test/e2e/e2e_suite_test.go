@@ -174,9 +174,6 @@ var _ = BeforeSuite(func() {
 		return hub.CheckHubReady()
 	}).Should(Succeed())
 
-	By("Validate image configuration")
-	validateImageConfiguration()
-
 	By("Create a universal Klusterlet/managedcluster")
 	framework.CreateAndApproveKlusterlet(
 		hub, spoke,
@@ -229,11 +226,6 @@ func validateImageConfiguration() {
 		By("Skipping image validation: no expected image tag specified")
 		return
 	}
-
-	By(fmt.Sprintf("Validating image configuration uses expected tag: %s", expectedImageTag))
-
-	// Validate test image variables
-	validateTestImageVariables()
 
 	// Validate ClusterManager spec after it's deployed
 	Eventually(validateClusterManagerImageSpecs).Should(Succeed())

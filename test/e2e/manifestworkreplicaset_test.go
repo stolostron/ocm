@@ -304,8 +304,8 @@ var _ = ginkgo.Describe("Test ManifestWorkReplicaSet", ginkgo.Label("manifestwor
 					return err
 				}
 
-				if mwReplicaSet.Status.Summary.Total != numOfClusters {
-					return fmt.Errorf("total number of clusters is not correct, expect %d, got %d", numOfClusters, mwReplicaSet.Status.Summary.Total)
+				if mwrSet.Status.Summary.Total != numOfClusters {
+					return fmt.Errorf("total number of clusters is not correct, expect %d, got %d", numOfClusters, mwrSet.Status.Summary.Total)
 				}
 				return nil
 			}).Should(gomega.Succeed())
@@ -391,8 +391,8 @@ var _ = ginkgo.Describe("Test ManifestWorkReplicaSet", ginkgo.Label("manifestwor
 					return err
 				}
 
-				if mwReplicaSet.Status.Summary.Total != numOfClusters {
-					return fmt.Errorf("total number of clusters is not correct, expect %d, got %d", numOfClusters, mwReplicaSet.Status.Summary.Total)
+				if mwrSet.Status.Summary.Total != numOfClusters {
+					return fmt.Errorf("total number of clusters is not correct, expect %d, got %d", numOfClusters, mwrSet.Status.Summary.Total)
 				}
 				return nil
 			}).Should(gomega.Succeed())
