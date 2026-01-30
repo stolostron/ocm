@@ -23,7 +23,7 @@ require (
 	github.com/valyala/fasttemplate v1.2.2
 	go.uber.org/zap v1.27.0
 	golang.org/x/exp v0.0.0-20230522175609-2e198f4a06a1
-	golang.org/x/net v0.34.0
+	golang.org/x/net v0.38.0
 	gopkg.in/yaml.v2 v2.4.0
 	k8s.io/api v0.29.4
 	k8s.io/apiextensions-apiserver v0.29.3
