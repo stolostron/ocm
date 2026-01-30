@@ -26,7 +26,7 @@ require (
 	github.com/valyala/fasttemplate v1.2.2
 	golang.org/x/exp v0.0.0-20250305212735-054e65f0b394
 	gopkg.in/yaml.v2 v2.4.0
-	helm.sh/helm/v3 v3.16.3
+	helm.sh/helm/v3 v3.18.5
 	k8s.io/api v0.31.4
 	k8s.io/apiextensions-apiserver v0.31.3
 	k8s.io/apimachinery v0.31.4
