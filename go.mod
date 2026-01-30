@@ -20,7 +20,7 @@ require (
 	github.com/stretchr/testify v1.9.0
 	github.com/valyala/fasttemplate v1.2.2
 	golang.org/x/exp v0.0.0-20240719175910-8a7402abbf56
-	golang.org/x/net v0.34.0
+	golang.org/x/net v0.38.0
 	gopkg.in/yaml.v2 v2.4.0
 	helm.sh/helm/v3 v3.15.3
 	k8s.io/api v0.30.3
