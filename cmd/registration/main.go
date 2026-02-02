@@ -10,6 +10,7 @@ import (
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	utilflag "k8s.io/component-base/cli/flag"
 	"k8s.io/component-base/logs"
+	"k8s.io/klog/v2"
 
 	ocmfeature "open-cluster-management.io/api/feature"
 
@@ -30,6 +31,8 @@ func main() {
 	logs.AddFlags(pflag.CommandLine)
 	logs.InitLogs()
 	defer logs.FlushLogs()
+
+	klog.Info("Starting registration controller")
 
 	utilruntime.Must(features.HubMutableFeatureGate.Add(ocmfeature.DefaultHubRegistrationFeatureGates))
 	features.HubMutableFeatureGate.AddFlag(pflag.CommandLine)
