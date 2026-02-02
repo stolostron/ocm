@@ -35,6 +35,9 @@ func main() {
 	logs.InitLogs()
 	defer logs.FlushLogs()
 
+	// Log registration component initialization for CI verification
+	fmt.Println("Starting registration component...")
+
 	utilruntime.Must(features.HubMutableFeatureGate.Add(ocmfeature.DefaultHubRegistrationFeatureGates))
 	features.HubMutableFeatureGate.AddFlag(pflag.CommandLine)
 
