@@ -23,6 +23,9 @@ func main() {
 	logs.InitLogs()
 	defer logs.FlushLogs()
 
+	// Log startup message for registration-operator
+	fmt.Println("Starting registration-operator...")
+
 	command := newNucleusCommand()
 	if err := command.Execute(); err != nil {
 		fmt.Fprintf(os.Stderr, "%v\n", err)
