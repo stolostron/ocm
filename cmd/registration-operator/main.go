@@ -9,6 +9,7 @@ import (
 	"github.com/spf13/pflag"
 	utilflag "k8s.io/component-base/cli/flag"
 	"k8s.io/component-base/logs"
+	"k8s.io/klog/v2"
 
 	"open-cluster-management.io/ocm/pkg/cmd/hub"
 	"open-cluster-management.io/ocm/pkg/cmd/spoke"
@@ -22,6 +23,8 @@ func main() {
 	logs.AddFlags(pflag.CommandLine)
 	logs.InitLogs()
 	defer logs.FlushLogs()
+
+	klog.Info("Starting registration-operator")
 
 	command := newNucleusCommand()
 	if err := command.Execute(); err != nil {
