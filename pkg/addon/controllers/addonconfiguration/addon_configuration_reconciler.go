@@ -2,6 +2,7 @@ package addonconfiguration
 
 import (
 	"context"
+	"sort"
 
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 
@@ -75,6 +76,14 @@ func (d *managedClusterAddonConfigurationReconciler) mergeAddonConfig(
 			mergedConfigs = append(mergedConfigs, config)
 		}
 	}
+
+	// Sort by ConfigGroupResource (Group, Resource) to ensure stable ordering
+	sort.Slice(mergedConfigs, func(i, j int) bool {
+		if mergedConfigs[i].ConfigGroupResource.Group != mergedConfigs[j].ConfigGroupResource.Group {
+			return mergedConfigs[i].ConfigGroupResource.Group < mergedConfigs[j].ConfigGroupResource.Group
+		}
+		return mergedConfigs[i].ConfigGroupResource.Resource < mergedConfigs[j].ConfigGroupResource.Resource
+	})
 
 	mcaCopy.Status.ConfigReferences = mergedConfigs
 	return mcaCopy
