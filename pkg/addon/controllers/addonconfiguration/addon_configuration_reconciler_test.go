@@ -240,6 +240,15 @@ func TestAddonConfigReconcile(t *testing.T) {
 				sort.Sort(byPatchName(actions))
 				expectPatchConfigurationAction(t, actions[0], []addonv1alpha1.ConfigReference{
 					{
+						ConfigGroupResource: addonv1alpha1.ConfigGroupResource{Group: "core", Resource: "Bar"},
+						ConfigReferent:      addonv1alpha1.ConfigReferent{Name: "test1"},
+						DesiredConfig: &addonv1alpha1.ConfigSpecHash{
+							ConfigReferent: addonv1alpha1.ConfigReferent{Name: "test1"},
+							SpecHash:       "<core-bar-test1-hash>",
+						},
+						LastObservedGeneration: 0,
+					},
+					{
 						ConfigGroupResource: addonv1alpha1.ConfigGroupResource{Group: "core", Resource: "Foo"},
 						ConfigReferent:      addonv1alpha1.ConfigReferent{Name: "test2"},
 						DesiredConfig: &addonv1alpha1.ConfigSpecHash{
@@ -248,6 +257,8 @@ func TestAddonConfigReconcile(t *testing.T) {
 						},
 						LastObservedGeneration: 0,
 					},
+				})
+				expectPatchConfigurationAction(t, actions[1], []addonv1alpha1.ConfigReference{
 					{
 						ConfigGroupResource: addonv1alpha1.ConfigGroupResource{Group: "core", Resource: "Bar"},
 						ConfigReferent:      addonv1alpha1.ConfigReferent{Name: "test1"},
@@ -257,8 +268,6 @@ func TestAddonConfigReconcile(t *testing.T) {
 						},
 						LastObservedGeneration: 0,
 					},
-				})
-				expectPatchConfigurationAction(t, actions[1], []addonv1alpha1.ConfigReference{
 					{
 						ConfigGroupResource: addonv1alpha1.ConfigGroupResource{Group: "core", Resource: "Foo"},
 						ConfigReferent:      addonv1alpha1.ConfigReferent{Name: "test1"},
@@ -268,6 +277,8 @@ func TestAddonConfigReconcile(t *testing.T) {
 						},
 						LastObservedGeneration: 0,
 					},
+				})
+				expectPatchConfigurationAction(t, actions[2], []addonv1alpha1.ConfigReference{
 					{
 						ConfigGroupResource: addonv1alpha1.ConfigGroupResource{Group: "core", Resource: "Bar"},
 						ConfigReferent:      addonv1alpha1.ConfigReferent{Name: "test1"},
@@ -277,23 +288,12 @@ func TestAddonConfigReconcile(t *testing.T) {
 						},
 						LastObservedGeneration: 0,
 					},
-				})
-				expectPatchConfigurationAction(t, actions[2], []addonv1alpha1.ConfigReference{
 					{
 						ConfigGroupResource: addonv1alpha1.ConfigGroupResource{Group: "core", Resource: "Foo"},
 						ConfigReferent:      addonv1alpha1.ConfigReferent{Name: "test2"},
 						DesiredConfig: &addonv1alpha1.ConfigSpecHash{
 							ConfigReferent: addonv1alpha1.ConfigReferent{Name: "test2"},
 							SpecHash:       "",
-						},
-						LastObservedGeneration: 0,
-					},
-					{
-						ConfigGroupResource: addonv1alpha1.ConfigGroupResource{Group: "core", Resource: "Bar"},
-						ConfigReferent:      addonv1alpha1.ConfigReferent{Name: "test1"},
-						DesiredConfig: &addonv1alpha1.ConfigSpecHash{
-							ConfigReferent: addonv1alpha1.ConfigReferent{Name: "test1"},
-							SpecHash:       "<core-bar-test1-hash>",
 						},
 						LastObservedGeneration: 0,
 					},
