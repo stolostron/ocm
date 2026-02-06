@@ -33,6 +33,12 @@ spec:
     value: build/Dockerfile.placement.rhtap
   - name: path-context
     value: .
+  - name: send-slack-notification
+    value: 'true'
+  - name: konflux-application-name
+    value: release-mce-217
+  - name: slack-member-id
+    value: U02CRCBPXK4
   pipelineRef:
     resolver: git
     params:
