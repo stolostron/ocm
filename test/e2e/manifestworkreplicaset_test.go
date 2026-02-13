@@ -34,7 +34,7 @@ var _ = ginkgo.Describe("Test ManifestWorkReplicaSet", ginkgo.Label("manifestwor
 	})
 
 	ginkgo.Context("Creating a ManifestWorkReplicaSet and check created resources", func() {
-		ginkgo.It("Should create ManifestWorkReplicaSet successfullt", func() {
+		ginkgo.It("Should create ManifestWorkReplicaSet successfully", func() {
 			ginkgo.By("create manifestworkreplicaset")
 			ns1 := fmt.Sprintf("ns1-%s", nameSuffix)
 			work := newManifestWork("", "",
@@ -300,11 +300,11 @@ var _ = ginkgo.Describe("Test ManifestWorkReplicaSet", ginkgo.Label("manifestwor
 				}
 
 				if !meta.IsStatusConditionTrue(mwrSet.Status.Conditions, workapiv1alpha1.ManifestWorkReplicaSetConditionPlacementVerified) {
-					return err
+					return fmt.Errorf("placement verified condition is not true")
 				}
 
-				if mwReplicaSet.Status.Summary.Total != numOfClusters {
-					return fmt.Errorf("total number of clusters is not correct, expect %d, got %d", numOfClusters, mwReplicaSet.Status.Summary.Total)
+				if mwrSet.Status.Summary.Total != numOfClusters {
+					return fmt.Errorf("total number of clusters is not correct, expect %d, got %d", numOfClusters, mwrSet.Status.Summary.Total)
 				}
 				return nil
 			}).Should(gomega.Succeed())
