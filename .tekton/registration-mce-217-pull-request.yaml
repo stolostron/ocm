@@ -39,4 +39,13 @@ spec:
     - name: git-auth
       secret:
         secretName: '{{ git_auth_secret }}'
+  pipelineRef:
+    resolver: git
+    params:
+      - name: url
+        value: https://github.com/stolostron/konflux-build-catalog.git
+      - name: revision
+        value: main
+      - name: pathInRepo
+        value: pipelines/common-stage.yaml
 status: {}
