@@ -626,7 +626,7 @@ func (c *schedulingController) bind(
 		placementDecisionNames.Insert(pd.Name)
 		err := c.createOrUpdatePlacementDecision(ctx, placement, pd, clusterScores, status)
 		if err != nil {
-			errs = append(errs, err)
+			errs = append(errs, err) //nolint:staticcheck // SA4010: errs is intentionally reset below for delete operations
 		}
 	}
 

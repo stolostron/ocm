@@ -127,7 +127,7 @@ func (c *managedClusterStatusController) sync(ctx context.Context, syncCtx facto
 	outOfSynced := meta.IsStatusConditionFalse(newCluster.Status.Conditions, clusterv1.ManagedClusterConditionClockSynced)
 	if outOfSynced {
 		c.recorder.Eventf("ClockOutOfSync", "The managed cluster's clock is out of sync, the agent will not be able to update the status of managed cluster.")
-		return fmt.Errorf("the managed cluster's clock is out of sync, the agent will not be able to update the status of managed cluster.")
+		return fmt.Errorf("the managed cluster's clock is out of sync, the agent will not be able to update the status of managed cluster")
 	}
 
 	changed, err := c.patcher.PatchStatus(ctx, newCluster, newCluster.Status, cluster.Status)

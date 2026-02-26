@@ -7,7 +7,7 @@ import (
 	apiequality "k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 
 	ocmfeature "open-cluster-management.io/api/feature"
 	workapiv1 "open-cluster-management.io/api/work/v1"
@@ -150,14 +150,14 @@ func TestStatusReader(t *testing.T) {
 					Name: "ReadyReplicas",
 					Value: workapiv1.FieldValue{
 						Type:    workapiv1.Integer,
-						Integer: pointer.Int64(1),
+						Integer: ptr.To(int64(1)),
 					},
 				},
 				{
 					Name: "Replicas",
 					Value: workapiv1.FieldValue{
 						Type:    workapiv1.Integer,
-						Integer: pointer.Int64(2),
+						Integer: ptr.To(int64(2)),
 					},
 				},
 			},
@@ -180,7 +180,7 @@ func TestStatusReader(t *testing.T) {
 					Name: "available",
 					Value: workapiv1.FieldValue{
 						Type:   workapiv1.String,
-						String: pointer.String("true"),
+						String: ptr.To("true"),
 					},
 				},
 			},
@@ -207,7 +207,7 @@ func TestStatusReader(t *testing.T) {
 					Name: "replicas",
 					Value: workapiv1.FieldValue{
 						Type:    workapiv1.Integer,
-						Integer: pointer.Int64(2),
+						Integer: ptr.To(int64(2)),
 					},
 				},
 			},
@@ -242,7 +242,7 @@ func TestStatusReader(t *testing.T) {
 					Name: "replicas",
 					Value: workapiv1.FieldValue{
 						Type:    workapiv1.Integer,
-						Integer: pointer.Int64(2),
+						Integer: ptr.To(int64(2)),
 					},
 				},
 			},
@@ -257,14 +257,14 @@ func TestStatusReader(t *testing.T) {
 					Name: "JobComplete",
 					Value: workapiv1.FieldValue{
 						Type:   workapiv1.String,
-						String: pointer.String("True"),
+						String: ptr.To("True"),
 					},
 				},
 				{
 					Name: "JobSucceeded",
 					Value: workapiv1.FieldValue{
 						Type:    workapiv1.Integer,
-						Integer: pointer.Int64(1),
+						Integer: ptr.To(int64(1)),
 					},
 				},
 			},
@@ -279,14 +279,14 @@ func TestStatusReader(t *testing.T) {
 					Name: "PodReady",
 					Value: workapiv1.FieldValue{
 						Type:   workapiv1.String,
-						String: pointer.String("False"),
+						String: ptr.To("False"),
 					},
 				},
 				{
 					Name: "PodPhase",
 					Value: workapiv1.FieldValue{
 						Type:   workapiv1.String,
-						String: pointer.String("Succeeded"),
+						String: ptr.To("Succeeded"),
 					},
 				},
 			},
@@ -311,7 +311,7 @@ func TestStatusReader(t *testing.T) {
 					Name: "type",
 					Value: workapiv1.FieldValue{
 						Type:   workapiv1.String,
-						String: pointer.String("Available"),
+						String: ptr.To("Available"),
 					},
 				},
 			},
@@ -335,7 +335,7 @@ func TestStatusReader(t *testing.T) {
 					Name: "conditions",
 					Value: workapiv1.FieldValue{
 						Type:    workapiv1.JsonRaw,
-						JsonRaw: pointer.String(`[{"status":"False","type":"Ready"}]`),
+						JsonRaw: ptr.To(`[{"status":"False","type":"Ready"}]`),
 					},
 				},
 			},
@@ -374,7 +374,7 @@ func TestStatusReader(t *testing.T) {
 					Name: "conditions",
 					Value: workapiv1.FieldValue{
 						Type:    workapiv1.JsonRaw,
-						JsonRaw: pointer.String(`["Cond1","Cond3"]`),
+						JsonRaw: ptr.To(`["Cond1","Cond3"]`),
 					},
 				},
 			},

@@ -19,7 +19,7 @@ import (
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	versionutil "k8s.io/apimachinery/pkg/util/version"
 	"k8s.io/klog/v2"
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 
 	"open-cluster-management.io/ocm/pkg/version"
 )
@@ -279,14 +279,14 @@ func (m *Manager[T]) shouldUpdate(old, new T) (bool, error) {
 }
 
 func EqualV1(old, new *apiextensionsv1.CustomResourceDefinition) bool {
-	modified := pointer.Bool(false)
+	modified := ptr.To(false)
 
 	resourcemerge.EnsureCustomResourceDefinitionV1(modified, old, *new)
 	return !*modified
 }
 
 func EqualV1Beta1(old, new *apiextensionsv1beta1.CustomResourceDefinition) bool {
-	modified := pointer.Bool(false)
+	modified := ptr.To(false)
 
 	resourcemerge.EnsureCustomResourceDefinitionV1Beta1(modified, old, *new)
 	return !*modified

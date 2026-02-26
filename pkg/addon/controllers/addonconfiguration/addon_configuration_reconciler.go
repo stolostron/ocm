@@ -66,7 +66,7 @@ func (d *managedClusterAddonConfigurationReconciler) mergeAddonConfig(
 			match = true
 			// set LastObservedGeneration to 0 when config name/namespace changes
 			if mergedConfigs[i].DesiredConfig != nil && (mergedConfigs[i].DesiredConfig.ConfigReferent != config.DesiredConfig.ConfigReferent) {
-				mergedConfigs[i].LastObservedGeneration = 0
+				mergedConfigs[i].LastObservedGeneration = 0 //nolint:staticcheck // SA1019: deprecated field, kept for backward compatibility
 			}
 			mergedConfigs[i].ConfigReferent = config.ConfigReferent
 			mergedConfigs[i].DesiredConfig = config.DesiredConfig.DeepCopy()

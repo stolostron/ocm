@@ -12,7 +12,7 @@ import (
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	fakedynamic "k8s.io/client-go/dynamic/fake"
 	clienttesting "k8s.io/client-go/testing"
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 
 	fakeworkclient "open-cluster-management.io/api/client/work/clientset/versioned/fake"
 	ocmfeature "open-cluster-management.io/api/feature"
@@ -294,21 +294,21 @@ func TestStatusFeedback(t *testing.T) {
 						Name: "ReadyReplicas",
 						Value: workapiv1.FieldValue{
 							Type:    workapiv1.Integer,
-							Integer: pointer.Int64(2),
+							Integer: ptr.To(int64(2)),
 						},
 					},
 					{
 						Name: "Replicas",
 						Value: workapiv1.FieldValue{
 							Type:    workapiv1.Integer,
-							Integer: pointer.Int64(3),
+							Integer: ptr.To(int64(3)),
 						},
 					},
 					{
 						Name: "AvailableReplicas",
 						Value: workapiv1.FieldValue{
 							Type:    workapiv1.Integer,
-							Integer: pointer.Int64(2),
+							Integer: ptr.To(int64(2)),
 						},
 					},
 				}
@@ -369,7 +369,7 @@ func TestStatusFeedback(t *testing.T) {
 						Name: "Replicas",
 						Value: workapiv1.FieldValue{
 							Type:    workapiv1.Integer,
-							Integer: pointer.Int64(3),
+							Integer: ptr.To(int64(3)),
 						},
 					},
 				}

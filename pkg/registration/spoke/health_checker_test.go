@@ -2,7 +2,6 @@ package spoke
 
 import (
 	"context"
-	"io/ioutil"
 	"os"
 	"path"
 	"testing"
@@ -28,14 +27,14 @@ func TestClientCertHealthChecker(t *testing.T) {
 
 	validCertFile := path.Join(testDir, "cert1.crt")
 	cert1 := testinghelpers.NewTestCert("cert1", 10*time.Minute)
-	err = ioutil.WriteFile(validCertFile, cert1.Cert, 0600)
+	err = os.WriteFile(validCertFile, cert1.Cert, 0600)
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
 
 	expiredCertFile := path.Join(testDir, "cert2.crt")
 	cert2 := testinghelpers.NewTestCert("cert2", -1*time.Minute)
-	err = ioutil.WriteFile(expiredCertFile, cert2.Cert, 0600)
+	err = os.WriteFile(expiredCertFile, cert2.Cert, 0600)
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}

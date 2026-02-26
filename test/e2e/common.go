@@ -33,7 +33,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/klog/v2"
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 
 	addonv1alpha1 "open-cluster-management.io/api/addon/v1alpha1"
@@ -1049,7 +1049,7 @@ func (t *Tester) BuildClusterClient(saNamespace, saName string, clusterPolicyRul
 		saName,
 		&authv1.TokenRequest{
 			Spec: authv1.TokenRequestSpec{
-				ExpirationSeconds: pointer.Int64(8640 * 3600),
+				ExpirationSeconds: ptr.To(int64(8640 * 3600)),
 			},
 		},
 		metav1.CreateOptions{},
@@ -1093,8 +1093,9 @@ func (t *Tester) CleanupClusterClient(saNamespace, saName string) error {
 }
 
 func (t *Tester) DeleteManageClusterAndRelatedNamespace(clusterName string) error {
-	if err := wait.Poll(1*time.Second, 90*time.Second, func() (bool, error) {
-		err := t.ClusterClient.ClusterV1().ManagedClusters().Delete(context.TODO(), clusterName, metav1.DeleteOptions{})
+	ctx := context.TODO()
+	if err := wait.PollUntilContextTimeout(ctx, 1*time.Second, 90*time.Second, false, func(ctx context.Context) (bool, error) {
+		err := t.ClusterClient.ClusterV1().ManagedClusters().Delete(ctx, clusterName, metav1.DeleteOptions{})
 		if err != nil && !errors.IsNotFound(err) {
 			return false, err
 		}
@@ -1104,8 +1105,8 @@ func (t *Tester) DeleteManageClusterAndRelatedNamespace(clusterName string) erro
 	}
 
 	// delete namespace created by hub automatically
-	if err := wait.Poll(1*time.Second, 5*time.Second, func() (bool, error) {
-		err := t.HubKubeClient.CoreV1().Namespaces().Delete(context.TODO(), clusterName, metav1.DeleteOptions{})
+	if err := wait.PollUntilContextTimeout(ctx, 1*time.Second, 5*time.Second, false, func(ctx context.Context) (bool, error) {
+		err := t.HubKubeClient.CoreV1().Namespaces().Delete(ctx, clusterName, metav1.DeleteOptions{})
 		// some managed cluster just created, but the csr is not approved,
 		// so there is not a related namespace
 		if err != nil && !errors.IsNotFound(err) {

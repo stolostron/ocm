@@ -22,7 +22,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/rand"
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 
 	workapiv1 "open-cluster-management.io/api/work/v1"
 
@@ -581,28 +581,28 @@ var _ = ginkgo.Describe("Work agent", ginkgo.Label("work-agent", "sanity-check")
 						Name: "ReadyReplicas",
 						Value: workapiv1.FieldValue{
 							Type:    workapiv1.Integer,
-							Integer: pointer.Int64(1),
+							Integer: ptr.To(int64(1)),
 						},
 					},
 					{
 						Name: "Replicas",
 						Value: workapiv1.FieldValue{
 							Type:    workapiv1.Integer,
-							Integer: pointer.Int64(1),
+							Integer: ptr.To(int64(1)),
 						},
 					},
 					{
 						Name: "AvailableReplicas",
 						Value: workapiv1.FieldValue{
 							Type:    workapiv1.Integer,
-							Integer: pointer.Int64(1),
+							Integer: ptr.To(int64(1)),
 						},
 					},
 					{
 						Name: "AvailableCondition",
 						Value: workapiv1.FieldValue{
 							Type:   workapiv1.String,
-							String: pointer.String("True"),
+							String: ptr.To("True"),
 						},
 					},
 				}

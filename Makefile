@@ -78,9 +78,11 @@ update-csv: ensure-operator-sdk
 verify-crds:
 	bash -x hack/verify-crds.sh $(YAML_PATCH)
 
-verify-gocilint:
-	go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.64.6
-	golangci-lint run --timeout=5m --modules-download-mode vendor ./...
+.PHONY: lint
+lint:
+	@bash -o pipefail -c 'curl -fsSL https://raw.githubusercontent.com/open-cluster-management-io/sdk-go/main/ci/lint/run-lint.sh | bash'
+
+verify-gocilint: lint
 
 install-golang-gci:
 	go install github.com/daixiang0/gci@v0.10.1

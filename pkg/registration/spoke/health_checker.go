@@ -37,7 +37,7 @@ func (hc *clientCertHealthChecker) Check(_ *http.Request) error {
 
 func (hc *clientCertHealthChecker) start(ctx context.Context, tlsCertFile string) {
 	if err := wait.PollUntilContextCancel(ctx, hc.interval, false, func(ctx context.Context) (bool, error) {
-		data, err := os.ReadFile(tlsCertFile)
+		data, err := os.ReadFile(tlsCertFile) //nolint:gosec // G304: tlsCertFile is a controlled internal path
 		if err != nil {
 			// no work because the client certificate file may not exist yet.
 			return false, nil
