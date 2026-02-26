@@ -7,6 +7,8 @@ run:
   concurrency: 10
   # timeout for analysis, e.g. 30s, 5m, default is 1m
   timeout: 5m
+  # use vendor directory for module downloads
+  modules-download-mode: vendor
   # The mode used to evaluate relative paths.
   # It's used by exclusions, Go plugins, and some linters.
   relative-path-mode: cfg
