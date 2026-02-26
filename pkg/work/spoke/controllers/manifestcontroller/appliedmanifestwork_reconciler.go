@@ -24,7 +24,7 @@ import (
 
 type appliedManifestWorkReconciler struct {
 	spokeDynamicClient dynamic.Interface
-	rateLimiter        workqueue.RateLimiter
+	rateLimiter        workqueue.RateLimiter //nolint:staticcheck
 }
 
 func (m *appliedManifestWorkReconciler) reconcile(

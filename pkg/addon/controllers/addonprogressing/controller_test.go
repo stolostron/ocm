@@ -14,7 +14,6 @@ import (
 	"open-cluster-management.io/addon-framework/pkg/addonmanager/addontesting"
 	"open-cluster-management.io/addon-framework/pkg/agent"
 	"open-cluster-management.io/addon-framework/pkg/utils"
-	"open-cluster-management.io/api/addon/v1alpha1"
 	addonapiv1alpha1 "open-cluster-management.io/api/addon/v1alpha1"
 	fakeaddon "open-cluster-management.io/api/client/addon/clientset/versioned/fake"
 	addoninformers "open-cluster-management.io/api/client/addon/informers/externalversions"
@@ -113,24 +112,24 @@ func TestReconcile(t *testing.T) {
 				addon := addontesting.NewAddon("test", "cluster1")
 				addon.Status.ConfigReferences = []addonapiv1alpha1.ConfigReference{
 					{
-						ConfigGroupResource: v1alpha1.ConfigGroupResource{Group: "core", Resource: "foo"},
-						DesiredConfig: &v1alpha1.ConfigSpecHash{
-							ConfigReferent: v1alpha1.ConfigReferent{Name: "test1", Namespace: "open-cluster-management"},
+						ConfigGroupResource: addonapiv1alpha1.ConfigGroupResource{Group: "core", Resource: "foo"},
+						DesiredConfig: &addonapiv1alpha1.ConfigSpecHash{
+							ConfigReferent: addonapiv1alpha1.ConfigReferent{Name: "test1", Namespace: "open-cluster-management"},
 							SpecHash:       "hash1new",
 						},
-						LastAppliedConfig: &v1alpha1.ConfigSpecHash{
-							ConfigReferent: v1alpha1.ConfigReferent{Name: "test1", Namespace: "open-cluster-management"},
+						LastAppliedConfig: &addonapiv1alpha1.ConfigSpecHash{
+							ConfigReferent: addonapiv1alpha1.ConfigReferent{Name: "test1", Namespace: "open-cluster-management"},
 							SpecHash:       "",
 						},
 					},
 					{
-						ConfigGroupResource: v1alpha1.ConfigGroupResource{Group: "core", Resource: "foo"},
-						DesiredConfig: &v1alpha1.ConfigSpecHash{
-							ConfigReferent: v1alpha1.ConfigReferent{Name: "test2", Namespace: "open-cluster-management"},
+						ConfigGroupResource: addonapiv1alpha1.ConfigGroupResource{Group: "core", Resource: "foo"},
+						DesiredConfig: &addonapiv1alpha1.ConfigSpecHash{
+							ConfigReferent: addonapiv1alpha1.ConfigReferent{Name: "test2", Namespace: "open-cluster-management"},
 							SpecHash:       "hash2new",
 						},
-						LastAppliedConfig: &v1alpha1.ConfigSpecHash{
-							ConfigReferent: v1alpha1.ConfigReferent{Name: "test2", Namespace: "open-cluster-management"},
+						LastAppliedConfig: &addonapiv1alpha1.ConfigSpecHash{
+							ConfigReferent: addonapiv1alpha1.ConfigReferent{Name: "test2", Namespace: "open-cluster-management"},
 							SpecHash:       "",
 						},
 					},
@@ -194,13 +193,13 @@ func TestReconcile(t *testing.T) {
 				addon := addontesting.NewAddon("test", "cluster1")
 				addon.Status.ConfigReferences = []addonapiv1alpha1.ConfigReference{
 					{
-						ConfigGroupResource: v1alpha1.ConfigGroupResource{Group: "core", Resource: "foo"},
-						DesiredConfig: &v1alpha1.ConfigSpecHash{
-							ConfigReferent: v1alpha1.ConfigReferent{Name: "test", Namespace: "open-cluster-management"},
+						ConfigGroupResource: addonapiv1alpha1.ConfigGroupResource{Group: "core", Resource: "foo"},
+						DesiredConfig: &addonapiv1alpha1.ConfigSpecHash{
+							ConfigReferent: addonapiv1alpha1.ConfigReferent{Name: "test", Namespace: "open-cluster-management"},
 							SpecHash:       "hashnew",
 						},
-						LastAppliedConfig: &v1alpha1.ConfigSpecHash{
-							ConfigReferent: v1alpha1.ConfigReferent{Name: "test", Namespace: "open-cluster-management"},
+						LastAppliedConfig: &addonapiv1alpha1.ConfigSpecHash{
+							ConfigReferent: addonapiv1alpha1.ConfigReferent{Name: "test", Namespace: "open-cluster-management"},
 							SpecHash:       "",
 						},
 					},
@@ -264,24 +263,24 @@ func TestReconcile(t *testing.T) {
 				addon := addontesting.NewAddon("test", "cluster1")
 				addon.Status.ConfigReferences = []addonapiv1alpha1.ConfigReference{
 					{
-						ConfigGroupResource: v1alpha1.ConfigGroupResource{Group: "core", Resource: "foo"},
-						DesiredConfig: &v1alpha1.ConfigSpecHash{
-							ConfigReferent: v1alpha1.ConfigReferent{Name: "test1", Namespace: "open-cluster-management"},
+						ConfigGroupResource: addonapiv1alpha1.ConfigGroupResource{Group: "core", Resource: "foo"},
+						DesiredConfig: &addonapiv1alpha1.ConfigSpecHash{
+							ConfigReferent: addonapiv1alpha1.ConfigReferent{Name: "test1", Namespace: "open-cluster-management"},
 							SpecHash:       "hash1new",
 						},
-						LastAppliedConfig: &v1alpha1.ConfigSpecHash{
-							ConfigReferent: v1alpha1.ConfigReferent{Name: "test1", Namespace: "open-cluster-management"},
+						LastAppliedConfig: &addonapiv1alpha1.ConfigSpecHash{
+							ConfigReferent: addonapiv1alpha1.ConfigReferent{Name: "test1", Namespace: "open-cluster-management"},
 							SpecHash:       "hash",
 						},
 					},
 					{
-						ConfigGroupResource: v1alpha1.ConfigGroupResource{Group: "core", Resource: "foo"},
-						DesiredConfig: &v1alpha1.ConfigSpecHash{
-							ConfigReferent: v1alpha1.ConfigReferent{Name: "test2", Namespace: "open-cluster-management"},
+						ConfigGroupResource: addonapiv1alpha1.ConfigGroupResource{Group: "core", Resource: "foo"},
+						DesiredConfig: &addonapiv1alpha1.ConfigSpecHash{
+							ConfigReferent: addonapiv1alpha1.ConfigReferent{Name: "test2", Namespace: "open-cluster-management"},
 							SpecHash:       "hash2new",
 						},
-						LastAppliedConfig: &v1alpha1.ConfigSpecHash{
-							ConfigReferent: v1alpha1.ConfigReferent{Name: "test2", Namespace: "open-cluster-management"},
+						LastAppliedConfig: &addonapiv1alpha1.ConfigSpecHash{
+							ConfigReferent: addonapiv1alpha1.ConfigReferent{Name: "test2", Namespace: "open-cluster-management"},
 							SpecHash:       "hash",
 						},
 					},
@@ -345,13 +344,13 @@ func TestReconcile(t *testing.T) {
 				addon := addontesting.NewAddon("test", "cluster1")
 				addon.Status.ConfigReferences = []addonapiv1alpha1.ConfigReference{
 					{
-						ConfigGroupResource: v1alpha1.ConfigGroupResource{Group: "core", Resource: "foo"},
-						DesiredConfig: &v1alpha1.ConfigSpecHash{
-							ConfigReferent: v1alpha1.ConfigReferent{Name: "test", Namespace: "open-cluster-management"},
+						ConfigGroupResource: addonapiv1alpha1.ConfigGroupResource{Group: "core", Resource: "foo"},
+						DesiredConfig: &addonapiv1alpha1.ConfigSpecHash{
+							ConfigReferent: addonapiv1alpha1.ConfigReferent{Name: "test", Namespace: "open-cluster-management"},
 							SpecHash:       "hashnew",
 						},
-						LastAppliedConfig: &v1alpha1.ConfigSpecHash{
-							ConfigReferent: v1alpha1.ConfigReferent{Name: "test", Namespace: "open-cluster-management"},
+						LastAppliedConfig: &addonapiv1alpha1.ConfigSpecHash{
+							ConfigReferent: addonapiv1alpha1.ConfigReferent{Name: "test", Namespace: "open-cluster-management"},
 							SpecHash:       "hash",
 						},
 					},
@@ -415,24 +414,24 @@ func TestReconcile(t *testing.T) {
 				addon := addontesting.NewAddon("test", "cluster1")
 				addon.Status.ConfigReferences = []addonapiv1alpha1.ConfigReference{
 					{
-						ConfigGroupResource: v1alpha1.ConfigGroupResource{Group: "core", Resource: "foo"},
-						DesiredConfig: &v1alpha1.ConfigSpecHash{
-							ConfigReferent: v1alpha1.ConfigReferent{Name: "test1", Namespace: "open-cluster-management"},
+						ConfigGroupResource: addonapiv1alpha1.ConfigGroupResource{Group: "core", Resource: "foo"},
+						DesiredConfig: &addonapiv1alpha1.ConfigSpecHash{
+							ConfigReferent: addonapiv1alpha1.ConfigReferent{Name: "test1", Namespace: "open-cluster-management"},
 							SpecHash:       "hash1new",
 						},
-						LastAppliedConfig: &v1alpha1.ConfigSpecHash{
-							ConfigReferent: v1alpha1.ConfigReferent{Name: "test1", Namespace: "open-cluster-management"},
+						LastAppliedConfig: &addonapiv1alpha1.ConfigSpecHash{
+							ConfigReferent: addonapiv1alpha1.ConfigReferent{Name: "test1", Namespace: "open-cluster-management"},
 							SpecHash:       "",
 						},
 					},
 					{
-						ConfigGroupResource: v1alpha1.ConfigGroupResource{Group: "core", Resource: "foo"},
-						DesiredConfig: &v1alpha1.ConfigSpecHash{
-							ConfigReferent: v1alpha1.ConfigReferent{Name: "test2", Namespace: "open-cluster-management"},
+						ConfigGroupResource: addonapiv1alpha1.ConfigGroupResource{Group: "core", Resource: "foo"},
+						DesiredConfig: &addonapiv1alpha1.ConfigSpecHash{
+							ConfigReferent: addonapiv1alpha1.ConfigReferent{Name: "test2", Namespace: "open-cluster-management"},
 							SpecHash:       "hash2new",
 						},
-						LastAppliedConfig: &v1alpha1.ConfigSpecHash{
-							ConfigReferent: v1alpha1.ConfigReferent{Name: "test2", Namespace: "open-cluster-management"},
+						LastAppliedConfig: &addonapiv1alpha1.ConfigSpecHash{
+							ConfigReferent: addonapiv1alpha1.ConfigReferent{Name: "test2", Namespace: "open-cluster-management"},
 							SpecHash:       "",
 						},
 					},
@@ -500,24 +499,24 @@ func TestReconcile(t *testing.T) {
 				addon := addontesting.NewAddon("test", "cluster1")
 				addon.Status.ConfigReferences = []addonapiv1alpha1.ConfigReference{
 					{
-						ConfigGroupResource: v1alpha1.ConfigGroupResource{Group: "core", Resource: "foo"},
-						DesiredConfig: &v1alpha1.ConfigSpecHash{
-							ConfigReferent: v1alpha1.ConfigReferent{Name: "test1", Namespace: "open-cluster-management"},
+						ConfigGroupResource: addonapiv1alpha1.ConfigGroupResource{Group: "core", Resource: "foo"},
+						DesiredConfig: &addonapiv1alpha1.ConfigSpecHash{
+							ConfigReferent: addonapiv1alpha1.ConfigReferent{Name: "test1", Namespace: "open-cluster-management"},
 							SpecHash:       "hash1new",
 						},
-						LastAppliedConfig: &v1alpha1.ConfigSpecHash{
-							ConfigReferent: v1alpha1.ConfigReferent{Name: "test1", Namespace: "open-cluster-management"},
+						LastAppliedConfig: &addonapiv1alpha1.ConfigSpecHash{
+							ConfigReferent: addonapiv1alpha1.ConfigReferent{Name: "test1", Namespace: "open-cluster-management"},
 							SpecHash:       "hash",
 						},
 					},
 					{
-						ConfigGroupResource: v1alpha1.ConfigGroupResource{Group: "core", Resource: "foo"},
-						DesiredConfig: &v1alpha1.ConfigSpecHash{
-							ConfigReferent: v1alpha1.ConfigReferent{Name: "test2", Namespace: "open-cluster-management"},
+						ConfigGroupResource: addonapiv1alpha1.ConfigGroupResource{Group: "core", Resource: "foo"},
+						DesiredConfig: &addonapiv1alpha1.ConfigSpecHash{
+							ConfigReferent: addonapiv1alpha1.ConfigReferent{Name: "test2", Namespace: "open-cluster-management"},
 							SpecHash:       "hash2new",
 						},
-						LastAppliedConfig: &v1alpha1.ConfigSpecHash{
-							ConfigReferent: v1alpha1.ConfigReferent{Name: "test2", Namespace: "open-cluster-management"},
+						LastAppliedConfig: &addonapiv1alpha1.ConfigSpecHash{
+							ConfigReferent: addonapiv1alpha1.ConfigReferent{Name: "test2", Namespace: "open-cluster-management"},
 							SpecHash:       "hash",
 						},
 					},
@@ -585,13 +584,13 @@ func TestReconcile(t *testing.T) {
 				addon := addontesting.NewAddon("test", "cluster1")
 				addon.Status.ConfigReferences = []addonapiv1alpha1.ConfigReference{
 					{
-						ConfigGroupResource: v1alpha1.ConfigGroupResource{Group: "core", Resource: "foo"},
-						DesiredConfig: &v1alpha1.ConfigSpecHash{
-							ConfigReferent: v1alpha1.ConfigReferent{Name: "test", Namespace: "open-cluster-management"},
+						ConfigGroupResource: addonapiv1alpha1.ConfigGroupResource{Group: "core", Resource: "foo"},
+						DesiredConfig: &addonapiv1alpha1.ConfigSpecHash{
+							ConfigReferent: addonapiv1alpha1.ConfigReferent{Name: "test", Namespace: "open-cluster-management"},
 							SpecHash:       "hashnew",
 						},
-						LastAppliedConfig: &v1alpha1.ConfigSpecHash{
-							ConfigReferent: v1alpha1.ConfigReferent{Name: "test", Namespace: "open-cluster-management"},
+						LastAppliedConfig: &addonapiv1alpha1.ConfigSpecHash{
+							ConfigReferent: addonapiv1alpha1.ConfigReferent{Name: "test", Namespace: "open-cluster-management"},
 							SpecHash:       "hash",
 						},
 					},
@@ -890,13 +889,13 @@ func TestReconcileHostedAddons(t *testing.T) {
 				)
 				addon.Status.ConfigReferences = []addonapiv1alpha1.ConfigReference{
 					{
-						ConfigGroupResource: v1alpha1.ConfigGroupResource{Group: "core", Resource: "foo"},
-						DesiredConfig: &v1alpha1.ConfigSpecHash{
-							ConfigReferent: v1alpha1.ConfigReferent{Name: "test", Namespace: "open-cluster-management"},
+						ConfigGroupResource: addonapiv1alpha1.ConfigGroupResource{Group: "core", Resource: "foo"},
+						DesiredConfig: &addonapiv1alpha1.ConfigSpecHash{
+							ConfigReferent: addonapiv1alpha1.ConfigReferent{Name: "test", Namespace: "open-cluster-management"},
 							SpecHash:       "hashnew",
 						},
-						LastAppliedConfig: &v1alpha1.ConfigSpecHash{
-							ConfigReferent: v1alpha1.ConfigReferent{Name: "test", Namespace: "open-cluster-management"},
+						LastAppliedConfig: &addonapiv1alpha1.ConfigSpecHash{
+							ConfigReferent: addonapiv1alpha1.ConfigReferent{Name: "test", Namespace: "open-cluster-management"},
 							SpecHash:       "",
 						},
 					},
@@ -975,13 +974,13 @@ func TestReconcileHostedAddons(t *testing.T) {
 				)
 				addon.Status.ConfigReferences = []addonapiv1alpha1.ConfigReference{
 					{
-						ConfigGroupResource: v1alpha1.ConfigGroupResource{Group: "core", Resource: "foo"},
-						DesiredConfig: &v1alpha1.ConfigSpecHash{
-							ConfigReferent: v1alpha1.ConfigReferent{Name: "test", Namespace: "open-cluster-management"},
+						ConfigGroupResource: addonapiv1alpha1.ConfigGroupResource{Group: "core", Resource: "foo"},
+						DesiredConfig: &addonapiv1alpha1.ConfigSpecHash{
+							ConfigReferent: addonapiv1alpha1.ConfigReferent{Name: "test", Namespace: "open-cluster-management"},
 							SpecHash:       "hashnew",
 						},
-						LastAppliedConfig: &v1alpha1.ConfigSpecHash{
-							ConfigReferent: v1alpha1.ConfigReferent{Name: "test", Namespace: "open-cluster-management"},
+						LastAppliedConfig: &addonapiv1alpha1.ConfigSpecHash{
+							ConfigReferent: addonapiv1alpha1.ConfigReferent{Name: "test", Namespace: "open-cluster-management"},
 							SpecHash:       "",
 						},
 					},
@@ -1055,13 +1054,13 @@ func TestReconcileHostedAddons(t *testing.T) {
 				)
 				addon.Status.ConfigReferences = []addonapiv1alpha1.ConfigReference{
 					{
-						ConfigGroupResource: v1alpha1.ConfigGroupResource{Group: "core", Resource: "foo"},
-						DesiredConfig: &v1alpha1.ConfigSpecHash{
-							ConfigReferent: v1alpha1.ConfigReferent{Name: "test", Namespace: "open-cluster-management"},
+						ConfigGroupResource: addonapiv1alpha1.ConfigGroupResource{Group: "core", Resource: "foo"},
+						DesiredConfig: &addonapiv1alpha1.ConfigSpecHash{
+							ConfigReferent: addonapiv1alpha1.ConfigReferent{Name: "test", Namespace: "open-cluster-management"},
 							SpecHash:       "hashnew",
 						},
-						LastAppliedConfig: &v1alpha1.ConfigSpecHash{
-							ConfigReferent: v1alpha1.ConfigReferent{Name: "test", Namespace: "open-cluster-management"},
+						LastAppliedConfig: &addonapiv1alpha1.ConfigSpecHash{
+							ConfigReferent: addonapiv1alpha1.ConfigReferent{Name: "test", Namespace: "open-cluster-management"},
 							SpecHash:       "hash",
 						},
 					},
@@ -1138,13 +1137,13 @@ func TestReconcileHostedAddons(t *testing.T) {
 				)
 				addon.Status.ConfigReferences = []addonapiv1alpha1.ConfigReference{
 					{
-						ConfigGroupResource: v1alpha1.ConfigGroupResource{Group: "core", Resource: "foo"},
-						DesiredConfig: &v1alpha1.ConfigSpecHash{
-							ConfigReferent: v1alpha1.ConfigReferent{Name: "test", Namespace: "open-cluster-management"},
+						ConfigGroupResource: addonapiv1alpha1.ConfigGroupResource{Group: "core", Resource: "foo"},
+						DesiredConfig: &addonapiv1alpha1.ConfigSpecHash{
+							ConfigReferent: addonapiv1alpha1.ConfigReferent{Name: "test", Namespace: "open-cluster-management"},
 							SpecHash:       "hashnew",
 						},
-						LastAppliedConfig: &v1alpha1.ConfigSpecHash{
-							ConfigReferent: v1alpha1.ConfigReferent{Name: "test", Namespace: "open-cluster-management"},
+						LastAppliedConfig: &addonapiv1alpha1.ConfigSpecHash{
+							ConfigReferent: addonapiv1alpha1.ConfigReferent{Name: "test", Namespace: "open-cluster-management"},
 							SpecHash:       "hash",
 						},
 					},
@@ -1221,13 +1220,13 @@ func TestReconcileHostedAddons(t *testing.T) {
 				)
 				addon.Status.ConfigReferences = []addonapiv1alpha1.ConfigReference{
 					{
-						ConfigGroupResource: v1alpha1.ConfigGroupResource{Group: "core", Resource: "foo"},
-						DesiredConfig: &v1alpha1.ConfigSpecHash{
-							ConfigReferent: v1alpha1.ConfigReferent{Name: "test", Namespace: "open-cluster-management"},
+						ConfigGroupResource: addonapiv1alpha1.ConfigGroupResource{Group: "core", Resource: "foo"},
+						DesiredConfig: &addonapiv1alpha1.ConfigSpecHash{
+							ConfigReferent: addonapiv1alpha1.ConfigReferent{Name: "test", Namespace: "open-cluster-management"},
 							SpecHash:       "hashnew",
 						},
-						LastAppliedConfig: &v1alpha1.ConfigSpecHash{
-							ConfigReferent: v1alpha1.ConfigReferent{Name: "test", Namespace: "open-cluster-management"},
+						LastAppliedConfig: &addonapiv1alpha1.ConfigSpecHash{
+							ConfigReferent: addonapiv1alpha1.ConfigReferent{Name: "test", Namespace: "open-cluster-management"},
 							SpecHash:       "",
 						},
 					},
@@ -1309,13 +1308,13 @@ func TestReconcileHostedAddons(t *testing.T) {
 				)
 				addon.Status.ConfigReferences = []addonapiv1alpha1.ConfigReference{
 					{
-						ConfigGroupResource: v1alpha1.ConfigGroupResource{Group: "core", Resource: "foo"},
-						DesiredConfig: &v1alpha1.ConfigSpecHash{
-							ConfigReferent: v1alpha1.ConfigReferent{Name: "test", Namespace: "open-cluster-management"},
+						ConfigGroupResource: addonapiv1alpha1.ConfigGroupResource{Group: "core", Resource: "foo"},
+						DesiredConfig: &addonapiv1alpha1.ConfigSpecHash{
+							ConfigReferent: addonapiv1alpha1.ConfigReferent{Name: "test", Namespace: "open-cluster-management"},
 							SpecHash:       "hashnew",
 						},
-						LastAppliedConfig: &v1alpha1.ConfigSpecHash{
-							ConfigReferent: v1alpha1.ConfigReferent{Name: "test", Namespace: "open-cluster-management"},
+						LastAppliedConfig: &addonapiv1alpha1.ConfigSpecHash{
+							ConfigReferent: addonapiv1alpha1.ConfigReferent{Name: "test", Namespace: "open-cluster-management"},
 							SpecHash:       "hash",
 						},
 					},

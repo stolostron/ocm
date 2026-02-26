@@ -60,7 +60,7 @@ func NewClockSyncController(
 		ToController(clockSyncControllerName, recorder)
 }
 
-func renewUpdateInfomer(q workqueue.RateLimitingInterface, leaseInformer coordinformers.LeaseInformer) factory.Informer {
+func renewUpdateInfomer(q workqueue.RateLimitingInterface, leaseInformer coordinformers.LeaseInformer) factory.Informer { //nolint:staticcheck
 	leaseRenewTimeUpdateInformer := leaseInformer.Informer()
 	queueKeyByLabel := queue.QueueKeyByLabel(clusterv1.ClusterNameLabelKey)
 	_, err := leaseRenewTimeUpdateInformer.AddEventHandler(&cache.FilteringResourceEventHandler{

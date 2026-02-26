@@ -262,7 +262,7 @@ func TestSyncUnamanagedAppliedWork(t *testing.T) {
 				hubHash:                   c.hubHash,
 				agentID:                   c.agentID,
 				evictionGracePeriod:       c.evictionGracePeriod,
-				rateLimiter:               workqueue.NewItemExponentialFailureRateLimiter(0, c.evictionGracePeriod),
+				rateLimiter:               workqueue.NewItemExponentialFailureRateLimiter(0, c.evictionGracePeriod), //nolint:staticcheck
 			}
 
 			controllerContext := testingcommon.NewFakeSyncContext(t, c.appliedManifestWorkName)

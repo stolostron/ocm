@@ -123,7 +123,7 @@ func AssertFileExist(t *testing.T, filePath string) {
 
 // AssertFileContent asserts a given file content
 func AssertFileContent(t *testing.T, filePath string, expectedContent []byte) {
-	content, _ := os.ReadFile(filePath)
+	content, _ := os.ReadFile(filePath) //nolint:gosec // G304 file path is from test input
 	if !bytes.Equal(content, expectedContent) {
 		t.Errorf("expect %v, but got %v", expectedContent, content)
 	}

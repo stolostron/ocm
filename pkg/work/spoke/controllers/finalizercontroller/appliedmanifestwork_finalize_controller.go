@@ -30,7 +30,7 @@ type AppliedManifestWorkFinalizeController struct {
 	patcher                   patcher.Patcher[*workapiv1.AppliedManifestWork, workapiv1.AppliedManifestWorkSpec, workapiv1.AppliedManifestWorkStatus]
 	appliedManifestWorkLister worklister.AppliedManifestWorkLister
 	spokeDynamicClient        dynamic.Interface
-	rateLimiter               workqueue.RateLimiter
+	rateLimiter               workqueue.RateLimiter //nolint:staticcheck
 }
 
 func NewAppliedManifestWorkFinalizeController(
@@ -47,7 +47,8 @@ func NewAppliedManifestWorkFinalizeController(
 			appliedManifestWorkClient),
 		appliedManifestWorkLister: appliedManifestWorkInformer.Lister(),
 		spokeDynamicClient:        spokeDynamicClient,
-		rateLimiter:               workqueue.NewItemExponentialFailureRateLimiter(5*time.Millisecond, 1000*time.Second),
+		rateLimiter: workqueue.NewItemExponentialFailureRateLimiter( //nolint:staticcheck
+			5*time.Millisecond, 1000*time.Second),
 	}
 
 	return factory.New().

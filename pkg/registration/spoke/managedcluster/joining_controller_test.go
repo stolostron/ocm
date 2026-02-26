@@ -10,7 +10,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	kubeinformers "k8s.io/client-go/informers"
-	fakekube "k8s.io/client-go/kubernetes/fake"
 	kubefake "k8s.io/client-go/kubernetes/fake"
 	clienttesting "k8s.io/client-go/testing"
 
@@ -81,7 +80,7 @@ func TestSyncManagedCluster(t *testing.T) {
 				}
 			}
 
-			fakeHubClient := fakekube.NewSimpleClientset()
+			fakeHubClient := kubefake.NewSimpleClientset()
 			ctx := context.TODO()
 			hubEventRecorder, err := helpers.NewEventRecorder(ctx,
 				clusterscheme.Scheme, fakeHubClient, "test")

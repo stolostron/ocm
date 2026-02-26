@@ -191,7 +191,7 @@ func TestFinalize(t *testing.T) {
 					*workapiv1.AppliedManifestWork, workapiv1.AppliedManifestWorkSpec, workapiv1.AppliedManifestWorkStatus](
 					fakeClient.WorkV1().AppliedManifestWorks()),
 				spokeDynamicClient: fakeDynamicClient,
-				rateLimiter:        workqueue.NewItemExponentialFailureRateLimiter(0, 1*time.Second),
+				rateLimiter:        workqueue.NewItemExponentialFailureRateLimiter(0, 1*time.Second), //nolint:staticcheck
 			}
 
 			controllerContext := testingcommon.NewFakeSyncContext(t, testingWork.Name)

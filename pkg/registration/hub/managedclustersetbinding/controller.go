@@ -33,7 +33,7 @@ type managedClusterSetBindingController struct {
 	clusterSetBindingLister   clusterlisterv1beta2.ManagedClusterSetBindingLister
 	clusterSetLister          clusterlisterv1beta2.ManagedClusterSetLister
 	clusterSetBindingIndexers cache.Indexer
-	queue                     workqueue.RateLimitingInterface
+	queue                     workqueue.RateLimitingInterface //nolint:staticcheck
 	eventRecorder             events.Recorder
 }
 

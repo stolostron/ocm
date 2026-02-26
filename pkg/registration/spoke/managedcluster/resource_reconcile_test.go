@@ -15,7 +15,6 @@ import (
 	"k8s.io/apimachinery/pkg/version"
 	"k8s.io/client-go/discovery"
 	kubeinformers "k8s.io/client-go/informers"
-	fakekube "k8s.io/client-go/kubernetes/fake"
 	kubefake "k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/rest"
 	clienttesting "k8s.io/client-go/testing"
@@ -314,7 +313,7 @@ func TestHealthCheck(t *testing.T) {
 			serverResponse.httpStatus = c.httpStatus
 			serverResponse.responseMsg = c.responseMsg
 
-			fakeHubClient := fakekube.NewSimpleClientset()
+			fakeHubClient := kubefake.NewSimpleClientset()
 
 			ctx := context.TODO()
 			hubEventRecorder, err := helpers.NewEventRecorder(ctx,

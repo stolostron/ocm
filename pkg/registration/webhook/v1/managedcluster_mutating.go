@@ -27,7 +27,7 @@ var (
 	_                     webhook.CustomDefaulter = &ManagedClusterWebhook{}
 )
 
-func (r *ManagedClusterWebhook) Default(ctx context.Context, obj runtime.Object) error {
+func (r *ManagedClusterWebhook) Default(ctx context.Context, obj runtime.Object) error { //nolint:staticcheck
 	req, err := admission.RequestFromContext(ctx)
 	if err != nil {
 		return apierrors.NewBadRequest(err.Error())

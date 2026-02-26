@@ -24,12 +24,10 @@ import (
 	"k8s.io/klog/v2"
 
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
-	v1 "open-cluster-management.io/api/cluster/v1"
 	operatorv1 "open-cluster-management.io/api/operator/v1"
 
 	"open-cluster-management.io/ocm/manifests"
 	"open-cluster-management.io/ocm/pkg/common/helpers"
-	commonhelpers "open-cluster-management.io/ocm/pkg/common/helpers"
 	"open-cluster-management.io/ocm/pkg/registration/register"
 )
 
@@ -165,7 +163,7 @@ func (a *AWSIRSAHubDriver) CreatePermissions(ctx context.Context, cluster *clust
 // This function creates:
 // 1. IAM Role and Policy in the hub cluster IAM
 // 2. Returns the hubClusterName and the roleArn to be used for Access Entry creation
-func createIAMRoleAndPolicy(ctx context.Context, hubClusterArn string, managedCluster *v1.ManagedCluster, cfg aws.Config) (string, string, error) {
+func createIAMRoleAndPolicy(ctx context.Context, hubClusterArn string, managedCluster *clusterv1.ManagedCluster, cfg aws.Config) (string, string, error) {
 	var managedClusterIamRoleSuffix string
 	var createRoleOutput *iam.CreateRoleOutput
 	var hubClusterName string
@@ -190,13 +188,13 @@ func createIAMRoleAndPolicy(ctx context.Context, hubClusterArn string, managedCl
 	awsAccountId := creds.AccountID
 	roleArn := fmt.Sprintf("arn:aws:iam::%s:role/%s", awsAccountId, roleName)
 	policyArn := fmt.Sprintf("arn:aws:iam::%s:policy/%s", awsAccountId, policyName)
-	hubAccountId, hubClusterName = commonhelpers.GetAwsAccountIdAndClusterName(hubClusterArn)
-	managedClusterAccountId, managedClusterName = commonhelpers.GetAwsAccountIdAndClusterName(managedClusterArn)
+	hubAccountId, hubClusterName = helpers.GetAwsAccountIdAndClusterName(hubClusterArn)
+	managedClusterAccountId, managedClusterName = helpers.GetAwsAccountIdAndClusterName(managedClusterArn)
 
 	if hubClusterArn != "" && isManagedClusterIamRoleSuffixPresent && isManagedClusterArnPresent {
 
 		// Check if hash is the same
-		hash := commonhelpers.Md5HashSuffix(hubAccountId, hubClusterName, managedClusterAccountId, managedClusterName)
+		hash := helpers.Md5HashSuffix(hubAccountId, hubClusterName, managedClusterAccountId, managedClusterName)
 		if hash != managedClusterIamRoleSuffix {
 			err := fmt.Errorf("HubClusterARN provided during join by ManagedCluster %s is different from the current hub cluster", managedClusterName)
 			return hubClusterName, roleArn, err

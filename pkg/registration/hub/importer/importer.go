@@ -22,7 +22,7 @@ import (
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/klog/v2"
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 
 	clusterclientset "open-cluster-management.io/api/client/cluster/clientset/versioned"
 	clusterinformerv1 "open-cluster-management.io/api/client/cluster/informers/externalversions/cluster/v1"
@@ -274,7 +274,7 @@ func ApplyKlusterlet(
 		return nil, false, err
 	}
 
-	modified := pointer.Bool(false)
+	modified := ptr.To(false)
 	existingCopy := existing.DeepCopy()
 	resourcemerge.EnsureObjectMeta(modified, &existingCopy.ObjectMeta, required.ObjectMeta)
 

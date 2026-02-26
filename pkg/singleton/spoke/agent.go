@@ -67,6 +67,6 @@ func (a *AgentConfig) RunSpokeAgent(ctx context.Context, controllerContext *cont
 	return nil
 }
 
-func (o *AgentConfig) HealthCheckers() []healthz.HealthChecker {
+func (o *AgentConfig) HealthCheckers() []healthz.HealthChecker { //nolint:staticcheck
 	return o.registrationConfig.HealthCheckers()
 }

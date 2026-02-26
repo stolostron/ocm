@@ -40,7 +40,7 @@ type unmanagedAppliedWorkController struct {
 	hubHash                   string
 	agentID                   string
 	evictionGracePeriod       time.Duration
-	rateLimiter               workqueue.RateLimiter
+	rateLimiter               workqueue.RateLimiter //nolint:staticcheck
 }
 
 // NewUnManagedAppliedWorkController returns a controller to evict the unmanaged appliedmanifestworks.
@@ -71,7 +71,8 @@ func NewUnManagedAppliedWorkController(
 		hubHash:                   hubHash,
 		agentID:                   agentID,
 		evictionGracePeriod:       evictionGracePeriod,
-		rateLimiter:               workqueue.NewItemExponentialFailureRateLimiter(1*time.Minute, evictionGracePeriod),
+		rateLimiter: workqueue.NewItemExponentialFailureRateLimiter( //nolint:staticcheck
+			1*time.Minute, evictionGracePeriod),
 	}
 
 	return factory.New().

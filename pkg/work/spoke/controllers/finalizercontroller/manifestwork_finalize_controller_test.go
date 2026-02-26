@@ -180,7 +180,7 @@ func TestSyncManifestWorkController(t *testing.T) {
 				appliedManifestWorkClient: fakeClient.WorkV1().AppliedManifestWorks(),
 				appliedManifestWorkLister: informerFactory.Work().V1().AppliedManifestWorks().Lister(),
 				hubHash:                   hubHash,
-				rateLimiter:               workqueue.NewItemExponentialFailureRateLimiter(0, 1*time.Second),
+				rateLimiter:               workqueue.NewItemExponentialFailureRateLimiter(0, 1*time.Second), //nolint:staticcheck
 			}
 
 			controllerContext := testingcommon.NewFakeSyncContext(t, c.workName)

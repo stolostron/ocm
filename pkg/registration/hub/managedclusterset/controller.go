@@ -41,7 +41,7 @@ type managedClusterSetController struct {
 	clusterLister    clusterlisterv1.ManagedClusterLister
 	clusterSetLister clusterlisterv1beta2.ManagedClusterSetLister
 	eventRecorder    events.Recorder
-	queue            workqueue.RateLimitingInterface
+	queue            workqueue.RateLimitingInterface //nolint:staticcheck
 }
 
 // NewManagedClusterSetController creates a new managed cluster set controller

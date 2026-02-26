@@ -19,7 +19,6 @@ import (
 	"open-cluster-management.io/addon-framework/pkg/addonfactory"
 	"open-cluster-management.io/addon-framework/pkg/addonmanager"
 	"open-cluster-management.io/addon-framework/pkg/utils"
-	addonapiv1alpha1 "open-cluster-management.io/api/addon/v1alpha1"
 	addonv1alpha1 "open-cluster-management.io/api/addon/v1alpha1"
 	addonv1alpha1client "open-cluster-management.io/api/client/addon/clientset/versioned"
 	addoninformers "open-cluster-management.io/api/client/addon/informers/externalversions"
@@ -154,7 +153,7 @@ func (c *addonTemplateController) startManager(
 			utilruntime.HandleError(err)
 		}
 
-		// use the parent context to start all shared informers, otherwise once the context is cancelled,
+		// use the parent context to start all shared informers, otherwise once the context is canceled,
 		// the informers will stop and all other shared go routines will be impacted.
 		c.workInformers.Start(pctx.Done())
 		c.addonInformers.Start(pctx.Done())
@@ -188,7 +187,7 @@ func (c *addonTemplateController) runController(ctx context.Context, addonName s
 			listOptions.LabelSelector = metav1.FormatLabelSelector(selector)
 		}),
 	)
-	getValuesClosure := func(cluster *clusterv1.ManagedCluster, addon *addonapiv1alpha1.ManagedClusterAddOn) (addonfactory.Values, error) {
+	getValuesClosure := func(cluster *clusterv1.ManagedCluster, addon *addonv1alpha1.ManagedClusterAddOn) (addonfactory.Values, error) {
 		return templateagent.GetAddOnRegistriesPrivateValuesFromClusterAnnotation(klog.FromContext(ctx), cluster, addon)
 	}
 	agentAddon := templateagent.NewCRDTemplateAgentAddon(

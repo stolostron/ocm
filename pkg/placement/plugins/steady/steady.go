@@ -69,7 +69,7 @@ func (s *Steady) Score(
 		)
 	}
 
-	existingDecisions := sets.String{}
+	existingDecisions := sets.String{} //nolint:staticcheck
 	for _, decision := range decisions {
 		for _, d := range decision.Status.Decisions {
 			existingDecisions.Insert(d.ClusterName)

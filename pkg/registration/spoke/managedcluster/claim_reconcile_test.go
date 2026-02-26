@@ -12,7 +12,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	kubeinformers "k8s.io/client-go/informers"
-	fakekube "k8s.io/client-go/kubernetes/fake"
 	kubefake "k8s.io/client-go/kubernetes/fake"
 	clienttesting "k8s.io/client-go/testing"
 
@@ -110,7 +109,7 @@ func TestSync(t *testing.T) {
 				}
 			}
 
-			fakeHubClient := fakekube.NewSimpleClientset()
+			fakeHubClient := kubefake.NewSimpleClientset()
 			ctx := context.TODO()
 			hubEventRecorder, err := helpers.NewEventRecorder(ctx,
 				clusterscheme.Scheme, fakeHubClient, "test")
@@ -341,7 +340,7 @@ func TestExposeClaims(t *testing.T) {
 				c.maxCustomClusterClaims = 20
 			}
 
-			fakeHubClient := fakekube.NewSimpleClientset()
+			fakeHubClient := kubefake.NewSimpleClientset()
 			ctx := context.TODO()
 			hubEventRecorder, err := helpers.NewEventRecorder(ctx,
 				clusterscheme.Scheme, fakeHubClient, "test")

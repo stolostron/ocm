@@ -13,7 +13,6 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/rand"
-	"k8s.io/utils/pointer"
 	"k8s.io/utils/ptr"
 
 	workapiv1 "open-cluster-management.io/api/work/v1"
@@ -662,7 +661,7 @@ var _ = ginkgo.Describe("ManifestWork Update Strategy", func() {
 					return fmt.Errorf("expected annotation %q not found", workapiv1.ManifestConfigSpecHashAnnotationKey)
 				}
 
-				deploy.Spec.Replicas = pointer.Int32(2)
+				deploy.Spec.Replicas = ptr.To[int32](2)
 				_, err = spokeKubeClient.AppsV1().Deployments(commOptions.SpokeClusterName).Update(context.Background(), deploy, metav1.UpdateOptions{})
 
 				return err
@@ -782,7 +781,7 @@ var _ = ginkgo.Describe("ManifestWork Update Strategy", func() {
 					return fmt.Errorf("expected annotation %q not found", workapiv1.ManifestConfigSpecHashAnnotationKey)
 				}
 
-				deploy.Spec.Replicas = pointer.Int32(2)
+				deploy.Spec.Replicas = ptr.To[int32](2)
 				_, err = spokeKubeClient.AppsV1().Deployments(commOptions.SpokeClusterName).Update(context.Background(), deploy, metav1.UpdateOptions{})
 
 				return err

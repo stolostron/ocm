@@ -91,7 +91,7 @@ func NewManifestWorkController(
 			},
 			&appliedManifestWorkReconciler{
 				spokeDynamicClient: spokeDynamicClient,
-				rateLimiter:        workqueue.NewItemExponentialFailureRateLimiter(5*time.Millisecond, 1000*time.Second),
+				rateLimiter:        workqueue.NewItemExponentialFailureRateLimiter(5*time.Millisecond, 1000*time.Second), //nolint:staticcheck
 			},
 		},
 	}

@@ -29,7 +29,7 @@ type ManifestWorkFinalizeController struct {
 	appliedManifestWorkClient workv1client.AppliedManifestWorkInterface
 	appliedManifestWorkLister worklister.AppliedManifestWorkLister
 	hubHash                   string
-	rateLimiter               workqueue.RateLimiter
+	rateLimiter               workqueue.RateLimiter //nolint:staticcheck
 }
 
 func NewManifestWorkFinalizeController(
@@ -50,7 +50,8 @@ func NewManifestWorkFinalizeController(
 		appliedManifestWorkClient: appliedManifestWorkClient,
 		appliedManifestWorkLister: appliedManifestWorkInformer.Lister(),
 		hubHash:                   hubHash,
-		rateLimiter:               workqueue.NewItemExponentialFailureRateLimiter(5*time.Millisecond, 1000*time.Second),
+		rateLimiter: workqueue.NewItemExponentialFailureRateLimiter( //nolint:staticcheck
+			5*time.Millisecond, 1000*time.Second),
 	}
 
 	return factory.New().

@@ -17,7 +17,6 @@ import (
 	"k8s.io/klog/v2/ktesting"
 
 	"open-cluster-management.io/addon-framework/pkg/addonmanager/addontesting"
-	"open-cluster-management.io/api/addon/v1alpha1"
 	addonv1alpha1 "open-cluster-management.io/api/addon/v1alpha1"
 	fakeaddon "open-cluster-management.io/api/client/addon/clientset/versioned/fake"
 	addoninformers "open-cluster-management.io/api/client/addon/informers/externalversions"
@@ -66,9 +65,9 @@ func TestAddonConfigReconcile(t *testing.T) {
 				ConfigGroupResource: addonv1alpha1.ConfigGroupResource{Group: "core", Resource: "Foo"},
 				DefaultConfig:       &addonv1alpha1.ConfigReferent{Name: "test"},
 			}).WithDefaultConfigReferences(addonv1alpha1.DefaultConfigReference{
-				ConfigGroupResource: v1alpha1.ConfigGroupResource{Group: "core", Resource: "Foo"},
-				DesiredConfig: &v1alpha1.ConfigSpecHash{
-					ConfigReferent: v1alpha1.ConfigReferent{Name: "test"},
+				ConfigGroupResource: addonv1alpha1.ConfigGroupResource{Group: "core", Resource: "Foo"},
+				DesiredConfig: &addonv1alpha1.ConfigSpecHash{
+					ConfigReferent: addonv1alpha1.ConfigReferent{Name: "test"},
 					SpecHash:       "hash",
 				},
 			}).Build(),
@@ -127,9 +126,9 @@ func TestAddonConfigReconcile(t *testing.T) {
 				ConfigGroupResource: addonv1alpha1.ConfigGroupResource{Group: "core", Resource: "Foo"},
 				DefaultConfig:       &addonv1alpha1.ConfigReferent{Name: "test"},
 			}).WithDefaultConfigReferences(addonv1alpha1.DefaultConfigReference{
-				ConfigGroupResource: v1alpha1.ConfigGroupResource{Group: "core", Resource: "Foo"},
-				DesiredConfig: &v1alpha1.ConfigSpecHash{
-					ConfigReferent: v1alpha1.ConfigReferent{Name: "test"},
+				ConfigGroupResource: addonv1alpha1.ConfigGroupResource{Group: "core", Resource: "Foo"},
+				DesiredConfig: &addonv1alpha1.ConfigSpecHash{
+					ConfigReferent: addonv1alpha1.ConfigReferent{Name: "test"},
 					SpecHash:       "hash",
 				},
 			}).WithPlacementStrategy(addonv1alpha1.PlacementStrategy{
@@ -139,9 +138,9 @@ func TestAddonConfigReconcile(t *testing.T) {
 				PlacementRef: addonv1alpha1.PlacementRef{Name: "test-placement", Namespace: "default"},
 				ConfigReferences: []addonv1alpha1.InstallConfigReference{
 					{
-						ConfigGroupResource: v1alpha1.ConfigGroupResource{Group: "core", Resource: "Foo"},
-						DesiredConfig: &v1alpha1.ConfigSpecHash{
-							ConfigReferent: v1alpha1.ConfigReferent{Name: "test1"},
+						ConfigGroupResource: addonv1alpha1.ConfigGroupResource{Group: "core", Resource: "Foo"},
+						DesiredConfig: &addonv1alpha1.ConfigSpecHash{
+							ConfigReferent: addonv1alpha1.ConfigReferent{Name: "test1"},
 							SpecHash:       "hash1",
 						},
 					},
@@ -207,16 +206,16 @@ func TestAddonConfigReconcile(t *testing.T) {
 				},
 			).WithDefaultConfigReferences(
 				addonv1alpha1.DefaultConfigReference{
-					ConfigGroupResource: v1alpha1.ConfigGroupResource{Group: "core", Resource: "Foo"},
-					DesiredConfig: &v1alpha1.ConfigSpecHash{
-						ConfigReferent: v1alpha1.ConfigReferent{Name: "test"},
+					ConfigGroupResource: addonv1alpha1.ConfigGroupResource{Group: "core", Resource: "Foo"},
+					DesiredConfig: &addonv1alpha1.ConfigSpecHash{
+						ConfigReferent: addonv1alpha1.ConfigReferent{Name: "test"},
 						SpecHash:       "hash",
 					},
 				},
 				addonv1alpha1.DefaultConfigReference{
-					ConfigGroupResource: v1alpha1.ConfigGroupResource{Group: "core", Resource: "Bar"},
-					DesiredConfig: &v1alpha1.ConfigSpecHash{
-						ConfigReferent: v1alpha1.ConfigReferent{Name: "test"},
+					ConfigGroupResource: addonv1alpha1.ConfigGroupResource{Group: "core", Resource: "Bar"},
+					DesiredConfig: &addonv1alpha1.ConfigSpecHash{
+						ConfigReferent: addonv1alpha1.ConfigReferent{Name: "test"},
 						SpecHash:       "hash",
 					},
 				},
@@ -227,16 +226,16 @@ func TestAddonConfigReconcile(t *testing.T) {
 				PlacementRef: addonv1alpha1.PlacementRef{Name: "test-placement", Namespace: "default"},
 				ConfigReferences: []addonv1alpha1.InstallConfigReference{
 					{
-						ConfigGroupResource: v1alpha1.ConfigGroupResource{Group: "core", Resource: "Foo"},
-						DesiredConfig: &v1alpha1.ConfigSpecHash{
-							ConfigReferent: v1alpha1.ConfigReferent{Name: "test1"},
+						ConfigGroupResource: addonv1alpha1.ConfigGroupResource{Group: "core", Resource: "Foo"},
+						DesiredConfig: &addonv1alpha1.ConfigSpecHash{
+							ConfigReferent: addonv1alpha1.ConfigReferent{Name: "test1"},
 							SpecHash:       "hash1",
 						},
 					},
 					{
-						ConfigGroupResource: v1alpha1.ConfigGroupResource{Group: "core", Resource: "Foo"},
-						DesiredConfig: &v1alpha1.ConfigSpecHash{
-							ConfigReferent: v1alpha1.ConfigReferent{Name: "test2"},
+						ConfigGroupResource: addonv1alpha1.ConfigGroupResource{Group: "core", Resource: "Foo"},
+						DesiredConfig: &addonv1alpha1.ConfigSpecHash{
+							ConfigReferent: addonv1alpha1.ConfigReferent{Name: "test2"},
 							SpecHash:       "hash2",
 						},
 					},
@@ -379,9 +378,9 @@ func TestAddonConfigReconcile(t *testing.T) {
 					ConfigGroupResource: addonv1alpha1.ConfigGroupResource{Group: "core", Resource: "Bar"},
 				},
 			).WithDefaultConfigReferences(addonv1alpha1.DefaultConfigReference{
-				ConfigGroupResource: v1alpha1.ConfigGroupResource{Group: "core", Resource: "Foo"},
-				DesiredConfig: &v1alpha1.ConfigSpecHash{
-					ConfigReferent: v1alpha1.ConfigReferent{Name: "test"},
+				ConfigGroupResource: addonv1alpha1.ConfigGroupResource{Group: "core", Resource: "Foo"},
+				DesiredConfig: &addonv1alpha1.ConfigSpecHash{
+					ConfigReferent: addonv1alpha1.ConfigReferent{Name: "test"},
 					SpecHash:       "<core-foo-test-hash>",
 				},
 			}).WithPlacementStrategy(addonv1alpha1.PlacementStrategy{
@@ -391,16 +390,16 @@ func TestAddonConfigReconcile(t *testing.T) {
 				PlacementRef: addonv1alpha1.PlacementRef{Name: "test-placement", Namespace: "default"},
 				ConfigReferences: []addonv1alpha1.InstallConfigReference{
 					{
-						ConfigGroupResource: v1alpha1.ConfigGroupResource{Group: "core", Resource: "Bar"},
-						DesiredConfig: &v1alpha1.ConfigSpecHash{
-							ConfigReferent: v1alpha1.ConfigReferent{Name: "test1"},
+						ConfigGroupResource: addonv1alpha1.ConfigGroupResource{Group: "core", Resource: "Bar"},
+						DesiredConfig: &addonv1alpha1.ConfigSpecHash{
+							ConfigReferent: addonv1alpha1.ConfigReferent{Name: "test1"},
 							SpecHash:       "<core-bar-test1-hash>",
 						},
 					},
 					{
-						ConfigGroupResource: v1alpha1.ConfigGroupResource{Group: "core", Resource: "Foo"},
-						DesiredConfig: &v1alpha1.ConfigSpecHash{
-							ConfigReferent: v1alpha1.ConfigReferent{Name: "test1"},
+						ConfigGroupResource: addonv1alpha1.ConfigGroupResource{Group: "core", Resource: "Foo"},
+						DesiredConfig: &addonv1alpha1.ConfigSpecHash{
+							ConfigReferent: addonv1alpha1.ConfigReferent{Name: "test1"},
 							SpecHash:       "<core-foo-test1-hash>",
 						},
 					},
@@ -533,16 +532,16 @@ func TestAddonConfigReconcile(t *testing.T) {
 				PlacementRef: addonv1alpha1.PlacementRef{Name: "test-placement", Namespace: "default"},
 				ConfigReferences: []addonv1alpha1.InstallConfigReference{
 					{
-						ConfigGroupResource: v1alpha1.ConfigGroupResource{Group: "core", Resource: "Foo"},
-						DesiredConfig: &v1alpha1.ConfigSpecHash{
-							ConfigReferent: v1alpha1.ConfigReferent{Name: "test1"},
+						ConfigGroupResource: addonv1alpha1.ConfigGroupResource{Group: "core", Resource: "Foo"},
+						DesiredConfig: &addonv1alpha1.ConfigSpecHash{
+							ConfigReferent: addonv1alpha1.ConfigReferent{Name: "test1"},
 							SpecHash:       "hash1",
 						},
 					},
 					{
-						ConfigGroupResource: v1alpha1.ConfigGroupResource{Group: "core", Resource: "Foo"},
-						DesiredConfig: &v1alpha1.ConfigSpecHash{
-							ConfigReferent: v1alpha1.ConfigReferent{Name: "test1"},
+						ConfigGroupResource: addonv1alpha1.ConfigGroupResource{Group: "core", Resource: "Foo"},
+						DesiredConfig: &addonv1alpha1.ConfigSpecHash{
+							ConfigReferent: addonv1alpha1.ConfigReferent{Name: "test1"},
 							SpecHash:       "hash1",
 						},
 					},
@@ -617,9 +616,9 @@ func TestAddonConfigReconcile(t *testing.T) {
 				PlacementRef: addonv1alpha1.PlacementRef{Name: "test-placement", Namespace: "default"},
 				ConfigReferences: []addonv1alpha1.InstallConfigReference{
 					{
-						ConfigGroupResource: v1alpha1.ConfigGroupResource{Group: "core", Resource: "Foo"},
-						DesiredConfig: &v1alpha1.ConfigSpecHash{
-							ConfigReferent: v1alpha1.ConfigReferent{Name: "test2"},
+						ConfigGroupResource: addonv1alpha1.ConfigGroupResource{Group: "core", Resource: "Foo"},
+						DesiredConfig: &addonv1alpha1.ConfigSpecHash{
+							ConfigReferent: addonv1alpha1.ConfigReferent{Name: "test2"},
 							SpecHash:       "hash2",
 						},
 					},
@@ -680,16 +679,16 @@ func TestAddonConfigReconcile(t *testing.T) {
 			}).WithPlacementStrategy(addonv1alpha1.PlacementStrategy{
 				PlacementRef:    addonv1alpha1.PlacementRef{Name: "test-placement", Namespace: "default"},
 				RolloutStrategy: clusterv1alpha1.RolloutStrategy{Type: clusterv1alpha1.All},
-				Configs: []addonv1alpha1.AddOnConfig{v1alpha1.AddOnConfig{
-					ConfigGroupResource: v1alpha1.ConfigGroupResource{Group: "core", Resource: "Foo"},
-					ConfigReferent:      v1alpha1.ConfigReferent{Name: "test1"}}},
+				Configs: []addonv1alpha1.AddOnConfig{{
+					ConfigGroupResource: addonv1alpha1.ConfigGroupResource{Group: "core", Resource: "Foo"},
+					ConfigReferent:      addonv1alpha1.ConfigReferent{Name: "test1"}}},
 			}).WithInstallProgression(addonv1alpha1.InstallProgression{
 				PlacementRef: addonv1alpha1.PlacementRef{Name: "test-placement", Namespace: "default"},
 				ConfigReferences: []addonv1alpha1.InstallConfigReference{
 					{
-						ConfigGroupResource: v1alpha1.ConfigGroupResource{Group: "core", Resource: "Foo"},
-						DesiredConfig: &v1alpha1.ConfigSpecHash{
-							ConfigReferent: v1alpha1.ConfigReferent{Name: "test1"},
+						ConfigGroupResource: addonv1alpha1.ConfigGroupResource{Group: "core", Resource: "Foo"},
+						DesiredConfig: &addonv1alpha1.ConfigSpecHash{
+							ConfigReferent: addonv1alpha1.ConfigReferent{Name: "test1"},
 							SpecHash:       "hash1new",
 						},
 					},
@@ -754,17 +753,17 @@ func TestAddonConfigReconcile(t *testing.T) {
 				DefaultConfig:       &addonv1alpha1.ConfigReferent{Name: "test"},
 			}).WithPlacementStrategy(addonv1alpha1.PlacementStrategy{
 				PlacementRef: addonv1alpha1.PlacementRef{Name: "test-placement", Namespace: "default"},
-				Configs: []addonv1alpha1.AddOnConfig{v1alpha1.AddOnConfig{
-					ConfigGroupResource: v1alpha1.ConfigGroupResource{Group: "core", Resource: "Foo"},
-					ConfigReferent:      v1alpha1.ConfigReferent{Name: "test1"}}},
+				Configs: []addonv1alpha1.AddOnConfig{{
+					ConfigGroupResource: addonv1alpha1.ConfigGroupResource{Group: "core", Resource: "Foo"},
+					ConfigReferent:      addonv1alpha1.ConfigReferent{Name: "test1"}}},
 				RolloutStrategy: clusterv1alpha1.RolloutStrategy{Type: clusterv1alpha1.All},
 			}).WithInstallProgression(addonv1alpha1.InstallProgression{
 				PlacementRef: addonv1alpha1.PlacementRef{Name: "test-placement", Namespace: "default"},
 				ConfigReferences: []addonv1alpha1.InstallConfigReference{
 					{
-						ConfigGroupResource: v1alpha1.ConfigGroupResource{Group: "core", Resource: "Foo"},
-						DesiredConfig: &v1alpha1.ConfigSpecHash{
-							ConfigReferent: v1alpha1.ConfigReferent{Name: "test1"},
+						ConfigGroupResource: addonv1alpha1.ConfigGroupResource{Group: "core", Resource: "Foo"},
+						DesiredConfig: &addonv1alpha1.ConfigSpecHash{
+							ConfigReferent: addonv1alpha1.ConfigReferent{Name: "test1"},
 							SpecHash:       "hash1",
 						},
 					},
@@ -807,9 +806,9 @@ func TestAddonConfigReconcile(t *testing.T) {
 				PlacementRef: addonv1alpha1.PlacementRef{Name: "test-placement", Namespace: "default"},
 				ConfigReferences: []addonv1alpha1.InstallConfigReference{
 					{
-						ConfigGroupResource: v1alpha1.ConfigGroupResource{Group: "core", Resource: "Foo"},
-						DesiredConfig: &v1alpha1.ConfigSpecHash{
-							ConfigReferent: v1alpha1.ConfigReferent{Name: "test1"},
+						ConfigGroupResource: addonv1alpha1.ConfigGroupResource{Group: "core", Resource: "Foo"},
+						DesiredConfig: &addonv1alpha1.ConfigSpecHash{
+							ConfigReferent: addonv1alpha1.ConfigReferent{Name: "test1"},
 							SpecHash:       "hash1",
 						},
 					},
@@ -870,9 +869,9 @@ func TestAddonConfigReconcile(t *testing.T) {
 				PlacementRef: addonv1alpha1.PlacementRef{Name: "test-placement", Namespace: "default"},
 				ConfigReferences: []addonv1alpha1.InstallConfigReference{
 					{
-						ConfigGroupResource: v1alpha1.ConfigGroupResource{Group: "core", Resource: "Foo"},
-						DesiredConfig: &v1alpha1.ConfigSpecHash{
-							ConfigReferent: v1alpha1.ConfigReferent{Name: "test1"},
+						ConfigGroupResource: addonv1alpha1.ConfigGroupResource{Group: "core", Resource: "Foo"},
+						DesiredConfig: &addonv1alpha1.ConfigSpecHash{
+							ConfigReferent: addonv1alpha1.ConfigReferent{Name: "test1"},
 							SpecHash:       "hash1",
 						},
 					},
@@ -930,9 +929,9 @@ func TestAddonConfigReconcile(t *testing.T) {
 				PlacementRef: addonv1alpha1.PlacementRef{Name: "test-placement", Namespace: "default"},
 				ConfigReferences: []addonv1alpha1.InstallConfigReference{
 					{
-						ConfigGroupResource: v1alpha1.ConfigGroupResource{Group: "core", Resource: "Foo"},
-						DesiredConfig: &v1alpha1.ConfigSpecHash{
-							ConfigReferent: v1alpha1.ConfigReferent{Name: "test1"},
+						ConfigGroupResource: addonv1alpha1.ConfigGroupResource{Group: "core", Resource: "Foo"},
+						DesiredConfig: &addonv1alpha1.ConfigSpecHash{
+							ConfigReferent: addonv1alpha1.ConfigReferent{Name: "test1"},
 							SpecHash:       "hash1",
 						},
 					},
@@ -1022,9 +1021,9 @@ func TestAddonConfigReconcile(t *testing.T) {
 				PlacementRef: addonv1alpha1.PlacementRef{Name: "test-placement", Namespace: "default"},
 				ConfigReferences: []addonv1alpha1.InstallConfigReference{
 					{
-						ConfigGroupResource: v1alpha1.ConfigGroupResource{Group: "core", Resource: "Foo"},
-						DesiredConfig: &v1alpha1.ConfigSpecHash{
-							ConfigReferent: v1alpha1.ConfigReferent{Name: "test1"},
+						ConfigGroupResource: addonv1alpha1.ConfigGroupResource{Group: "core", Resource: "Foo"},
+						DesiredConfig: &addonv1alpha1.ConfigSpecHash{
+							ConfigReferent: addonv1alpha1.ConfigReferent{Name: "test1"},
 							SpecHash:       "hash1",
 						},
 					},
@@ -1104,9 +1103,9 @@ func TestAddonConfigReconcile(t *testing.T) {
 				PlacementRef: addonv1alpha1.PlacementRef{Name: "test-placement", Namespace: "default"},
 				ConfigReferences: []addonv1alpha1.InstallConfigReference{
 					{
-						ConfigGroupResource: v1alpha1.ConfigGroupResource{Group: "core", Resource: "Foo"},
-						DesiredConfig: &v1alpha1.ConfigSpecHash{
-							ConfigReferent: v1alpha1.ConfigReferent{Name: "test1"},
+						ConfigGroupResource: addonv1alpha1.ConfigGroupResource{Group: "core", Resource: "Foo"},
+						DesiredConfig: &addonv1alpha1.ConfigSpecHash{
+							ConfigReferent: addonv1alpha1.ConfigReferent{Name: "test1"},
 							SpecHash:       "hash1",
 						},
 					},
@@ -1194,9 +1193,9 @@ func TestAddonConfigReconcile(t *testing.T) {
 				PlacementRef: addonv1alpha1.PlacementRef{Name: "test-placement", Namespace: "default"},
 				ConfigReferences: []addonv1alpha1.InstallConfigReference{
 					{
-						ConfigGroupResource: v1alpha1.ConfigGroupResource{Group: "core", Resource: "Foo"},
-						DesiredConfig: &v1alpha1.ConfigSpecHash{
-							ConfigReferent: v1alpha1.ConfigReferent{Name: "test1"},
+						ConfigGroupResource: addonv1alpha1.ConfigGroupResource{Group: "core", Resource: "Foo"},
+						DesiredConfig: &addonv1alpha1.ConfigSpecHash{
+							ConfigReferent: addonv1alpha1.ConfigReferent{Name: "test1"},
 							SpecHash:       "hash1",
 						},
 					},
