@@ -146,13 +146,13 @@ func TestBootstrapKubeconfigEventHandler(t *testing.T) {
 				hc.OnUpdate(c.originalBootstrapKubeconfigSecret, c.bootstrapKubeconfigSecret)
 				select {
 				case <-ctx.Done():
-					// context should be cancelled
+					// context should be canceled
 					if c.expectCancel == false {
-						t.Errorf("expected context to be not cancelled, but it was not")
+						t.Errorf("expected context to be not canceled, but it was not")
 					}
 				default:
 					if c.expectCancel == true {
-						t.Errorf("expected context to be cancelled, but it was not")
+						t.Errorf("expected context to be canceled, but it was not")
 					}
 				}
 			}
@@ -161,13 +161,13 @@ func TestBootstrapKubeconfigEventHandler(t *testing.T) {
 				hc.OnDelete(c.bootstrapKubeconfigSecret)
 				select {
 				case <-ctx.Done():
-					// context should be cancelled
+					// context should be canceled
 					if c.expectCancel == false {
-						t.Errorf("expected context to be not cancelled, but it was not")
+						t.Errorf("expected context to be not canceled, but it was not")
 					}
 				default:
 					if c.expectCancel == true {
-						t.Errorf("expected context to be cancelled, but it was not")
+						t.Errorf("expected context to be canceled, but it was not")
 					}
 				}
 			}

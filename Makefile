@@ -94,9 +94,9 @@ update-csv: ensure-operator-sdk ensure-helm
 verify-crds:
 	bash -x hack/verify-crds.sh $(YAML_PATCH)
 
-verify-gocilint:
-	go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.64.6
-	golangci-lint run --timeout=5m --modules-download-mode vendor ./...
+.PHONY: lint
+lint:
+	@bash -o pipefail -c 'curl -fsSL https://raw.githubusercontent.com/open-cluster-management-io/sdk-go/main/ci/lint/run-lint.sh | bash'
 
 install-golang-gci:
 	go install github.com/daixiang0/gci@v0.10.1
@@ -114,7 +114,7 @@ verify-fmt-imports: install-golang-gci
 	    echo "Diff output is empty"; \
 	fi
 
-verify: verify-fmt-imports verify-crds verify-gocilint
+verify: verify-fmt-imports verify-crds lint
 
 ensure-operator-sdk:
 ifeq "" "$(wildcard $(OPERATOR_SDK))"

@@ -22,6 +22,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/klog/v2"
+	"k8s.io/utils/ptr"
 	migrationv1alpha1 "sigs.k8s.io/kube-storage-version-migrator/pkg/apis/migration/v1alpha1"
 	migrationv1alpha1client "sigs.k8s.io/kube-storage-version-migrator/pkg/clients/clientset/typed/migration/v1alpha1"
 
@@ -408,7 +409,7 @@ func createStorageVersionMigration(
 		return err
 	}
 
-	modified := resourcemerge.BoolPtr(false)
+	modified := ptr.To(false)
 	existingCopy := existing.DeepCopy()
 	resourcemerge.EnsureObjectMeta(modified, &existingCopy.ObjectMeta, migration.ObjectMeta)
 	if !equality.Semantic.DeepEqual(existingCopy.Spec, migration.Spec) {

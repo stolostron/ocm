@@ -159,7 +159,7 @@ func (c *addonTemplateController) startManager(
 			utilruntime.HandleError(err)
 		}
 
-		// use the parent context to start all shared informers, otherwise once the context is cancelled,
+		// use the parent context to start all shared informers, otherwise once the context is canceled,
 		// the informers will stop and all other shared go routines will be impacted.
 		c.workInformers.Start(pctx.Done())
 		c.addonInformers.Start(pctx.Done())

@@ -1,11 +1,11 @@
 package registration
 
 import (
+	"context"
 	"crypto/x509/pkix"
 	"fmt"
 	"strings"
 
-	"golang.org/x/net/context"
 	certificates "k8s.io/api/certificates/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"

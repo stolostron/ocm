@@ -37,6 +37,7 @@ import (
 	"k8s.io/klog/v2"
 	apiregistrationv1 "k8s.io/kube-aggregator/pkg/apis/apiregistration/v1"
 	apiregistrationclient "k8s.io/kube-aggregator/pkg/client/clientset_generated/clientset/typed/apiregistration/v1"
+	"k8s.io/utils/ptr"
 
 	"open-cluster-management.io/api/feature"
 	operatorapiv1 "open-cluster-management.io/api/operator/v1"
@@ -173,7 +174,7 @@ func ApplyValidatingWebhookConfiguration(
 		return nil, false, err
 	}
 
-	modified := resourcemerge.BoolPtr(false)
+	modified := ptr.To(false)
 	existingCopy := existing.DeepCopy()
 	resourcemerge.EnsureObjectMeta(modified, &existingCopy.ObjectMeta, required.ObjectMeta)
 	if !equality.Semantic.DeepEqual(existingCopy.Webhooks, required.Webhooks) {
@@ -199,7 +200,7 @@ func ApplyMutatingWebhookConfiguration(
 		return nil, false, err
 	}
 
-	modified := resourcemerge.BoolPtr(false)
+	modified := ptr.To(false)
 	existingCopy := existing.DeepCopy()
 	resourcemerge.EnsureObjectMeta(modified, &existingCopy.ObjectMeta, required.ObjectMeta)
 	if !equality.Semantic.DeepEqual(existingCopy.Webhooks, required.Webhooks) {
@@ -266,7 +267,7 @@ func ApplyEndpoints(ctx context.Context, client coreclientv1.EndpointsGetter, re
 		return nil, false, err
 	}
 
-	modified := resourcemerge.BoolPtr(false)
+	modified := ptr.To(false)
 	existingCopy := existing.DeepCopy()
 	resourcemerge.EnsureObjectMeta(modified, &existingCopy.ObjectMeta, required.ObjectMeta)
 

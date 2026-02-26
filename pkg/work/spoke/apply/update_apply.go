@@ -18,7 +18,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 
 	workapiv1 "open-cluster-management.io/api/work/v1"
 )
@@ -103,7 +103,7 @@ func (c *UpdateApply) applyUnstructured(
 	existingOwners := existing.GetOwnerReferences()
 	existingLabels := existing.GetLabels()
 	existingAnnotations := existing.GetAnnotations()
-	modified := pointer.Bool(false)
+	modified := ptr.To(false)
 
 	resourcemerge.MergeMap(modified, &existingLabels, required.GetLabels())
 	resourcemerge.MergeMap(modified, &existingAnnotations, required.GetAnnotations())
