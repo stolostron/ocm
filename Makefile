@@ -74,7 +74,7 @@ copy-crd:
 
 update: copy-crd update-csv
 
-test-unit: ensure-kubebuilder-tools
+test-unit: envtest-setup
 
 update-csv: ensure-operator-sdk ensure-helm
 	bash -x hack/update-csv.sh
