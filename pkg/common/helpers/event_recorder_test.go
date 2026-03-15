@@ -42,10 +42,11 @@ func TestNewEventRecorder(t *testing.T) {
 			},
 		},
 		{
-			name:   "test new event recorder, scheme match, no wait",
+			name:   "test new event recorder, scheme match, short wait",
 			scheme: clusterscheme.Scheme,
+			wait:   100 * time.Millisecond,
 			validateActions: func(t *testing.T, actions []clienttesting.Action) {
-				testingcommon.AssertNoActions(t, actions)
+				testingcommon.AssertActions(t, actions, "create")
 			},
 		},
 	}
