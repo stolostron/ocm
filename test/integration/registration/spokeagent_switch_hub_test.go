@@ -40,8 +40,11 @@ var _ = Describe("switch-hub", Ordered, func() {
 	var managedClusterName, hubKubeconfigSecret, suffix string
 	var hub1, hub2 *mockHub
 	var spokeCancel context.CancelFunc
+	var hub1Stopped bool
 
 	BeforeEach(func() {
+		hub1Stopped = false
+
 		features.SpokeMutableFeatureGate.SetFromMap(map[string]bool{
 			string(ocmfeature.MultipleHubs): true,
 		})
@@ -91,7 +94,9 @@ var _ = Describe("switch-hub", Ordered, func() {
 
 	AfterEach(func() {
 		// stop hubs
-		hub1.env.Stop()
+		if !hub1Stopped {
+			hub1.env.Stop()
+		}
 		hub2.env.Stop()
 
 		// stop spoke
@@ -129,6 +134,7 @@ var _ = Describe("switch-hub", Ordered, func() {
 		It("Should switch to hub2", func() {
 			// Stop hub1
 			hub1.env.Stop()
+			hub1Stopped = true
 
 			// The timeoutSeconds is 10s, so we need to wait for 30s to make sure the agent is restarted
 			time.Sleep(30 * time.Second)

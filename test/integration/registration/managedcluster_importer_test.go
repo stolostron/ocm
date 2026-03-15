@@ -108,6 +108,12 @@ var _ = ginkgo.Describe("Cluster Auto Importer", func() {
 		})
 
 		ginkgo.It("Should import CAPI cluster", func() {
+			ginkgo.By("Wait for managed cluster namespace to be created")
+			gomega.Eventually(func() error {
+				_, err := kubeClient.CoreV1().Namespaces().Get(context.TODO(), managedClusterName, metav1.GetOptions{})
+				return err
+			}, eventuallyTimeout, eventuallyInterval).ShouldNot(gomega.HaveOccurred())
+
 			ginkgo.By("Create CAPI cluster")
 			capiCluster := testingcommon.NewUnstructured(
 				"cluster.x-k8s.io/v1beta1", "Cluster", managedClusterName, managedClusterName)
