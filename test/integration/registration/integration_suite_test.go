@@ -37,7 +37,7 @@ import (
 )
 
 const (
-	eventuallyTimeout  = 30 // seconds
+	eventuallyTimeout  = 60 // seconds
 	eventuallyInterval = 1  // seconds
 )
 

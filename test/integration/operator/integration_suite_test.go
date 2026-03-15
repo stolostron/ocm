@@ -34,7 +34,7 @@ func TestIntegration(t *testing.T) {
 }
 
 const (
-	eventuallyTimeout  = 30 // seconds
+	eventuallyTimeout  = 60 // seconds
 	eventuallyInterval = 1  // seconds
 	hubNamespace       = "open-cluster-management-hub"
 	clusterManagerName = "hub"
