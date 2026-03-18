@@ -278,6 +278,7 @@ func TestTemplateCSRSignFunc(t *testing.T) {
 		casecret     *corev1.Secret
 		csr          *certificatesv1.CertificateSigningRequest
 		expectedCert []byte
+		expectedErr  bool
 	}{
 		{
 			name:    "kubeclient",
@@ -347,6 +348,7 @@ func TestTemplateCSRSignFunc(t *testing.T) {
 				},
 			},
 			expectedCert: nil,
+			expectedErr:  true,
 		},
 		{
 			name:     "customsigner with ca secret",
@@ -386,6 +388,7 @@ func TestTemplateCSRSignFunc(t *testing.T) {
 				},
 			},
 			expectedCert: nil,
+			expectedErr:  true,
 		},
 	}
 	for _, c := range cases {
@@ -408,6 +411,12 @@ func TestTemplateCSRSignFunc(t *testing.T) {
 		agent := NewCRDTemplateAgentAddon(ctx, c.addon.Name, hubKubeClient, addonClient, addonInformerFactory, nil, nil)
 		f := agent.TemplateCSRSignFunc()
 		cert, err := f(c.cluster, c.addon, c.csr)
+		if c.expectedErr {
+			if err == nil {
+				t.Errorf("expected error but got nil")
+			}
+			continue
+		}
 		if err != nil {
 			t.Fatal(err)
 		}
