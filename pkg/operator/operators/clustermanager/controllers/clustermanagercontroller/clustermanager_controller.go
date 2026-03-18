@@ -379,7 +379,7 @@ func isIPFormat(address string) bool {
 	return true
 }
 
-func convertWebhookConfiguration(webhookConfiguration operatorapiv1.HostedWebhookConfiguration) manifests.Webhook {
+func convertWebhookConfiguration(webhookConfiguration operatorapiv1.WebhookConfiguration) manifests.Webhook {
 	return manifests.Webhook{
 		Address:    webhookConfiguration.Address,
 		Port:       webhookConfiguration.Port,

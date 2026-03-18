@@ -8,6 +8,7 @@ import (
 	"compress/flate"
 	"errors"
 	"io"
+	"log"
 	"strings"
 	"sync"
 )
@@ -33,10 +34,8 @@ func decompressNoContextTakeover(r io.Reader) io.ReadCloser {
 		"\x01\x00\x00\xff\xff"
 
 	fr, _ := flateReaderPool.Get().(io.ReadCloser)
-	mr := io.MultiReader(r, strings.NewReader(tail))
-	if err := fr.(flate.Resetter).Reset(mr, nil); err != nil {
-		// Reset never fails, but handle error in case that changes.
-		fr = flate.NewReader(mr)
+	if err := fr.(flate.Resetter).Reset(io.MultiReader(r, strings.NewReader(tail)), nil); err != nil {
+		panic(err)
 	}
 	return &flateReadWrapper{fr}
 }
@@ -136,7 +135,9 @@ func (r *flateReadWrapper) Read(p []byte) (int, error) {
 		// Preemptively place the reader back in the pool. This helps with
 		// scenarios where the application does not call NextReader() soon after
 		// this final read.
-		r.Close()
+		if err := r.Close(); err != nil {
+			log.Printf("websocket: flateReadWrapper.Close() returned error: %v", err)
+		}
 	}
 	return n, err
 }

@@ -73,12 +73,12 @@ spec:
                 - Foreground
                 type: string
               manifestWorkTemplate:
-                description: manifestWorkTemplate is the ManifestWorkSpec that will
+                description: ManifestWorkTemplate is the ManifestWorkSpec that will
                   be used to generate a per-cluster ManifestWork
                 properties:
                   deleteOption:
                     description: |-
-                      deleteOption represents deletion strategy when the manifestwork is deleted.
+                      DeleteOption represents deletion strategy when the manifestwork is deleted.
                       Foreground deletion strategy is applied to all the resource in this manifestwork if it is not set.
                     properties:
                       propagationPolicy:
@@ -132,16 +132,6 @@ spec:
                               type: object
                             type: array
                         type: object
-                      ttlSecondsAfterFinished:
-                        description: |-
-                          TTLSecondsAfterFinished limits the lifetime of a ManifestWork that has been marked Complete
-                          by one or more conditionRules set for its manifests. If this field is set, and
-                          the manifestwork has completed, then it is elligible to be automatically deleted.
-                          If this field is unset, the manifestwork won't be automatically deleted even afer completion.
-                          If this field is set to zero, the manfiestwork becomes elligible to be deleted immediately
-                          after completion.
-                        format: int64
-                        type: integer
                     type: object
                   executor:
                     description: |-
@@ -190,65 +180,12 @@ spec:
                         type: object
                     type: object
                   manifestConfigs:
-                    description: manifestConfigs represents the configurations of
+                    description: ManifestConfigs represents the configurations of
                       manifests defined in workload field.
                     items:
                       description: ManifestConfigOption represents the configurations
                         of a manifest defined in workload field.
                       properties:
-                        conditionRules:
-                          description: ConditionRules defines how to set manifestwork
-                            conditions for a specific manifest.
-                          items:
-                            properties:
-                              celExpressions:
-                                description: |-
-                                  CelExpressions defines the CEL expressions to be evaluated for the condition.
-                                  Final result is the logical AND of all expressions.
-                                items:
-                                  type: string
-                                type: array
-                              condition:
-                                description: |-
-                                  Condition is the type of condition that is set based on this rule.
-                                  Any condition is supported, but certain special conditions can be used to
-                                  to control higher level behaviors of the manifestwork.
-                                  If the condition is Complete, the manifest will no longer be updated once completed.
-                                type: string
-                              message:
-                                description: Message is set on the condition created
-                                  for this rule
-                                type: string
-                              messageExpression:
-                                description: |-
-                                  MessageExpression uses a CEL expression to generate a message for the condition
-                                  Will override message if both are set and messageExpression returns a non-empty string.
-                                  Variables:
-                                  - object: The current instance of the manifest
-                                  - result: Boolean result of the CEL expressions
-                                type: string
-                              type:
-                                description: |-
-                                  Type defines how a manifest should be evaluated for a condition.
-                                  It can be CEL, or WellKnownConditions.
-                                  If the type is CEL, user should specify the celExpressions field
-                                  If the type is WellKnownConditions, certain common types in k8s.io/api will be considered
-                                  completed as defined by hardcoded rules.
-                                enum:
-                                - WellKnownConditions
-                                - CEL
-                                type: string
-                            required:
-                            - condition
-                            - type
-                            type: object
-                            x-kubernetes-validations:
-                            - message: Condition is required for CEL rules
-                              rule: self.type != 'CEL' || self.condition != ""
-                          type: array
-                          x-kubernetes-list-map-keys:
-                          - condition
-                          x-kubernetes-list-type: map
                         feedbackRules:
                           description: |-
                             FeedbackRules defines what resource status field should be returned. If it is not set or empty,
@@ -407,11 +344,11 @@ spec:
                       type: object
                     type: array
                   workload:
-                    description: workload represents the manifest workload to be deployed
+                    description: Workload represents the manifest workload to be deployed
                       on a managed cluster.
                     properties:
                       manifests:
-                        description: manifests represents a list of kubernetes resources
+                        description: Manifests represents a list of kuberenetes resources
                           to be deployed on a managed cluster.
                         items:
                           description: Manifest represents a resource to be deployed
@@ -424,7 +361,7 @@ spec:
                 type: object
               placementRefs:
                 description: |-
-                  placementRefs is a list of the names of the Placement resource, from which a PlacementDecision will be found and used
+                  PacementRefs is a list of the names of the Placement resource, from which a PlacementDecision will be found and used
                   to distribute the ManifestWork.
                 items:
                   description: localPlacementReference is the name of a Placement
@@ -443,7 +380,7 @@ spec:
                         clusters by Placement and DecisionStrategy.
                       properties:
                         all:
-                          description: all defines required fields for RolloutStrategy
+                          description: All defines required fields for RolloutStrategy
                             type All
                           properties:
                             maxFailures:
@@ -490,7 +427,7 @@ spec:
                               type: string
                           type: object
                         progressive:
-                          description: progressive defines required fields for RolloutStrategy
+                          description: Progressive defines required fields for RolloutStrategy
                             type Progressive
                           properties:
                             mandatoryDecisionGroups:
@@ -506,13 +443,13 @@ spec:
                                 properties:
                                   groupIndex:
                                     description: |-
-                                      groupIndex of the decision group should match the placementDecisions label value with label key
+                                      GroupIndex of the decision group should match the placementDecisions label value with label key
                                       cluster.open-cluster-management.io/decision-group-index
                                     format: int32
                                     type: integer
                                   groupName:
                                     description: |-
-                                      groupName of the decision group should match the placementDecisions label value with label key
+                                      GroupName of the decision group should match the placementDecisions label value with label key
                                       cluster.open-cluster-management.io/decision-group-name
                                     type: string
                                 type: object
@@ -522,7 +459,7 @@ spec:
                               - type: integer
                               - type: string
                               description: |-
-                                maxConcurrency is the max number of clusters to deploy workload concurrently. The default value
+                                MaxConcurrency is the max number of clusters to deploy workload concurrently. The default value
                                 for MaxConcurrency is determined from the clustersPerDecisionGroup defined in the
                                 placement->DecisionStrategy.
                               pattern: ^((100|[0-9]{1,2})%|[0-9]+)$
@@ -571,7 +508,7 @@ spec:
                               type: string
                           type: object
                         progressivePerGroup:
-                          description: progressivePerGroup defines required fields
+                          description: ProgressivePerGroup defines required fields
                             for RolloutStrategy type ProgressivePerGroup
                           properties:
                             mandatoryDecisionGroups:
@@ -587,13 +524,13 @@ spec:
                                 properties:
                                   groupIndex:
                                     description: |-
-                                      groupIndex of the decision group should match the placementDecisions label value with label key
+                                      GroupIndex of the decision group should match the placementDecisions label value with label key
                                       cluster.open-cluster-management.io/decision-group-index
                                     format: int32
                                     type: integer
                                   groupName:
                                     description: |-
-                                      groupName of the decision group should match the placementDecisions label value with label key
+                                      GroupName of the decision group should match the placementDecisions label value with label key
                                       cluster.open-cluster-management.io/decision-group-name
                                     type: string
                                 type: object
@@ -741,7 +678,7 @@ spec:
                       description: Summary totals of resulting ManifestWorks for the
                         placement
                       properties:
-                        applied:
+                        Applied:
                           description: 'Applied is the number of ManifestWorks with
                             condition Applied: true'
                           type: integer
@@ -763,7 +700,7 @@ spec:
               summary:
                 description: Summary totals of resulting ManifestWorks for all placements
                 properties:
-                  applied:
+                  Applied:
                     description: 'Applied is the number of ManifestWorks with condition
                       Applied: true'
                     type: integer

@@ -1,4 +1,3 @@
-// Copyright Contributors to the Open Cluster Management project
 package v1alpha1
 
 import (
@@ -38,15 +37,15 @@ type RolloutStrategy struct {
 	// +optional
 	Type RolloutType `json:"type,omitempty"`
 
-	// all defines required fields for RolloutStrategy type All
+	// All defines required fields for RolloutStrategy type All
 	// +optional
 	All *RolloutAll `json:"all,omitempty"`
 
-	// progressive defines required fields for RolloutStrategy type Progressive
+	// Progressive defines required fields for RolloutStrategy type Progressive
 	// +optional
 	Progressive *RolloutProgressive `json:"progressive,omitempty"`
 
-	// progressivePerGroup defines required fields for RolloutStrategy type ProgressivePerGroup
+	// ProgressivePerGroup defines required fields for RolloutStrategy type ProgressivePerGroup
 	// +optional
 	ProgressivePerGroup *RolloutProgressivePerGroup `json:"progressivePerGroup,omitempty"`
 }
@@ -95,12 +94,12 @@ type RolloutConfig struct {
 // MandatoryDecisionGroup set the decision group name or group index.
 // GroupName is considered first to select the decisionGroups then GroupIndex.
 type MandatoryDecisionGroup struct {
-	// groupName of the decision group should match the placementDecisions label value with label key
+	// GroupName of the decision group should match the placementDecisions label value with label key
 	// cluster.open-cluster-management.io/decision-group-name
 	// +optional
 	GroupName string `json:"groupName,omitempty"`
 
-	// groupIndex of the decision group should match the placementDecisions label value with label key
+	// GroupIndex of the decision group should match the placementDecisions label value with label key
 	// cluster.open-cluster-management.io/decision-group-index
 	// +optional
 	GroupIndex int32 `json:"groupIndex,omitempty"`
@@ -139,7 +138,7 @@ type RolloutProgressive struct {
 	// +optional
 	MandatoryDecisionGroups `json:",inline"`
 
-	// maxConcurrency is the max number of clusters to deploy workload concurrently. The default value
+	// MaxConcurrency is the max number of clusters to deploy workload concurrently. The default value
 	// for MaxConcurrency is determined from the clustersPerDecisionGroup defined in the
 	// placement->DecisionStrategy.
 	// +kubebuilder:validation:Pattern="^((100|[0-9]{1,2})%|[0-9]+)$"

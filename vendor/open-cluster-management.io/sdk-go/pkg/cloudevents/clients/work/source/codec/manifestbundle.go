@@ -18,6 +18,9 @@ import (
 	"open-cluster-management.io/sdk-go/pkg/cloudevents/generic/types"
 )
 
+// ExtensionWorkMeta is an extension attribute for work meta data.
+const ExtensionWorkMeta = "metadata"
+
 // ManifestBundleCodec is a codec to encode/decode a ManifestWork/cloudevent with ManifestBundle for a source.
 type ManifestBundleCodec struct{}
 
@@ -52,7 +55,7 @@ func (c *ManifestBundleCodec) Encode(source string, eventType types.CloudEventsT
 	if err != nil {
 		return nil, err
 	}
-	evt.SetExtension(types.ExtensionWorkMeta, string(metaJson))
+	evt.SetExtension(ExtensionWorkMeta, string(metaJson))
 
 	if !work.DeletionTimestamp.IsZero() {
 		evt.SetExtension(types.ExtensionDeletionTimestamp, work.DeletionTimestamp.Time)
@@ -63,7 +66,6 @@ func (c *ManifestBundleCodec) Encode(source string, eventType types.CloudEventsT
 		Manifests:       work.Spec.Workload.Manifests,
 		DeleteOption:    work.Spec.DeleteOption,
 		ManifestConfigs: work.Spec.ManifestConfigs,
-		Executer:        work.Spec.Executor,
 	}
 	if err := evt.SetData(cloudevents.ApplicationJSON, manifests); err != nil {
 		return nil, fmt.Errorf("failed to encode manifestwork status to a cloudevent: %v", err)
@@ -105,7 +107,7 @@ func (c *ManifestBundleCodec) Decode(evt *cloudevents.Event) (*workv1.ManifestWo
 	// the agent sends the work meta data back, restore the meta to the received work, otherwise only set the
 	// UID and ResourceVersion to the received work, for the work's other meta data will be got from the work
 	// client local cache.
-	if workMetaExtension, ok := evtExtensions[types.ExtensionWorkMeta]; ok {
+	if workMetaExtension, ok := evtExtensions[ExtensionWorkMeta]; ok {
 		metaJson, err := cloudeventstypes.ToString(workMetaExtension)
 		if err != nil {
 			return nil, err
@@ -117,9 +119,6 @@ func (c *ManifestBundleCodec) Decode(evt *cloudevents.Event) (*workv1.ManifestWo
 	}
 
 	metaObj.UID = kubetypes.UID(resourceID)
-	if len(metaObj.Name) == 0 {
-		metaObj.Name = resourceID
-	}
 	metaObj.ResourceVersion = fmt.Sprintf("%d", resourceVersion)
 	if metaObj.Annotations == nil {
 		metaObj.Annotations = map[string]string{}
@@ -141,7 +140,6 @@ func (c *ManifestBundleCodec) Decode(evt *cloudevents.Event) (*workv1.ManifestWo
 		work.Spec.Workload.Manifests = manifestStatus.ManifestBundle.Manifests
 		work.Spec.DeleteOption = manifestStatus.ManifestBundle.DeleteOption
 		work.Spec.ManifestConfigs = manifestStatus.ManifestBundle.ManifestConfigs
-		work.Spec.Executor = manifestStatus.ManifestBundle.Executer
 	}
 
 	work.Status = workv1.ManifestWorkStatus{

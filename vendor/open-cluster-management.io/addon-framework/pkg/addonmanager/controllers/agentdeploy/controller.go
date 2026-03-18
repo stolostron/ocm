@@ -32,7 +32,6 @@ import (
 	"open-cluster-management.io/addon-framework/pkg/addonmanager/constants"
 	"open-cluster-management.io/addon-framework/pkg/agent"
 	"open-cluster-management.io/addon-framework/pkg/index"
-	"open-cluster-management.io/addon-framework/pkg/utils"
 	"open-cluster-management.io/sdk-go/pkg/basecontroller/factory"
 )
 
@@ -50,8 +49,7 @@ type addonDeployController struct {
 	managedClusterAddonIndexer cache.Indexer
 	workIndexer                cache.Indexer
 	agentAddons                map[string]agent.AgentAddon
-	queue                      workqueue.TypedRateLimitingInterface[string]
-	mcaFilterFunc              utils.ManagedClusterAddOnFilterFunc
+	queue                      workqueue.RateLimitingInterface
 }
 
 func NewAddonDeployController(
@@ -61,7 +59,6 @@ func NewAddonDeployController(
 	addonInformers addoninformerv1alpha1.ManagedClusterAddOnInformer,
 	workInformers workinformers.ManifestWorkInformer,
 	agentAddons map[string]agent.AgentAddon,
-	mcaFilterFunc utils.ManagedClusterAddOnFilterFunc,
 ) factory.Controller {
 	syncCtx := factory.NewSyncContext(controllerName)
 
@@ -77,7 +74,6 @@ func NewAddonDeployController(
 		managedClusterAddonIndexer: addonInformers.Informer().GetIndexer(),
 		workIndexer:                workInformers.Informer().GetIndexer(),
 		agentAddons:                agentAddons,
-		mcaFilterFunc:              mcaFilterFunc,
 	}
 
 	c.setClusterInformerHandler(clusterInformers)
@@ -239,10 +235,6 @@ func (c *addonDeployController) sync(ctx context.Context, syncCtx factory.SyncCo
 		return err
 	}
 
-	if c.mcaFilterFunc != nil && !c.mcaFilterFunc(addon) {
-		return nil
-	}
-
 	// to deploy agents if there is RegistrationApplied condition.
 	if meta.FindStatusCondition(addon.Status.Conditions, addonapiv1alpha1.ManagedClusterAddOnRegistrationApplied) == nil {
 		return nil
@@ -297,9 +289,8 @@ func (c *addonDeployController) sync(ctx context.Context, syncCtx factory.SyncCo
 			getWorkByAddon: c.getWorksByAddonFn(index.ManifestWorkHookByHostedAddon),
 			agentAddon:     agentAddon},
 		&healthCheckSyncer{
-			getWorkByAddon:       c.getWorksByAddonFn(index.ManifestWorkByAddon),
-			getWorkByHostedAddon: c.getWorksByAddonFn(index.ManifestWorkByHostedAddon),
-			agentAddon:           agentAddon,
+			getWorkByAddon: c.getWorksByAddonFn(index.ManifestWorkByAddon),
+			agentAddon:     agentAddon,
 		},
 	}
 
@@ -315,7 +306,7 @@ func (c *addonDeployController) sync(ctx context.Context, syncCtx factory.SyncCo
 	}
 
 	if err = c.updateAddon(ctx, addon, oldAddon); err != nil {
-		return fmt.Errorf("failed to update addon %s/%s: %w", addon.Namespace, addon.Name, err)
+		return err
 	}
 	return errorsutil.NewAggregate(errs)
 }
@@ -325,10 +316,7 @@ func (c *addonDeployController) sync(ctx context.Context, syncCtx factory.SyncCo
 func (c *addonDeployController) updateAddon(ctx context.Context, new, old *addonapiv1alpha1.ManagedClusterAddOn) error {
 	if !equality.Semantic.DeepEqual(new.GetFinalizers(), old.GetFinalizers()) {
 		_, err := c.addonClient.AddonV1alpha1().ManagedClusterAddOns(new.Namespace).Update(ctx, new, metav1.UpdateOptions{})
-		if err != nil {
-			return fmt.Errorf("failed to update addon finalizers: %w", err)
-		}
-		return nil
+		return err
 	}
 
 	addonPatcher := patcher.NewPatcher[
@@ -337,10 +325,7 @@ func (c *addonDeployController) updateAddon(ctx context.Context, new, old *addon
 		addonapiv1alpha1.ManagedClusterAddOnStatus](c.addonClient.AddonV1alpha1().ManagedClusterAddOns(new.Namespace))
 
 	_, err := addonPatcher.PatchStatus(ctx, new, new.Status, old.Status)
-	if err != nil {
-		return fmt.Errorf("failed to update addon status: %w", err)
-	}
-	return nil
+	return err
 }
 
 func (c *addonDeployController) applyWork(ctx context.Context, appliedType string,
@@ -421,11 +406,7 @@ func (c *addonDeployController) buildDeployManifestWorksFunc(addonWorkBuilder *a
 			mode, _ = agentAddon.GetAgentAddonOptions().HostedModeInfoFunc(addon, cluster)
 		}
 
-		manifestOptions, err := getManifestConfigOption(agentAddon, cluster, addon)
-		if err != nil {
-			return nil, nil, fmt.Errorf("get manifest config option error: %v", err)
-		}
-
+		manifestOptions := getManifestConfigOption(agentAddon, cluster, addon)
 		existingWorksCopy := []workapiv1.ManifestWork{}
 		for _, work := range existingWorks {
 			existingWorksCopy = append(existingWorksCopy, *work)

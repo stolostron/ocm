@@ -4,9 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"open-cluster-management.io/sdk-go/pkg/cloudevents/server/grpc/heartbeat"
 	"sync"
-	"time"
 
 	"google.golang.org/grpc"
 
@@ -15,14 +13,12 @@ import (
 	"github.com/cloudevents/sdk-go/v2/protocol"
 
 	pbv1 "open-cluster-management.io/sdk-go/pkg/cloudevents/generic/options/grpc/protobuf/v1"
-	"open-cluster-management.io/sdk-go/pkg/cloudevents/generic/types"
 )
 
 // protocol for grpc
 // define protocol for grpc
 
 type Protocol struct {
-	clientConn      *grpc.ClientConn
 	client          pbv1.CloudEventServiceClient
 	subscribeOption *SubscribeOption
 	// receiver
@@ -31,13 +27,6 @@ type Protocol struct {
 	openerMutex sync.Mutex
 
 	closeChan chan struct{}
-
-	// reconnectErrorChan is to send an error message to reconnect the connection
-	reconnectErrorChan chan error
-
-	// serverHealthinessTimeout is the max duration that client will reconnect if no server healthiness
-	// status is received in this duration.
-	serverHealthinessTimeout *time.Duration
 }
 
 var (
@@ -48,17 +37,17 @@ var (
 )
 
 // new create grpc protocol
-func NewProtocol(clientConn *grpc.ClientConn, opts ...Option) (*Protocol, error) {
+func NewProtocol(clientConn grpc.ClientConnInterface, opts ...Option) (*Protocol, error) {
 	if clientConn == nil {
 		return nil, fmt.Errorf("the client connection must not be nil")
 	}
 
 	// TODO: support clientID and error handling in grpc connection
 	p := &Protocol{
-		clientConn: clientConn,
-		client:     pbv1.NewCloudEventServiceClient(clientConn),
-		incoming:   make(chan *pbv1.CloudEvent),
-		closeChan:  make(chan struct{}),
+		client: pbv1.NewCloudEventServiceClient(clientConn),
+		// subClient:
+		incoming:  make(chan *pbv1.CloudEvent),
+		closeChan: make(chan struct{}),
 	}
 
 	if err := p.applyOptions(opts...); err != nil {
@@ -128,26 +117,23 @@ func (p *Protocol) OpenInbound(ctx context.Context) error {
 		logger.Infof("subscribing events for cluster: %v with data types: %v", p.subscribeOption.ClusterName, p.subscribeOption.DataType)
 	}
 
-	subCtx, cancel := context.WithCancel(ctx)
-	healthChecker := heartbeat.NewHealthChecker(p.serverHealthinessTimeout, p.reconnectErrorChan)
-
-	// start to receive the events from stream
-	go p.startEventsReceiver(subCtx, subClient, healthChecker.Input())
-
-	// start to watch the stream heartbeat
-	go healthChecker.Start(subCtx)
+	go func() {
+		for {
+			msg, err := subClient.Recv()
+			if err != nil {
+				return
+			}
+			p.incoming <- msg
+		}
+	}()
 
 	// Wait until external or internal context done
 	select {
-	case <-subCtx.Done():
+	case <-ctx.Done():
 	case <-p.closeChan:
 	}
 
-	// ensure the event receiver and heartbeat watcher are done
-	cancel()
-
-	logger.Infof("Close grpc client connection")
-	return p.clientConn.Close()
+	return nil
 }
 
 // Receive implements Receiver.Receive
@@ -167,33 +153,4 @@ func (p *Protocol) Receive(ctx context.Context) (binding.Message, error) {
 func (p *Protocol) Close(ctx context.Context) error {
 	close(p.closeChan)
 	return nil
-}
-
-func (p *Protocol) startEventsReceiver(ctx context.Context,
-	subClient pbv1.CloudEventService_SubscribeClient, heartbeatCh chan *pbv1.CloudEvent) {
-	for {
-		evt, err := subClient.Recv()
-		if err != nil {
-			select {
-			case p.reconnectErrorChan <- fmt.Errorf("subscribe stream failed: %w", err):
-			default:
-			}
-			return
-		}
-
-		if evt.Type == types.HeartbeatCloudEventsType {
-			select {
-			case heartbeatCh <- evt:
-			case <-ctx.Done():
-				return
-			}
-			continue
-		}
-
-		select {
-		case p.incoming <- evt:
-		case <-ctx.Done():
-			return
-		}
-	}
 }

@@ -20,9 +20,8 @@ import (
 )
 
 type healthCheckSyncer struct {
-	getWorkByAddon       func(addonName, addonNamespace string) ([]*workapiv1.ManifestWork, error)
-	getWorkByHostedAddon func(addonName, addonNamespace string) ([]*workapiv1.ManifestWork, error)
-	agentAddon           agent.AgentAddon
+	getWorkByAddon func(addonName, addonNamespace string) ([]*workapiv1.ManifestWork, error)
+	agentAddon     agent.AgentAddon
 }
 
 func (s *healthCheckSyncer) sync(ctx context.Context,
@@ -129,19 +128,8 @@ func (s *healthCheckSyncer) probeAddonStatusByWorks(
 		}
 	}
 
-	var addonManifestWorks []*workapiv1.ManifestWork
-	var err error
-	installMode := constants.InstallModeDefault
-	if s.agentAddon.GetAgentAddonOptions().HostedModeInfoFunc != nil {
-		installMode, _ = s.agentAddon.GetAgentAddonOptions().HostedModeInfoFunc(addon, cluster)
-	}
-	if installMode == constants.InstallModeHosted {
-		addonManifestWorks, err = s.getWorkByHostedAddon(addon.Name, addon.Namespace)
-	} else {
-		addonManifestWorks, err = s.getWorkByAddon(addon.Name, addon.Namespace)
-	}
-
-	if err != nil || len(addonManifestWorks) == 0 {
+	addonWorks, err := s.getWorkByAddon(addon.Name, addon.Namespace)
+	if err != nil || len(addonWorks) == 0 {
 		meta.SetStatusCondition(&addon.Status.Conditions, metav1.Condition{
 			Type:    addonapiv1alpha1.ManagedClusterAddOnConditionAvailable,
 			Status:  metav1.ConditionUnknown,
@@ -152,7 +140,7 @@ func (s *healthCheckSyncer) probeAddonStatusByWorks(
 	}
 
 	manifestConditions := []workapiv1.ManifestCondition{}
-	for _, work := range addonManifestWorks {
+	for _, work := range addonWorks {
 		if !strings.HasPrefix(work.Name, constants.DeployWorkNamePrefix(addon.Name)) {
 			continue
 		}
@@ -191,19 +179,6 @@ func (s *healthCheckSyncer) probeAddonStatusByWorks(
 
 	for _, field := range probeFields {
 		results := findResultsByIdentifier(field.ResourceIdentifier, manifestConditions)
-		// if no results are returned. it is possible that work agent has not returned the feedback value.
-		// mark condition to unknown
-		if len(results) == 0 {
-			meta.SetStatusCondition(&addon.Status.Conditions, metav1.Condition{
-				Type:   addonapiv1alpha1.ManagedClusterAddOnConditionAvailable,
-				Status: metav1.ConditionUnknown,
-				Reason: addonapiv1alpha1.AddonAvailableReasonNoProbeResult,
-				Message: fmt.Sprintf("Probe results are not returned for %s/%s: %s/%s",
-					field.ResourceIdentifier.Group, field.ResourceIdentifier.Resource,
-					field.ResourceIdentifier.Namespace, field.ResourceIdentifier.Name),
-			})
-			return nil
-		}
 
 		// healthCheck will be ignored if healthChecker is set
 		if healthChecker != nil {
@@ -219,6 +194,20 @@ func (s *healthCheckSyncer) probeAddonStatusByWorks(
 				Status:  metav1.ConditionFalse,
 				Reason:  addonapiv1alpha1.AddonAvailableReasonProbeUnavailable,
 				Message: fmt.Sprintf("health checker function is not set %v", err),
+			})
+			return nil
+		}
+
+		// if no results are returned. it is possible that work agent has not returned the feedback value.
+		// mark condition to unknown
+		if len(results) == 0 {
+			meta.SetStatusCondition(&addon.Status.Conditions, metav1.Condition{
+				Type:   addonapiv1alpha1.ManagedClusterAddOnConditionAvailable,
+				Status: metav1.ConditionUnknown,
+				Reason: addonapiv1alpha1.AddonAvailableReasonNoProbeResult,
+				Message: fmt.Sprintf("Probe results are not returned for %s/%s: %s/%s",
+					field.ResourceIdentifier.Group, field.ResourceIdentifier.Resource,
+					field.ResourceIdentifier.Namespace, field.ResourceIdentifier.Name),
 			})
 			return nil
 		}
@@ -274,11 +263,11 @@ func (s *healthCheckSyncer) analyzeWorkProber(
 		}
 		return nil, nil, nil, fmt.Errorf("work prober is not configured")
 	case agent.HealthProberTypeDeploymentAvailability:
-		probeFields, heathChecker, err := s.analyzeDeploymentWorkProber(agentAddon, cluster, addon)
-		return probeFields, nil, heathChecker, err
+		probeFields, heathCheck, err := s.analyzeDeploymentWorkProber(agentAddon, cluster, addon)
+		return probeFields, heathCheck, nil, err
 	case agent.HealthProberTypeWorkloadAvailability:
-		probeFields, heathChecker, err := s.analyzeWorkloadsWorkProber(agentAddon, cluster, addon)
-		return probeFields, nil, heathChecker, err
+		probeFields, heathCheck, err := s.analyzeWorkloadsWorkProber(agentAddon, cluster, addon)
+		return probeFields, heathCheck, nil, err
 	default:
 		return nil, nil, nil, fmt.Errorf("unsupported health prober type %s", agentAddon.GetAgentAddonOptions().HealthProber.Type)
 	}
@@ -288,7 +277,7 @@ func (s *healthCheckSyncer) analyzeDeploymentWorkProber(
 	agentAddon agent.AgentAddon,
 	cluster *clusterv1.ManagedCluster,
 	addon *addonapiv1alpha1.ManagedClusterAddOn,
-) ([]agent.ProbeField, agent.AddonHealthCheckerFunc, error) {
+) ([]agent.ProbeField, agent.AddonHealthCheckFunc, error) {
 	probeFields := []agent.ProbeField{}
 
 	manifests, err := agentAddon.Manifests(cluster, addon)
@@ -309,14 +298,14 @@ func (s *healthCheckSyncer) analyzeDeploymentWorkProber(
 		})
 	}
 
-	return probeFields, utils.DeploymentAvailabilityHealthChecker, nil
+	return probeFields, utils.DeploymentAvailabilityHealthCheck, nil
 }
 
 func (s *healthCheckSyncer) analyzeWorkloadsWorkProber(
 	agentAddon agent.AgentAddon,
 	cluster *clusterv1.ManagedCluster,
 	addon *addonapiv1alpha1.ManagedClusterAddOn,
-) ([]agent.ProbeField, agent.AddonHealthCheckerFunc, error) {
+) ([]agent.ProbeField, agent.AddonHealthCheckFunc, error) {
 	probeFields := []agent.ProbeField{}
 
 	manifests, err := agentAddon.Manifests(cluster, addon)
@@ -343,7 +332,7 @@ func (s *healthCheckSyncer) analyzeWorkloadsWorkProber(
 		})
 	}
 
-	return probeFields, utils.WorkloadAvailabilityHealthChecker, nil
+	return probeFields, utils.WorkloadAvailabilityHealthCheck, nil
 }
 
 func findResultsByIdentifier(identifier workapiv1.ResourceIdentifier,

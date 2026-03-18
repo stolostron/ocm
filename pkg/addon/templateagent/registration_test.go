@@ -138,10 +138,7 @@ func TestTemplateCSRConfigurationsFunc(t *testing.T) {
 
 		agent := NewCRDTemplateAgentAddon(ctx, c.addon.Name, nil, addonClient, addonInformerFactory, nil, nil)
 		f := agent.TemplateCSRConfigurationsFunc()
-		registrationConfigs, err := f(c.cluster, c.addon)
-		if err != nil {
-			t.Fatal(err)
-		}
+		registrationConfigs := f(c.cluster)
 		if !equality.Semantic.DeepEqual(registrationConfigs, c.expectedConfigs) {
 			t.Errorf("expected registrationConfigs %v, but got %v", c.expectedConfigs, registrationConfigs)
 		}
@@ -278,7 +275,6 @@ func TestTemplateCSRSignFunc(t *testing.T) {
 		casecret     *corev1.Secret
 		csr          *certificatesv1.CertificateSigningRequest
 		expectedCert []byte
-		expectedErr  string
 	}{
 		{
 			name:    "kubeclient",
@@ -348,7 +344,6 @@ func TestTemplateCSRSignFunc(t *testing.T) {
 				},
 			},
 			expectedCert: nil,
-			expectedErr:  `secrets "name1" not found`,
 		},
 		{
 			name:     "customsigner with ca secret",
@@ -388,7 +383,6 @@ func TestTemplateCSRSignFunc(t *testing.T) {
 				},
 			},
 			expectedCert: nil,
-			expectedErr:  "failed to sign csr: PEM block type must be CERTIFICATE REQUEST",
 		},
 	}
 	for _, c := range cases {
@@ -410,19 +404,7 @@ func TestTemplateCSRSignFunc(t *testing.T) {
 
 		agent := NewCRDTemplateAgentAddon(ctx, c.addon.Name, hubKubeClient, addonClient, addonInformerFactory, nil, nil)
 		f := agent.TemplateCSRSignFunc()
-		cert, err := f(c.cluster, c.addon, c.csr)
-		if c.expectedErr == "" {
-			if err != nil {
-				t.Fatalf("case: %s, expected no error but got: %v", c.name, err)
-			}
-		} else {
-			if err == nil {
-				t.Fatalf("case: %s, expected error containing %q but got nil", c.name, c.expectedErr)
-			}
-			if !strings.Contains(err.Error(), c.expectedErr) {
-				t.Fatalf("case: %s, expected error containing %q but got: %v", c.name, c.expectedErr, err)
-			}
-		}
+		cert := f(c.csr)
 		if !bytes.Equal(cert, c.expectedCert) {
 			t.Errorf("expected cert %v, but got %v", c.expectedCert, cert)
 		}

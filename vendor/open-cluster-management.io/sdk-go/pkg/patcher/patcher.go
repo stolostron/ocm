@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	jsonpatch "github.com/evanphx/json-patch/v5"
+	jsonpatch "github.com/evanphx/json-patch"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"

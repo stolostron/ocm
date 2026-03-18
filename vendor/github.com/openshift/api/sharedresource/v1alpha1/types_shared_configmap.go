@@ -47,7 +47,7 @@ type SharedConfigMap struct {
 
 	// spec is the specification of the desired shared configmap
 	// +required
-	Spec SharedConfigMapSpec `json:"spec"`
+	Spec SharedConfigMapSpec `json:"spec,omitempty"`
 
 	// status is the observed status of the shared configmap
 	Status SharedConfigMapStatus `json:"status,omitempty"`
@@ -93,8 +93,7 @@ type SharedConfigMapSpec struct {
 // SharedSecretStatus contains the observed status of the shared resource
 type SharedConfigMapStatus struct {
 	// conditions represents any observations made on this particular shared resource by the underlying CSI driver or Share controller.
-	// +listType=map
-	// +listMapKey=type
-	// +optional
-	Conditions []metav1.Condition `json:"conditions,omitempty"`
+	// +patchMergeKey=type
+	// +patchStrategy=merge
+	Conditions []metav1.Condition `json:"conditions,omitempty" patchStrategy:"merge" patchMergeKey:"type"`
 }

@@ -167,11 +167,11 @@ var _ = ginkgo.BeforeSuite(func() {
 			DeployOption: operatorapiv1.ClusterManagerDeployOption{
 				Mode: operatorapiv1.InstallModeHosted,
 				Hosted: &operatorapiv1.HostedClusterManagerConfiguration{
-					RegistrationWebhookConfiguration: operatorapiv1.HostedWebhookConfiguration{
+					RegistrationWebhookConfiguration: operatorapiv1.WebhookConfiguration{
 						Address: "localhost",
 						Port:    443,
 					},
-					WorkWebhookConfiguration: operatorapiv1.HostedWebhookConfiguration{
+					WorkWebhookConfiguration: operatorapiv1.WebhookConfiguration{
 						Address: "localhost",
 						Port:    443,
 					},

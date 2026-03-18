@@ -19,8 +19,8 @@ const (
 	prefix      = "ce-"
 	contenttype = "contenttype"
 	// dataSchema  = "dataschema"
-	subject   = "subject"
-	timestamp = "time"
+	subject = "subject"
+	time    = "time"
 )
 
 var specs = spec.WithPrefix(prefix)

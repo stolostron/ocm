@@ -1,4 +1,3 @@
-// Copyright Contributors to the Open Cluster Management project
 // Package v1beta2 contains API Schema definitions for the cluster v1beta2 API group
 // +k8s:deepcopy-gen=package,register
 // +k8s:openapi-gen=true

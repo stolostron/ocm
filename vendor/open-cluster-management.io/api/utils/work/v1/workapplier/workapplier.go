@@ -1,4 +1,3 @@
-// Copyright Contributors to the Open Cluster Management project
 package workapplier
 
 import (
@@ -9,7 +8,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 
-	jsonpatch "github.com/evanphx/json-patch/v5"
+	jsonpatch "github.com/evanphx/json-patch"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
