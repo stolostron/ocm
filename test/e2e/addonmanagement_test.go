@@ -153,12 +153,17 @@ var _ = ginkgo.Describe("Enable addon management feature gate", ginkgo.Ordered, 
 				return err
 			}
 
-			for _, csr := range csrs.Items {
-				err = t.HubKubeClient.CertificatesV1().CertificateSigningRequests().Delete(context.TODO(),
-					csr.Name, metav1.DeleteOptions{})
-				if err != nil {
-					return err
+			if len(csrs.Items) > 0 {
+				ginkgo.By(fmt.Sprintf("Deleting %d CSRs for addon %s/%s", len(csrs.Items), clusterName, addOnName))
+				for _, csr := range csrs.Items {
+					err = t.HubKubeClient.CertificatesV1().CertificateSigningRequests().Delete(context.TODO(),
+						csr.Name, metav1.DeleteOptions{})
+					if err != nil && !errors.IsNotFound(err) {
+						return err
+					}
 				}
+				// Return error to retry - ensures CSRs are fully deleted from API before proceeding
+				return fmt.Errorf("waiting for %d CSRs to be fully deleted", len(csrs.Items))
 			}
 
 			return nil
