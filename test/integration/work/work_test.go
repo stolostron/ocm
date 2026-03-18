@@ -19,7 +19,6 @@ import (
 	"k8s.io/client-go/util/retry"
 
 	workapiv1 "open-cluster-management.io/api/work/v1"
-	"open-cluster-management.io/sdk-go/pkg/cloudevents/work/store"
 
 	commonoptions "open-cluster-management.io/ocm/pkg/common/options"
 	"open-cluster-management.io/ocm/pkg/work/spoke"
@@ -59,7 +58,7 @@ var _ = ginkgo.Describe("ManifestWork", func() {
 		o.WorkloadSourceDriver = sourceDriver
 		o.WorkloadSourceConfig = sourceConfigFileName
 		if sourceDriver != util.KubeDriver {
-			expectedFinalizer = store.ManifestWorkFinalizer
+			expectedFinalizer = workapiv1.ManifestWorkFinalizer
 			o.CloudEventsClientID = fmt.Sprintf("%s-work-agent", clusterName)
 			o.CloudEventsClientCodecs = []string{"manifestbundle"}
 		}

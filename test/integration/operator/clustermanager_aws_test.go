@@ -42,8 +42,10 @@ var _ = ginkgo.Describe("ClusterManager Default Mode with aws registration", fun
 					clusterManager.Spec.RegistrationConfiguration = &operatorapiv1.RegistrationHubConfiguration{}
 					clusterManager.Spec.RegistrationConfiguration.RegistrationDrivers = []operatorapiv1.RegistrationDriverHub{
 						{
-							AuthType:      "awsirsa",
-							HubClusterArn: "arn:aws:eks:us-west-2:123456789012:cluster/hub-cluster",
+							AuthType: operatorapiv1.AwsIrsaAuthType,
+							AwsIrsa: &operatorapiv1.AwsIrsaConfig{
+								HubClusterArn: "arn:aws:eks:us-west-2:123456789012:cluster/hub-cluster",
+							},
 						},
 					}
 				}

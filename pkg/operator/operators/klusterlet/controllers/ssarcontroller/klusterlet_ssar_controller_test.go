@@ -17,6 +17,7 @@ import (
 	kubeinformers "k8s.io/client-go/informers"
 	corev1informers "k8s.io/client-go/informers/core/v1"
 	fakekube "k8s.io/client-go/kubernetes/fake"
+	"k8s.io/client-go/kubernetes/scheme"
 	clienttesting "k8s.io/client-go/testing"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 	clientcmdlatest "k8s.io/client-go/tools/clientcmd/api/latest"
@@ -140,24 +141,40 @@ func TestSync(t *testing.T) {
 			return
 		}
 		ssar := &authorizationv1.SelfSubjectAccessReview{}
-		if err := json.Unmarshal(data, ssar); err != nil {
-			t.Fatal(err)
+
+		contentType := req.Header.Get("Content-Type")
+		if contentType == "application/vnd.kubernetes.protobuf" {
+			if _, _, err := scheme.Codecs.UniversalDeserializer().Decode(data, nil, ssar); err != nil {
+				t.Fatal(err)
+			}
+		} else {
+			if err := json.Unmarshal(data, ssar); err != nil {
+				t.Fatal(err)
+			}
 		}
-		switch ssar.Spec.ResourceAttributes.Resource {
-		case "managedclusters":
+
+		if ssar.Spec.ResourceAttributes.Resource == "managedclusters" { //nolint:gocritic
 			if ssar.Spec.ResourceAttributes.Subresource == "status" {
 				ssar.Status.Allowed = response.allowToOperateManagedClusterStatus
 			} else {
 				ssar.Status.Allowed = response.allowToOperateManagedClusters
 			}
-		case "manifestworks":
+		} else if ssar.Spec.ResourceAttributes.Resource == "manifestworks" {
 			ssar.Status.Allowed = response.allowToOperateManifestWorks
-		default:
+		} else {
 			ssar.Status.Allowed = true
 		}
 
+		// set Content-Type as JSON
 		w.Header().Set("Content-type", "application/json")
 		w.WriteHeader(http.StatusCreated)
+
+		// set TypeMeta
+		ssar.TypeMeta = metav1.TypeMeta{
+			APIVersion: "authorization.k8s.io/v1",
+			Kind:       "SelfSubjectAccessReview",
+		}
+
 		if err := json.NewEncoder(w).Encode(ssar); err != nil {
 			t.Fatal(err)
 		}

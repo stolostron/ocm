@@ -21,6 +21,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/rand"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/dynamic"
+	"k8s.io/utils/clock"
 
 	operatorclient "open-cluster-management.io/api/client/operator/clientset/versioned"
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
@@ -59,7 +60,7 @@ var _ = ginkgo.Describe("Cluster Auto Importer", func() {
 		clusterManagerConfig.CreateNamespace = true
 		manifests, err := chart.RenderClusterManagerChart(clusterManagerConfig, "open-cluster-management")
 		gomega.Expect(err).NotTo(gomega.HaveOccurred())
-		recorder := events.NewInMemoryRecorder("importer-testing")
+		recorder := events.NewInMemoryRecorder("importer-testing", clock.RealClock{})
 		for _, manifest := range manifests {
 			requiredObj, _, err := genericCodec.Decode(manifest, nil, nil)
 			gomega.Expect(err).NotTo(gomega.HaveOccurred())
