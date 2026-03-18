@@ -52,12 +52,6 @@ func (s *Subscribe) Type() byte {
 	return SUBSCRIBE
 }
 
-const (
-	RetainSendOnSubscribe      = iota // on any successful subscribe request
-	RetainSendOnSubscribeIfNew        // only if the subscribe request is new
-	RetainDoNotSend                   // never send retained messages
-)
-
 // SubOptions is the struct representing the options for a subscription
 type SubOptions struct {
 	Topic             string

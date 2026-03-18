@@ -34,10 +34,7 @@ func NewSourceInformerWatcherStore(ctx context.Context) *SourceInformerWatcherSt
 	s := &SourceInformerWatcherStore{
 		baseSourceStore: baseSourceStore{
 			BaseClientWatchStore: store.BaseClientWatchStore[*workv1.ManifestWork]{},
-			receivedWorks: workqueue.NewTypedRateLimitingQueueWithConfig(
-				workqueue.DefaultTypedControllerRateLimiter[*workv1.ManifestWork](),
-				workqueue.TypedRateLimitingQueueConfig[*workv1.ManifestWork]{Name: "informer-watcher-store"},
-			),
+			receivedWorks:        workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "informer-watcher-store"), // nolint:staticcheck // SA1019
 		},
 		watcher: store.NewWatcher(),
 	}
@@ -139,8 +136,6 @@ func (s *AgentInformerWatcherStore) HandleReceivedResource(action types.Resource
 		}
 
 		updatedWork := lastWork.DeepCopy()
-		updatedWork.Generation = work.Generation
-		updatedWork.ResourceVersion = work.ResourceVersion
 		updatedWork.DeletionTimestamp = work.DeletionTimestamp
 		return s.Update(updatedWork)
 	default:

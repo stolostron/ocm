@@ -12,7 +12,7 @@ import (
 // syncContext implements SyncContext and provide user access to queue and object that caused
 // the sync to be triggered.
 type syncContext struct {
-	queue workqueue.TypedRateLimitingInterface[string]
+	queue workqueue.RateLimitingInterface // nolint:staticcheck // SA1019
 }
 
 var _ SyncContext = syncContext{}
@@ -20,14 +20,11 @@ var _ SyncContext = syncContext{}
 // NewSyncContext gives new sync context.
 func NewSyncContext(name string) SyncContext {
 	return syncContext{
-		queue: workqueue.NewTypedRateLimitingQueueWithConfig(
-			workqueue.DefaultTypedControllerRateLimiter[string](),
-			workqueue.TypedRateLimitingQueueConfig[string]{Name: name},
-		),
+		queue: workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), name), // nolint:staticcheck // SA1019
 	}
 }
 
-func (c syncContext) Queue() workqueue.TypedRateLimitingInterface[string] {
+func (c syncContext) Queue() workqueue.RateLimitingInterface { // nolint:staticcheck // SA1019
 	return c.queue
 }
 

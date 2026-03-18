@@ -37,10 +37,6 @@ func (i fakeSharedIndexInformer) AddEventHandlerWithResyncPeriod(handler cache.R
 	return nil, nil
 }
 
-func (i fakeSharedIndexInformer) AddEventHandlerWithOptions(handler cache.ResourceEventHandler, options cache.HandlerOptions) (cache.ResourceEventHandlerRegistration, error) {
-	return nil, nil
-}
-
 func (i fakeSharedIndexInformer) RemoveEventHandler(handle cache.ResourceEventHandlerRegistration) error {
 	panic("implement me")
 }
@@ -61,10 +57,6 @@ func (fakeSharedIndexInformer) Run(stopCh <-chan struct{}) {
 	panic("implement me")
 }
 
-func (fakeSharedIndexInformer) RunWithContext(ctx context.Context) {
-	panic("implement me")
-}
-
 func (fakeSharedIndexInformer) HasSynced() bool {
 	return true
 }
@@ -82,10 +74,6 @@ func (fakeSharedIndexInformer) GetIndexer() cache.Indexer {
 }
 
 func (fakeSharedIndexInformer) SetWatchErrorHandler(handler cache.WatchErrorHandler) error {
-	panic("implement me")
-}
-
-func (fakeSharedIndexInformer) SetWatchErrorHandlerWithContext(handler cache.WatchErrorHandlerWithContext) error {
 	panic("implement me")
 }
 

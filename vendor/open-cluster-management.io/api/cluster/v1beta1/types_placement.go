@@ -1,4 +1,3 @@
-// Copyright Contributors to the Open Cluster Management project
 package v1beta1
 
 import (
@@ -56,14 +55,14 @@ type Placement struct {
 // An empty PlacementSpec selects all ManagedClusters from the ManagedClusterSets bound to
 // the placement namespace. The containing fields are ANDed.
 type PlacementSpec struct {
-	// clusterSets represent the ManagedClusterSets from which the ManagedClusters are selected.
+	// ClusterSets represent the ManagedClusterSets from which the ManagedClusters are selected.
 	// If the slice is empty, ManagedClusters will be selected from the ManagedClusterSets bound to the placement
 	// namespace, otherwise ManagedClusters will be selected from the intersection of this slice and the
 	// ManagedClusterSets bound to the placement namespace.
 	// +optional
 	ClusterSets []string `json:"clusterSets,omitempty"`
 
-	// numberOfClusters represents the desired number of ManagedClusters to be selected which meet the
+	// NumberOfClusters represents the desired number of ManagedClusters to be selected which meet the
 	// placement requirements.
 	// 1) If not specified, all ManagedClusters which meet the placement requirements (including ClusterSets,
 	//    and Predicates) will be selected;
@@ -77,41 +76,40 @@ type PlacementSpec struct {
 	// +optional
 	NumberOfClusters *int32 `json:"numberOfClusters,omitempty"`
 
-	// predicates represent a slice of predicates to select ManagedClusters. The predicates are ORed.
+	// Predicates represent a slice of predicates to select ManagedClusters. The predicates are ORed.
 	// +optional
 	Predicates []ClusterPredicate `json:"predicates,omitempty"`
 
-	// prioritizerPolicy defines the policy of the prioritizers.
+	// PrioritizerPolicy defines the policy of the prioritizers.
 	// If this field is unset, then default prioritizer mode and configurations are used.
 	// Referring to PrioritizerPolicy to see more description about Mode and Configurations.
 	// +optional
 	PrioritizerPolicy PrioritizerPolicy `json:"prioritizerPolicy"`
 
-	// spreadPolicy defines how placement decisions should be distributed among a
+	// SpreadPolicy defines how placement decisions should be distributed among a
 	// set of ManagedClusters.
 	// +optional
 	SpreadPolicy SpreadPolicy `json:"spreadPolicy,omitempty"`
 
-	// tolerations are applied to placements, and allow (but do not require) the managed clusters with
+	// Tolerations are applied to placements, and allow (but do not require) the managed clusters with
 	// certain taints to be selected by placements with matching tolerations.
 	// +optional
 	Tolerations []Toleration `json:"tolerations,omitempty"`
 
-	// decisionStrategy divides the created placement decisions into groups and defines the number of clusters per decision group.
+	// DecisionStrategy divide the created placement decision to groups and define number of clusters per decision group.
 	// +optional
 	DecisionStrategy DecisionStrategy `json:"decisionStrategy,omitempty"`
 }
 
 // DecisionGroup define a subset of clusters that will be added to placementDecisions with groupName label.
 type DecisionGroup struct {
-	// groupName to set as the label value on created PlacementDecision
-	// resources using the label key cluster.open-cluster-management.io/decision-group-name.
+	// Group name to be added as label value to the created placement Decisions labels with label key cluster.open-cluster-management.io/decision-group-name
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:Pattern="^[a-zA-Z0-9][-A-Za-z0-9_.]{0,61}[a-zA-Z0-9]$"
 	// +required
 	GroupName string `json:"groupName,omitempty"`
 
-	// groupClusterSelector selects a subset of clusters by labels.
+	// LabelSelector to select clusters subset by label.
 	// +kubebuilder:validation:Required
 	// +required
 	ClusterSelector GroupClusterSelector `json:"groupClusterSelector,omitempty"`
@@ -120,25 +118,25 @@ type DecisionGroup struct {
 // GroupClusterSelector represents the AND of the containing selectors for groupClusterSelector. An empty group cluster selector matches all objects.
 // A null group cluster selector matches no objects.
 type GroupClusterSelector struct {
-	// labelSelector represents a selector of ManagedClusters by label
+	// LabelSelector represents a selector of ManagedClusters by label
 	// +optional
 	LabelSelector metav1.LabelSelector `json:"labelSelector,omitempty"`
 
-	// claimSelector represents a selector of ManagedClusters by clusterClaims in status
+	// ClaimSelector represents a selector of ManagedClusters by clusterClaims in status
 	// +optional
 	ClaimSelector ClusterClaimSelector `json:"claimSelector,omitempty"`
 }
 
 // Group the created placementDecision into decision groups based on the number of clusters per decision group.
 type GroupStrategy struct {
-	// decisionGroups represents a list of predefined groups to put decision results.
+	// DecisionGroups represents a list of predefined groups to put decision results.
 	// Decision groups will be constructed based on the DecisionGroups field at first. The clusters not included in the
 	// DecisionGroups will be divided to other decision groups afterwards. Each decision group should not have the number
 	// of clusters larger than the ClustersPerDecisionGroup.
 	// +optional
 	DecisionGroups []DecisionGroup `json:"decisionGroups,omitempty"`
 
-	// clustersPerDecisionGroup is a specific number or percentage of the total selected clusters.
+	// ClustersPerDecisionGroup is a specific number or percentage of the total selected clusters.
 	// The specific number will divide the placementDecisions to decisionGroups each group has max number of clusters
 	// equal to that specific number.
 	// The percentage will divide the placementDecisions to decisionGroups each group has max number of clusters based
@@ -160,14 +158,14 @@ type GroupStrategy struct {
 
 // DecisionStrategy divide the created placement decision to groups and define number of clusters per decision group.
 type DecisionStrategy struct {
-	// groupStrategy defines strategies to divide selected clusters into decision groups.
+	// GroupStrategy define strategies to divide selected clusters to decision groups.
 	// +optional
 	GroupStrategy GroupStrategy `json:"groupStrategy,omitempty"`
 }
 
 // ClusterPredicate represents a predicate to select ManagedClusters.
 type ClusterPredicate struct {
-	// requiredClusterSelector represents a selector of ManagedClusters by label and claim. If specified,
+	// RequiredClusterSelector represents a selector of ManagedClusters by label and claim. If specified,
 	// 1) Any ManagedCluster, which does not match the selector, should not be selected by this ClusterPredicate;
 	// 2) If a selected ManagedCluster (of this ClusterPredicate) ceases to match the selector (e.g. due to
 	//    an update) of any ClusterPredicate, it will be eventually removed from the placement decisions;
@@ -180,15 +178,15 @@ type ClusterPredicate struct {
 // ClusterSelector represents the AND of the containing selectors. An empty cluster selector matches all objects.
 // A null cluster selector matches no objects.
 type ClusterSelector struct {
-	// labelSelector represents a selector of ManagedClusters by label
+	// LabelSelector represents a selector of ManagedClusters by label
 	// +optional
 	LabelSelector metav1.LabelSelector `json:"labelSelector,omitempty"`
 
-	// claimSelector represents a selector of ManagedClusters by clusterClaims in status
+	// ClaimSelector represents a selector of ManagedClusters by clusterClaims in status
 	// +optional
 	ClaimSelector ClusterClaimSelector `json:"claimSelector,omitempty"`
 
-	// celSelector represents a selector of ManagedClusters by CEL expressions on ManagedCluster fields
+	// CelSelector represents a selector of ManagedClusters by CEL expressions on ManagedCluster fields
 	// +optional
 	CelSelector ClusterCelSelector `json:"celSelector,omitempty"`
 }
@@ -235,12 +233,12 @@ const (
 
 // PrioritizerConfig represents the configuration of prioritizer
 type PrioritizerConfig struct {
-	// scoreCoordinate represents the configuration of the prioritizer and score source.
+	// ScoreCoordinate represents the configuration of the prioritizer and score source.
 	// +kubebuilder:validation:Required
 	// +required
 	ScoreCoordinate *ScoreCoordinate `json:"scoreCoordinate,omitempty"`
 
-	// weight defines the weight of the prioritizer score. The value must be ranged in [-10,10].
+	// Weight defines the weight of the prioritizer score. The value must be ranged in [-10,10].
 	// Each prioritizer will calculate an integer score of a cluster in the range of [-100, 100].
 	// The final score of a cluster will be sum(weight * prioritizer_score).
 	// A higher weight indicates that the prioritizer weights more in the cluster selection,
@@ -255,7 +253,7 @@ type PrioritizerConfig struct {
 
 // ScoreCoordinate represents the configuration of the score type and score source
 type ScoreCoordinate struct {
-	// type defines the type of the prioritizer score.
+	// Type defines the type of the prioritizer score.
 	// Type is either "BuiltIn", "AddOn" or "", where "" is "BuiltIn" by default.
 	// When the type is "BuiltIn", need to specify a BuiltIn prioritizer name in BuiltIn.
 	// When the type is "AddOn", need to configure the score source in AddOn.
@@ -286,14 +284,14 @@ const (
 
 // AddOnScore represents the configuration of the addon score source.
 type AddOnScore struct {
-	// resourceName defines the resource name of the AddOnPlacementScore.
+	// ResourceName defines the resource name of the AddOnPlacementScore.
 	// The placement prioritizer selects AddOnPlacementScore CR by this name.
 	// +kubebuilder:validation:Required
 	// +required
 	ResourceName string `json:"resourceName"`
 
-	// scoreName defines the score name inside AddOnPlacementScore.
-	// AddOnPlacementScore contains a list of score names and values; scoreName specifies the score to be used by
+	// ScoreName defines the score name inside AddOnPlacementScore.
+	// AddOnPlacementScore contains a list of score name and score value, ScoreName specify the score to be used by
 	// the prioritizer.
 	// +kubebuilder:validation:Required
 	// +required
@@ -429,7 +427,7 @@ type DecisionGroupStatus struct {
 }
 
 type PlacementStatus struct {
-	// numberOfSelectedClusters represents the number of selected ManagedClusters
+	// NumberOfSelectedClusters represents the number of selected ManagedClusters
 	// +optional
 	NumberOfSelectedClusters int32 `json:"numberOfSelectedClusters"`
 

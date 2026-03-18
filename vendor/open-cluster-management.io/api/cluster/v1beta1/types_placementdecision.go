@@ -1,4 +1,3 @@
-// Copyright Contributors to the Open Cluster Management project
 package v1beta1
 
 import metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -38,7 +37,7 @@ const (
 
 // PlacementDecisionStatus represents the current status of the PlacementDecision.
 type PlacementDecisionStatus struct {
-	// decisions is a slice of decisions according to a placement
+	// Decisions is a slice of decisions according to a placement
 	// The number of decisions should not be larger than 100
 	// +kubebuilder:validation:Required
 	// +required
@@ -48,13 +47,13 @@ type PlacementDecisionStatus struct {
 // ClusterDecision represents a decision from a placement
 // An empty ClusterDecision indicates it is not scheduled yet.
 type ClusterDecision struct {
-	// clusterName is the name of the ManagedCluster. If it is not empty, its value should be unique across all
+	// ClusterName is the name of the ManagedCluster. If it is not empty, its value should be unique cross all
 	// placement decisions for the Placement.
 	// +kubebuilder:validation:Required
 	// +required
 	ClusterName string `json:"clusterName"`
 
-	// reason represents the reason why the ManagedCluster is selected.
+	// Reason represents the reason why the ManagedCluster is selected.
 	// +kubebuilder:validation:Required
 	// +required
 	Reason string `json:"reason"`

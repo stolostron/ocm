@@ -158,12 +158,19 @@ func (c *ManifestWorkAgentClient) Patch(ctx context.Context, name string, pt kub
 
 	newWork := patchedWork.DeepCopy()
 
-	if utils.IsStatusPatch(subresources) {
+	statusUpdated, err := isStatusUpdate(subresources)
+	if err != nil {
+		returnErr := errors.NewGenericServerResponse(http.StatusMethodNotAllowed, "patch", common.ManifestWorkGR, name, err.Error(), 0, false)
+		generic.IncreaseWorkProcessedCounter("patch", string(returnErr.ErrStatus.Reason))
+		return nil, returnErr
+	}
+
+	if statusUpdated {
 		// avoid race conditions among the agent's go routines
 		c.Lock()
 		defer c.Unlock()
 
-		eventType.Action = types.UpdateRequestAction
+		eventType.Action = common.UpdateRequestAction
 		// publish the status update event to source, source will check the resource version
 		// and reject the update if it's status update is outdated.
 		if err := c.cloudEventsClient.Publish(ctx, eventType, newWork); err != nil {
@@ -217,13 +224,6 @@ func (c *ManifestWorkAgentClient) Patch(ctx context.Context, name string, pt kub
 		return newWork, nil
 	}
 
-	if len(subresources) != 0 {
-		msg := fmt.Sprintf("unsupported subresources %v", subresources)
-		returnErr := errors.NewGenericServerResponse(http.StatusMethodNotAllowed, "patch", common.ManifestWorkGR, name, msg, 0, false)
-		generic.IncreaseWorkProcessedCounter("patch", string(returnErr.ErrStatus.Reason))
-		return nil, returnErr
-	}
-
 	// the finalizers of a deleting manifestwork are removed, marking the manifestwork status to deleted and sending
 	// it back to source
 	if !newWork.DeletionTimestamp.IsZero() && len(newWork.Finalizers) == 0 {
@@ -234,7 +234,7 @@ func (c *ManifestWorkAgentClient) Patch(ctx context.Context, name string, pt kub
 			Message: fmt.Sprintf("The manifests are deleted from the cluster %s", newWork.Namespace),
 		})
 
-		eventType.Action = types.UpdateRequestAction
+		eventType.Action = common.DeleteRequestAction
 		if err := c.cloudEventsClient.Publish(ctx, eventType, newWork); err != nil {
 			returnErr := cloudeventserrors.ToStatusError(common.ManifestWorkGR, name, err)
 			generic.IncreaseWorkProcessedCounter("delete", string(returnErr.ErrStatus.Reason))
@@ -259,4 +259,16 @@ func (c *ManifestWorkAgentClient) Patch(ctx context.Context, name string, pt kub
 
 	generic.IncreaseWorkProcessedCounter("patch", metav1.StatusSuccess)
 	return newWork, nil
+}
+
+func isStatusUpdate(subresources []string) (bool, error) {
+	if len(subresources) == 0 {
+		return false, nil
+	}
+
+	if len(subresources) == 1 && subresources[0] == "status" {
+		return true, nil
+	}
+
+	return false, fmt.Errorf("unsupported subresources %v", subresources)
 }

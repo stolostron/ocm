@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	"github.com/bwmarrin/snowflake"
-	jsonpatch "github.com/evanphx/json-patch/v5"
+	jsonpatch "github.com/evanphx/json-patch"
 	"github.com/google/uuid"
 
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -21,6 +21,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/klog/v2"
 
+	"open-cluster-management.io/sdk-go/pkg/cloudevents/clients/common"
 	"open-cluster-management.io/sdk-go/pkg/cloudevents/generic"
 )
 
@@ -224,14 +225,19 @@ func UID(sourceID, groupResource, namespace, name string) string {
 	return uuid.NewSHA1(uuid.NameSpaceOID, []byte(id)).String()
 }
 
-func IsStatusPatch(subresources []string) bool {
-	if len(subresources) == 0 {
-		return false
+// EnsureResourceFinalizer ensures the resource finalizer in the given finalizers
+func EnsureResourceFinalizer(finalizers []string) []string {
+	has := false
+	for _, f := range finalizers {
+		if f == common.ResourceFinalizer {
+			has = true
+			break
+		}
 	}
 
-	if len(subresources) == 1 && subresources[0] == "status" {
-		return true
+	if !has {
+		finalizers = append(finalizers, common.ResourceFinalizer)
 	}
 
-	return false
+	return finalizers
 }

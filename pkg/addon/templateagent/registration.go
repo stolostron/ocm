@@ -86,16 +86,16 @@ func (a *CRDTemplateAgentAddon) GetDesiredAddOnTemplate(addon *addonapiv1alpha1.
 	return a.getDesiredAddOnTemplateInner(cma.Name, configReferences)
 }
 
-func (a *CRDTemplateAgentAddon) TemplateCSRConfigurationsFunc() agent.CSRConfigurationsFunc {
+func (a *CRDTemplateAgentAddon) TemplateCSRConfigurationsFunc() func(cluster *clusterv1.ManagedCluster) []addonapiv1alpha1.RegistrationConfig {
 
-	return func(cluster *clusterv1.ManagedCluster, addon *addonapiv1alpha1.ManagedClusterAddOn) ([]addonapiv1alpha1.RegistrationConfig, error) {
-		template, err := a.GetDesiredAddOnTemplate(addon, cluster.Name, a.addonName)
+	return func(cluster *clusterv1.ManagedCluster) []addonapiv1alpha1.RegistrationConfig {
+		template, err := a.GetDesiredAddOnTemplate(nil, cluster.Name, a.addonName)
 		if err != nil {
 			utilruntime.HandleError(fmt.Errorf("failed to get addon %s template: %v", a.addonName, err))
-			return nil, err
+			return nil
 		}
 		if template == nil {
-			return nil, nil
+			return nil
 		}
 
 		contain := func(rcs []addonapiv1alpha1.RegistrationConfig, signerName string) bool {
@@ -112,10 +112,7 @@ func (a *CRDTemplateAgentAddon) TemplateCSRConfigurationsFunc() agent.CSRConfigu
 			switch registration.Type {
 			case addonapiv1alpha1.RegistrationTypeKubeClient:
 				if !contain(registrationConfigs, certificatesv1.KubeAPIServerClientSignerName) {
-					configs, err := agent.KubeClientSignerConfigurations(a.addonName, a.agentName)(cluster, addon)
-					if err != nil {
-						return nil, err
-					}
+					configs := agent.KubeClientSignerConfigurations(a.addonName, a.agentName)(cluster)
 					registrationConfigs = append(registrationConfigs, configs...)
 				}
 
@@ -124,11 +121,8 @@ func (a *CRDTemplateAgentAddon) TemplateCSRConfigurationsFunc() agent.CSRConfigu
 					continue
 				}
 				if !contain(registrationConfigs, registration.CustomSigner.SignerName) {
-					configs, err := CustomSignerConfigurations(
-						a.addonName, a.agentName, registration.CustomSigner)(cluster, addon)
-					if err != nil {
-						return nil, err
-					}
+					configs := CustomSignerConfigurations(
+						a.addonName, a.agentName, registration.CustomSigner)(cluster)
 					registrationConfigs = append(registrationConfigs, configs...)
 				}
 
@@ -138,7 +132,7 @@ func (a *CRDTemplateAgentAddon) TemplateCSRConfigurationsFunc() agent.CSRConfigu
 
 		}
 
-		return registrationConfigs, nil
+		return registrationConfigs
 	}
 }
 
@@ -146,8 +140,8 @@ func (a *CRDTemplateAgentAddon) TemplateCSRConfigurationsFunc() agent.CSRConfigu
 // for CustomSigner type registration addon
 func CustomSignerConfigurations(addonName, agentName string,
 	customSignerConfig *addonapiv1alpha1.CustomSignerRegistrationConfig,
-) agent.CSRConfigurationsFunc {
-	return func(cluster *clusterv1.ManagedCluster, addon *addonapiv1alpha1.ManagedClusterAddOn) ([]addonapiv1alpha1.RegistrationConfig, error) {
+) func(cluster *clusterv1.ManagedCluster) []addonapiv1alpha1.RegistrationConfig {
+	return func(cluster *clusterv1.ManagedCluster) []addonapiv1alpha1.RegistrationConfig {
 		if customSignerConfig == nil {
 			utilruntime.HandleError(fmt.Errorf("custome signer is nil"))
 		}
@@ -163,7 +157,7 @@ func CustomSignerConfigurations(addonName, agentName string,
 			config.Subject = *customSignerConfig.Subject
 		}
 
-		return []addonapiv1alpha1.RegistrationConfig{config}, nil
+		return []addonapiv1alpha1.RegistrationConfig{config}
 	}
 }
 
@@ -238,22 +232,21 @@ func CustomerSignerCSRApprover(logger klog.Logger, agentName string) agent.CSRAp
 
 func (a *CRDTemplateAgentAddon) TemplateCSRSignFunc() agent.CSRSignerFunc {
 
-	return func(cluster *clusterv1.ManagedCluster, addon *addonapiv1alpha1.ManagedClusterAddOn,
-		csr *certificatesv1.CertificateSigningRequest) ([]byte, error) {
+	return func(csr *certificatesv1.CertificateSigningRequest) []byte {
 		// TODO: consider to change the agent.CSRSignerFun to accept parameter addon
 		getClusterName := func(userName string) string {
 			return csr.Labels[clusterv1.ClusterNameLabelKey]
 		}
 
 		clusterName := getClusterName(csr.Spec.Username)
-		template, err := a.GetDesiredAddOnTemplate(addon, clusterName, a.addonName)
+		template, err := a.GetDesiredAddOnTemplate(nil, clusterName, a.addonName)
 		if err != nil {
 			utilruntime.HandleError(fmt.Errorf("failed to get template for addon %s in cluster %s: %v",
 				a.addonName, clusterName, err))
-			return nil, err
+			return nil
 		}
 		if template == nil {
-			return nil, nil
+			return nil
 		}
 
 		for _, registration := range template.Spec.Registration {
@@ -266,7 +259,7 @@ func (a *CRDTemplateAgentAddon) TemplateCSRSignFunc() agent.CSRSignerFunc {
 					continue
 				}
 				if csr.Spec.SignerName == registration.CustomSigner.SignerName {
-					return CustomSignerWithExpiry(a.hubKubeClient, registration.CustomSigner, 24*time.Hour)(cluster, addon, csr)
+					return CustomSignerWithExpiry(a.hubKubeClient, registration.CustomSigner, 24*time.Hour)(csr)
 				}
 
 			default:
@@ -275,7 +268,7 @@ func (a *CRDTemplateAgentAddon) TemplateCSRSignFunc() agent.CSRSignerFunc {
 
 		}
 
-		return nil, nil
+		return nil
 	}
 }
 
@@ -283,15 +276,14 @@ func CustomSignerWithExpiry(
 	kubeclient kubernetes.Interface,
 	customSignerConfig *addonapiv1alpha1.CustomSignerRegistrationConfig,
 	duration time.Duration) agent.CSRSignerFunc {
-	return func(cluster *clusterv1.ManagedCluster, addon *addonapiv1alpha1.ManagedClusterAddOn,
-		csr *certificatesv1.CertificateSigningRequest) ([]byte, error) {
+	return func(csr *certificatesv1.CertificateSigningRequest) []byte {
 		if customSignerConfig == nil {
 			utilruntime.HandleError(fmt.Errorf("custome signer is nil"))
-			return nil, nil
+			return nil
 		}
 
 		if csr.Spec.SignerName != customSignerConfig.SignerName {
-			return nil, nil
+			return nil
 		}
 
 		secretNamespace := AddonManagerNamespace()
@@ -303,16 +295,16 @@ func CustomSignerWithExpiry(
 		if err != nil {
 			utilruntime.HandleError(fmt.Errorf("get custome signer ca %s/%s failed, %v",
 				secretNamespace, customSignerConfig.SigningCA.Name, err))
-			return nil, err
+			return nil
 		}
 
 		caData, caKey, err := extractCAdata(caSecret.Data[corev1.TLSCertKey], caSecret.Data[corev1.TLSPrivateKeyKey])
 		if err != nil {
 			utilruntime.HandleError(fmt.Errorf("get ca %s/%s data failed, %v",
 				secretNamespace, customSignerConfig.SigningCA.Name, err))
-			return nil, err
+			return nil
 		}
-		return utils.DefaultSignerWithExpiry(caKey, caData, duration)(cluster, addon, csr)
+		return utils.DefaultSignerWithExpiry(caKey, caData, duration)(csr)
 	}
 }
 
