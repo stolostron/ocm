@@ -4,6 +4,7 @@ import (
 	certificatev1 "k8s.io/api/certificates/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
+	addonapiv1alpha1 "open-cluster-management.io/api/addon/v1alpha1"
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
 	workv1 "open-cluster-management.io/api/work/v1"
 )
@@ -26,16 +27,8 @@ const (
 // CloudEventsOriginalSourceLabelKey is the key of the cloudevents original source label.
 const CloudEventsOriginalSourceLabelKey = "cloudevents.open-cluster-management.io/originalsource"
 
-const (
-	CreateRequestAction = "create_request"
-	UpdateRequestAction = "update_request"
-	DeleteRequestAction = "delete_request"
-)
-
 // ResourceDeleted represents a resource is deleted.
 const ResourceDeleted = "Deleted"
-
-const ResourceFinalizer = "cloudevents.open-cluster-management.io/resource-cleanup"
 
 var ManagedClusterGK = schema.GroupKind{Group: clusterv1.GroupName, Kind: "ManagedCluster"}
 var ManagedClusterGR = schema.GroupResource{Group: clusterv1.GroupName, Resource: "managedclusters"}
@@ -45,3 +38,6 @@ var ManifestWorkGR = schema.GroupResource{Group: workv1.GroupName, Resource: "ma
 
 var CSRGK = schema.GroupKind{Group: certificatev1.GroupName, Kind: "CertificateSigningRequest"}
 var CSRGR = schema.GroupResource{Group: certificatev1.GroupName, Resource: "certificatesigningrequests"}
+
+var ManagedClusterAddOnGK = schema.GroupKind{Group: addonapiv1alpha1.GroupName, Kind: "ManagedClusterAddOn"}
+var ManagedClusterAddOnGR = schema.GroupResource{Group: addonapiv1alpha1.GroupName, Resource: "managedclusteraddons"}
