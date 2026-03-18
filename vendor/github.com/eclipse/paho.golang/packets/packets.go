@@ -1,3 +1,18 @@
+/*
+ * Copyright (c) 2024 Contributors to the Eclipse Foundation
+ *
+ *  All rights reserved. This program and the accompanying materials
+ *  are made available under the terms of the Eclipse Public License v2.0
+ *  and Eclipse Distribution License v1.0 which accompany this distribution.
+ *
+ * The Eclipse Public License is available at
+ *    https://www.eclipse.org/legal/epl-2.0/
+ *  and the Eclipse Distribution License is available at
+ *    http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ *  SPDX-License-Identifier: EPL-2.0 OR BSD-3-Clause
+ */
+
 package packets
 
 import (
@@ -433,11 +448,19 @@ func writeUint32(u uint32, b *bytes.Buffer) error {
 }
 
 func writeString(s string, b *bytes.Buffer) {
+	// Due to the 16 bit header strings are limited to 65535 bytes
+	if len(s) > 65535 {
+		s = s[:65535]
+	}
 	writeUint16(uint16(len(s)), b)
 	b.WriteString(s)
 }
 
 func writeBinary(d []byte, b *bytes.Buffer) {
+	// Due to the 16 bit header strings are limited to 65535 bytes
+	if len(d) > 65535 {
+		d = d[:65535]
+	}
 	writeUint16(uint16(len(d)), b)
 	b.Write(d)
 }

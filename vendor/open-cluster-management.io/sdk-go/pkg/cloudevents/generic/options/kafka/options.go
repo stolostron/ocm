@@ -13,16 +13,10 @@ import (
 )
 
 const (
-	// sourceEventsTopic is a topic for sources to publish their resource create/update/delete events, the first
-	// asterisk is a wildcard for source, the second asterisk is a wildcard for cluster.
-	sourceEventsTopic = "sourceevents.*.*"
-	// agentEventsTopic is a topic for agents to publish their resource status update events, the first
-	// asterisk is a wildcard for source, the second asterisk is a wildcard for cluster.
-	agentEventsTopic = "agentevents.*.*"
-	// sourceBroadcastTopic is for a source to publish its events to all agents, the asterisk is a wildcard for source.
-	sourceBroadcastTopic = "sourcebroadcast.*"
-	// agentBroadcastTopic is for a agent to publish its events to all sources, the asterisk is a wildcard for cluster.
-	agentBroadcastTopic = "agentbroadcast.*"
+	// sourceEventsTopic is a topic for sources to publish their events.
+	sourceEventsTopic = "sourceevents"
+	// agentEventsTopic is a topic for agents to publish their events.
+	agentEventsTopic = "agentevents"
 )
 
 type KafkaOptions struct {
@@ -43,6 +37,11 @@ type KafkaConfig struct {
 	// GroupID is a string that uniquely identifies the group of consumer processes to which this consumer belongs.
 	// Each different application will have a unique consumer GroupID. The default value is agentID for agent, sourceID for source
 	GroupID string `json:"groupID,omitempty" yaml:"groupID,omitempty"`
+
+	// AdvancedConfig is the advanced configuration for Kafka consumer/producer.
+	// Apply any configuration options from the official librdkafka configuration documentation:
+	// https://github.com/confluentinc/librdkafka/blob/master/CONFIGURATION.md
+	AdvancedConfig map[string]interface{} `json:"advancedConfig,inline,omitempty" yaml:"advancedConfig,inline,omitempty"`
 }
 
 // Listen to all the events on the default events channel
@@ -103,6 +102,7 @@ func BuildKafkaOptionsFromFlags(configPath string) (*KafkaOptions, error) {
 		return nil, fmt.Errorf("setting clientCertFile and clientKeyFile requires caFile")
 	}
 
+	// default config
 	configMap := kafka.ConfigMap{
 		"bootstrap.servers":       config.BootstrapServer,
 		"socket.keepalive.enable": true,
@@ -114,8 +114,8 @@ func BuildKafkaOptionsFromFlags(configPath string) (*KafkaOptions, error) {
 		"go.events.channel.size": 1000,
 
 		// producer
-		"acks":    "1",
-		"retries": "0",
+		"acks":    1,
+		"retries": 0,
 
 		// consumer
 		"group.id": config.GroupID,
@@ -145,6 +145,11 @@ func BuildKafkaOptionsFromFlags(configPath string) (*KafkaOptions, error) {
 		_ = configMap.SetKey("ssl.ca.location", config.CAFile)
 		_ = configMap.SetKey("ssl.certificate.location", config.ClientCertFile)
 		_ = configMap.SetKey("ssl.key.location", config.ClientKeyFile)
+	}
+
+	// apply advanced configuration overrides
+	for key, value := range config.AdvancedConfig {
+		_ = configMap.SetKey(key, value)
 	}
 
 	return &KafkaOptions{

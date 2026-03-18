@@ -1,3 +1,4 @@
+// Copyright Contributors to the Open Cluster Management project
 package v1alpha1
 
 import (
@@ -31,17 +32,17 @@ type AddOnTemplate struct {
 
 // AddOnTemplateSpec defines the template of an addon agent which will be deployed on managed clusters.
 type AddOnTemplateSpec struct {
-	// AddonName represents the name of the addon which the template belongs to
+	// addonName represents the name of the addon which the template belongs to
 	// +kubebuilder:validation:Required
 	// +required
 	AddonName string `json:"addonName"`
 
-	// AgentSpec describes what/how the kubernetes resources of the addon agent to be deployed on a managed cluster.
+	// agentSpec describes what/how the kubernetes resources of the addon agent to be deployed on a managed cluster.
 	// +kubebuilder:validation:Required
 	// +required
 	AgentSpec work.ManifestWorkSpec `json:"agentSpec"`
 
-	// Registration holds the registration configuration for the addon
+	// registration holds the registration configuration for the addon
 	// +optional
 	Registration []RegistrationSpec `json:"registration"`
 }
@@ -170,11 +171,10 @@ type CustomSignerRegistrationConfig struct {
 	Subject *Subject `json:"subject,omitempty"`
 
 	// SigningCA represents the reference of the secret on the hub cluster to sign the CSR
-	// the secret must be in the namespace where the addon-manager is located, and the secret
-	// type must be "kubernetes.io/tls"
+	// the secret type must be "kubernetes.io/tls"
 	// Note: The addon manager will not have permission to access the secret by default, so
-	// the user must grant the permission to the addon manager(by creating rolebinding for
-	// the addon-manager serviceaccount "addon-manager-controller-sa").
+	// the user must grant the permission to the addon manager(by creating rolebinding/clusterrolebinding
+	// for the addon-manager serviceaccount "addon-manager-controller-sa").
 	// +kubebuilder:validation:Required
 	SigningCA SigningCARef `json:"signingCA"`
 }
@@ -185,6 +185,9 @@ type SigningCARef struct {
 	// Name of the signing CA secret
 	// +kubebuilder:validation:Required
 	Name string `json:"name"`
+	// Namespace of the signing CA secret, the namespace of the addon-manager will be used if it is not set.
+	// +optional
+	Namespace string `json:"namespace,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

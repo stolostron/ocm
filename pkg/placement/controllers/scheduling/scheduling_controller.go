@@ -517,7 +517,10 @@ func (c *schedulingController) generateDecisionGroups(
 	// First groups the clusters by ClusterSelector defined in spec.DecisionStrategy.GroupStrategy.DecisionGroups.
 	for _, d := range placement.Spec.DecisionStrategy.GroupStrategy.DecisionGroups {
 		// filter clusters by cluster selector
-		matched, status := filterClustersBySelector(d.ClusterSelector, clusters, clusterNameSet)
+		matched, status := filterClustersBySelector(clusterapiv1beta1.ClusterSelector{
+			LabelSelector: d.ClusterSelector.LabelSelector,
+			ClaimSelector: d.ClusterSelector.ClaimSelector,
+		}, clusters, clusterNameSet)
 		if status.IsError() {
 			return groups, status
 		}

@@ -3,7 +3,6 @@ package mqtt
 import (
 	"context"
 	"crypto/tls"
-	"crypto/x509"
 	"fmt"
 	"net"
 	"os"
@@ -16,7 +15,6 @@ import (
 	"github.com/eclipse/paho.golang/paho"
 	"gopkg.in/yaml.v2"
 	"k8s.io/apimachinery/pkg/util/errors"
-	"k8s.io/klog/v2"
 	"open-cluster-management.io/sdk-go/pkg/cloudevents/generic/options"
 	"open-cluster-management.io/sdk-go/pkg/cloudevents/generic/options/cert"
 	"open-cluster-management.io/sdk-go/pkg/cloudevents/generic/types"
@@ -81,6 +79,8 @@ type MQTTOptions struct {
 
 // MQTTConfig holds the information needed to build connect to MQTT broker as a given user.
 type MQTTConfig struct {
+	cert.CertConfig `json:",inline" yaml:",inline"`
+
 	// BrokerHost is the host of the MQTT broker (hostname:port).
 	BrokerHost string `json:"brokerHost" yaml:"brokerHost"`
 
@@ -88,13 +88,6 @@ type MQTTConfig struct {
 	Username string `json:"username,omitempty" yaml:"username,omitempty"`
 	// Password is the password for basic authentication to connect the MQTT broker.
 	Password string `json:"password,omitempty" yaml:"password,omitempty"`
-
-	// CAFile is the file path to a cert file for the MQTT broker certificate authority.
-	CAFile string `json:"caFile,omitempty" yaml:"caFile,omitempty"`
-	// ClientCertFile is the file path to a client cert file for TLS.
-	ClientCertFile string `json:"clientCertFile,omitempty" yaml:"clientCertFile,omitempty"`
-	// ClientKeyFile is the file path to a client key file for TLS.
-	ClientKeyFile string `json:"clientKeyFile,omitempty" yaml:"clientKeyFile,omitempty"`
 
 	// KeepAlive is the keep alive time in seconds for MQTT clients, by default is 60s
 	KeepAlive *uint16 `json:"keepAlive,omitempty" yaml:"keepAlive,omitempty"`
@@ -111,8 +104,7 @@ type MQTTConfig struct {
 	Topics *types.Topics `json:"topics,omitempty" yaml:"topics,omitempty"`
 }
 
-// BuildMQTTOptionsFromFlags builds configs from a config filepath.
-func BuildMQTTOptionsFromFlags(configPath string) (*MQTTOptions, error) {
+func LoadConfig(configPath string) (*MQTTConfig, error) {
 	configData, err := os.ReadFile(configPath)
 	if err != nil {
 		return nil, err
@@ -123,13 +115,26 @@ func BuildMQTTOptionsFromFlags(configPath string) (*MQTTOptions, error) {
 		return nil, err
 	}
 
+	if err := config.CertConfig.EmbedCerts(); err != nil {
+		return nil, err
+	}
+
+	return config, nil
+}
+
+// BuildMQTTOptionsFromFlags builds configs from a config filepath.
+func BuildMQTTOptionsFromFlags(configPath string) (*MQTTOptions, error) {
+	config, err := LoadConfig(configPath)
+	if err != nil {
+		return nil, err
+	}
+
 	if config.BrokerHost == "" {
 		return nil, fmt.Errorf("brokerHost is required")
 	}
 
-	if (config.ClientCertFile == "" && config.ClientKeyFile != "") ||
-		(config.ClientCertFile != "" && config.ClientKeyFile == "") {
-		return nil, fmt.Errorf("either both or none of clientCertFile and clientKeyFile must be set")
+	if err := config.CertConfig.Validate(); err != nil {
+		return nil, err
 	}
 
 	if err := validateTopics(config.Topics); err != nil {
@@ -162,34 +167,30 @@ func BuildMQTTOptionsFromFlags(configPath string) (*MQTTOptions, error) {
 		dialTimeout = *config.DialTimeout
 	}
 
-	if config.ClientCertFile != "" && config.ClientKeyFile != "" {
-		certPool, err := rootCAs(config.CAFile)
-		if err != nil {
-			return nil, err
-		}
-
-		tlsConfig := &tls.Config{
-			RootCAs: certPool,
-			GetClientCertificate: func(cri *tls.CertificateRequestInfo) (*tls.Certificate, error) {
-				return cert.CachingCertificateLoader(config.ClientCertFile, config.ClientKeyFile)()
-			},
-		}
-
-		options.Dialer = &MQTTDialer{
-			BrokerHost: config.BrokerHost,
-			TLSConfig:  tlsConfig,
-			Timeout:    dialTimeout,
-		}
-
-		// start a goroutine to periodically refresh client certificates for this connection
-		cert.StartClientCertRotating(tlsConfig.GetClientCertificate, options.Dialer)
-		return options, nil
-	}
-
 	options.Dialer = &MQTTDialer{
 		BrokerHost: config.BrokerHost,
 		Timeout:    dialTimeout,
 	}
+
+	if config.CertConfig.HasCerts() {
+		// Set up TLS configuration for the MQTT connection if the client certificate and key are provided.
+		// the certificates will be reloaded periodically.
+		options.Dialer.TLSConfig, err = cert.AutoLoadTLSConfig(
+			config.CertConfig,
+			func() (*cert.CertConfig, error) {
+				config, err := LoadConfig(configPath)
+				if err != nil {
+					return nil, err
+				}
+				return &config.CertConfig, nil
+			},
+			options.Dialer,
+		)
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	return options, nil
 }
 
@@ -230,7 +231,11 @@ func (o *MQTTOptions) GetCloudEventsProtocol(
 		OnClientError: errorHandler,
 	}
 
-	opts := []cloudeventsmqtt.Option{cloudeventsmqtt.WithConnect(o.GetMQTTConnectOption(clientID))}
+	opts := []cloudeventsmqtt.Option{
+		cloudeventsmqtt.WithConnect(o.GetMQTTConnectOption(clientID)),
+		cloudeventsmqtt.WithDebugLogger(&PahoDebugLogger{}),
+		cloudeventsmqtt.WithErrorLogger(&PahoErrorLogger{}),
+	}
 	opts = append(opts, clientOpts...)
 	return cloudeventsmqtt.New(ctx, config, opts...)
 }
@@ -333,30 +338,4 @@ func getAgentPubTopic(ctx context.Context) (*PubTopic, error) {
 	}
 
 	return nil, fmt.Errorf("invalid agent pub topic")
-}
-
-// rootCAs returns a cert pool to verify the TLS connection.
-// If the caFile is not provided, the default system certificate pool will be returned
-// If the caFile is provided, the provided CA will be appended to the system certificate pool
-func rootCAs(caFile string) (*x509.CertPool, error) {
-	certPool, err := x509.SystemCertPool()
-	if err != nil {
-		return nil, err
-	}
-
-	if len(caFile) == 0 {
-		klog.Warningf("CA file is not provided, TLS connection will be verified with the system cert pool")
-		return certPool, nil
-	}
-
-	caPEM, err := os.ReadFile(caFile)
-	if err != nil {
-		return nil, err
-	}
-
-	if ok := certPool.AppendCertsFromPEM(caPEM); !ok {
-		return nil, fmt.Errorf("invalid CA %s", caFile)
-	}
-
-	return certPool, nil
 }

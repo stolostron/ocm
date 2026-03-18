@@ -7,6 +7,7 @@ import (
 	"github.com/openshift/library-go/pkg/controller/controllercmd"
 	"github.com/spf13/pflag"
 	"k8s.io/apimachinery/pkg/version"
+	"k8s.io/utils/clock"
 )
 
 type Options struct {
@@ -26,7 +27,7 @@ func NewOptions() *Options {
 
 func (o *Options) NewControllerCommandConfig(
 	componentName string, version version.Info, startFunc controllercmd.StartFunc) *controllercmd.ControllerCommandConfig {
-	o.CmdConfig = controllercmd.NewControllerCommandConfig(componentName, version, o.startWithQPS(startFunc))
+	o.CmdConfig = controllercmd.NewControllerCommandConfig(componentName, version, o.startWithQPS(startFunc), clock.RealClock{})
 	return o.CmdConfig
 }
 
