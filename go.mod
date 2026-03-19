@@ -177,7 +177,12 @@ require (
 	sigs.k8s.io/structured-merge-diff/v4 v4.6.0 // indirect
 )
 
-// Pin dependencies to prevent cascade from helm.sh/helm/v3 v3.18.6 upgrade
+// DO NOT REMOVE these replace directives. They pin k8s.io and ecosystem
+// packages to their original minor versions (k8s v0.32.x for this branch)
+// to prevent dependency cascade from the helm.sh/helm/v3 v3.18.6 upgrade.
+// Without these pins, `go mod tidy` would pull k8s.io to v0.33.x, which
+// forces OCM dependencies (api, sdk-go, addon-framework) to upgrade with
+// breaking changes. See SOP-older-branch-dep-upgrade.md for details.
 replace (
 	github.com/google/cel-go => github.com/google/cel-go v0.22.0
 	google.golang.org/genproto/googleapis/api => google.golang.org/genproto/googleapis/api v0.0.0-20240826202546-f6391c0de4c7
