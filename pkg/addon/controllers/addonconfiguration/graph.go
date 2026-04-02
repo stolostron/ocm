@@ -37,7 +37,13 @@ type installStrategyNode struct {
 	desiredConfigs  addonConfigMap
 	// children keeps a map of addons node as the children of this node
 	children map[string]*addonNode
+	// clusters is all clusters selected by the placement
 	clusters sets.Set[string]
+	// configuredClusters is the subset of clusters where this placement's config
+	// is actually in effect. When multiple placements select the same cluster,
+	// only the last placement's config takes effect, so the cluster is removed
+	// from earlier placements' configuredClusters.
+	configuredClusters sets.Set[string]
 }
 
 // addonNode is node as a child of installStrategy node represting a mca
@@ -234,12 +240,13 @@ func (g *configurationGraph) addPlacementNode(
 	clusters := pdTracker.ExistingClusterGroupsBesides().GetClusters()
 
 	node := &installStrategyNode{
-		placementRef:    placementRef,
-		pdTracker:       pdTracker,
-		rolloutStrategy: installStrategy.RolloutStrategy,
-		desiredConfigs:  g.defaults.desiredConfigs,
-		children:        map[string]*addonNode{},
-		clusters:        clusters,
+		placementRef:       placementRef,
+		pdTracker:          pdTracker,
+		rolloutStrategy:    installStrategy.RolloutStrategy,
+		desiredConfigs:     g.defaults.desiredConfigs,
+		children:           map[string]*addonNode{},
+		clusters:           clusters,
+		configuredClusters: clusters.Union(nil),
 	}
 
 	// Set MaxConcurrency
@@ -273,6 +280,10 @@ func (g *configurationGraph) addPlacementNode(
 			if _, ok := placementNode.children[cluster]; ok {
 				node.addNode(placementNode.children[cluster].mca)
 				delete(placementNode.children, cluster)
+
+				// this cluster's config is now overridden by the new placement,
+				// remove it from the earlier placement's configuredClusters.
+				placementNode.configuredClusters.Delete(cluster)
 			}
 		}
 	}
@@ -493,9 +504,15 @@ func (n *installStrategyNode) getAddonsSucceeded() []*addonNode {
 func (n *installStrategyNode) countAddonUpgradeSucceed() int {
 	count := 0
 	for _, addon := range n.children {
-		if desiredConfigsEqual(addon.desiredConfigs, n.desiredConfigs) &&
-			addon.status.Status == clustersdkv1alpha1.Succeeded &&
-			!rolloutStatusHasCluster(n.rolloutResult.ClustersToRollout, addon.mca.Namespace) {
+		if addon.status.Status != clustersdkv1alpha1.Succeeded {
+			continue
+		}
+		if rolloutStatusHasCluster(n.rolloutResult.ClustersToRollout, addon.mca.Namespace) {
+			continue
+		}
+		// Check if the addon's inherited desired configs (not overridden by addon.spec.configs)
+		// match the install strategy's desired configs.
+		if desiredConfigsEqual(addon.desiredConfigs, n.desiredConfigs, addon.mca.Spec.Configs) {
 			count += 1
 		}
 	}
@@ -506,9 +523,15 @@ func (n *installStrategyNode) countAddonUpgradeSucceed() int {
 func (n *installStrategyNode) countAddonUpgradeFailed() int {
 	count := 0
 	for _, addon := range n.children {
-		if desiredConfigsEqual(addon.desiredConfigs, n.desiredConfigs) &&
-			addon.status.Status == clustersdkv1alpha1.Failed &&
-			!rolloutStatusHasCluster(n.rolloutResult.ClustersToRollout, addon.mca.Namespace) {
+		if addon.status.Status != clustersdkv1alpha1.Failed {
+			continue
+		}
+		if rolloutStatusHasCluster(n.rolloutResult.ClustersToRollout, addon.mca.Namespace) {
+			continue
+		}
+		// Check if the addon's inherited desired configs (not overridden by addon.spec.configs)
+		// match the install strategy's desired configs.
+		if desiredConfigsEqual(addon.desiredConfigs, n.desiredConfigs, addon.mca.Spec.Configs) {
 			count += 1
 		}
 	}
@@ -540,17 +563,36 @@ func getClusterRolloutStatus(clusterName string, addonNode *addonNode) (clusters
 	return *addonNode.status, nil
 }
 
-func desiredConfigsEqual(a, b addonConfigMap) bool {
-	if len(a) != len(b) {
+// desiredConfigsEqual checks if two addonConfigMaps are equal, skipping GVKs
+// that are overridden by overrideConfigs.
+func desiredConfigsEqual(addonDesired, strategyDesired addonConfigMap, overrideConfigs []addonv1alpha1.AddOnConfig) bool {
+	overrideGRs := addonConfigMap{}
+	for _, config := range overrideConfigs {
+		overrideGRs[config.ConfigGroupResource] = append(overrideGRs[config.ConfigGroupResource],
+			addonv1alpha1.ConfigReference{ConfigGroupResource: config.ConfigGroupResource})
+	}
+
+	overrideDesired := strategyDesired.copy()
+	for overrideGR, overrideConfigReference := range overrideGRs {
+		overrideDesired[overrideGR] = overrideConfigReference
+	}
+
+	if len(addonDesired) != len(overrideDesired) {
 		return false
 	}
 
-	for configgrA := range a {
-		if len(a[configgrA]) != len(b[configgrA]) {
+	for gr, overrideConfigs := range overrideDesired {
+		addonConfigs, ok := addonDesired[gr]
+		if !ok || len(overrideConfigs) != len(addonConfigs) {
 			return false
 		}
-		for i := range a[configgrA] {
-			if a[configgrA][i] != b[configgrA][i] {
+
+		if _, ok := overrideGRs[gr]; ok {
+			continue
+		}
+
+		for i := range overrideConfigs {
+			if !equality.Semantic.DeepEqual(overrideConfigs[i], addonConfigs[i]) {
 				return false
 			}
 		}

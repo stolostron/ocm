@@ -14,5 +14,5 @@ spec:
     app: {{ .ClusterManagerName }}-addon-webhook
   ports:
   - name: webhook
-    port: 9443
-    targetPort: 9443
+    port: {{ .AddonWebhook.Port }}
+    targetPort: {{ .AddonWebhook.Port }}

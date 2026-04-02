@@ -67,6 +67,8 @@ type clusterManagerController struct {
 	deploymentReplicas            int32
 	operatorNamespace             string
 	enableSyncLabels              bool
+	tlsMinVersion                 string
+	tlsCipherSuites               string
 }
 
 type clusterManagerReconcile interface {
@@ -94,6 +96,8 @@ func NewClusterManagerController(
 	deploymentReplicas int32,
 	operatorNamespace string,
 	enableSyncLabels bool,
+	tlsMinVersion string,
+	tlsCipherSuites string,
 ) factory.Controller {
 	controller := &clusterManagerController{
 		operatorKubeClient: operatorKubeClient,
@@ -111,6 +115,8 @@ func NewClusterManagerController(
 		deploymentReplicas:            deploymentReplicas,
 		operatorNamespace:             operatorNamespace,
 		enableSyncLabels:              enableSyncLabels,
+		tlsMinVersion:                 tlsMinVersion,
+		tlsCipherSuites:               tlsCipherSuites,
 	}
 
 	return factory.New().WithSync(controller.sync).
@@ -158,22 +164,20 @@ func (n *clusterManagerController) sync(ctx context.Context, controllerContext f
 	}
 
 	// This config is used to render template of manifests.
-	registrationWebhook, workWebhook := webhookConfigurations(clusterManager.Spec.DeployOption)
+	registrationWebhook, workWebhook, addonWebhook := webhookConfigurations(clusterManager.Spec.DeployOption)
 	config := manifests.HubConfig{
-		ClusterManagerName:      clusterManager.Name,
-		ClusterManagerNamespace: clusterManagerNamespace,
-		OperatorNamespace:       n.operatorNamespace,
-		RegistrationImage:       clusterManager.Spec.RegistrationImagePullSpec,
-		WorkImage:               clusterManager.Spec.WorkImagePullSpec,
-		PlacementImage:          clusterManager.Spec.PlacementImagePullSpec,
-		AddOnManagerImage:       clusterManager.Spec.AddOnManagerImagePullSpec,
-		Replica:                 replica,
-		HostedMode:              clusterManager.Spec.DeployOption.Mode == operatorapiv1.InstallModeHosted,
-		RegistrationWebhook:     registrationWebhook,
-		WorkWebhook:             workWebhook,
-		AddonWebhook: manifests.Webhook{
-			Port: defaultWebhookPort,
-		},
+		ClusterManagerName:              clusterManager.Name,
+		ClusterManagerNamespace:         clusterManagerNamespace,
+		OperatorNamespace:               n.operatorNamespace,
+		RegistrationImage:               clusterManager.Spec.RegistrationImagePullSpec,
+		WorkImage:                       clusterManager.Spec.WorkImagePullSpec,
+		PlacementImage:                  clusterManager.Spec.PlacementImagePullSpec,
+		AddOnManagerImage:               clusterManager.Spec.AddOnManagerImagePullSpec,
+		Replica:                         replica,
+		HostedMode:                      clusterManager.Spec.DeployOption.Mode == operatorapiv1.InstallModeHosted,
+		RegistrationWebhook:             registrationWebhook,
+		WorkWebhook:                     workWebhook,
+		AddonWebhook:                    addonWebhook,
 		ResourceRequirementResourceType: helpers.ResourceType(clusterManager),
 		ResourceRequirements:            resourceRequirements,
 		WorkDriver:                      string(workDriver),
@@ -233,6 +237,10 @@ func (n *clusterManagerController) sync(ctx context.Context, controllerContext f
 	if config.GRPCAuthEnabled {
 		config.GRPCEndpointType = helpers.GRPCServerEndpointType(clusterManager)
 	}
+
+	// Set TLS config for all managed hub component deployments
+	config.TLSMinVersion = n.tlsMinVersion
+	config.TLSCipherSuites = n.tlsCipherSuites
 
 	// Update finalizer at first
 	if clusterManager.DeletionTimestamp.IsZero() {
@@ -437,33 +445,34 @@ func isIPFormat(address string) bool {
 	return true
 }
 
-func webhookConfigurations(deployOption operatorapiv1.ClusterManagerDeployOption) (registration, work manifests.Webhook) {
+func webhookConfigurations(deployOption operatorapiv1.ClusterManagerDeployOption) (registration, work, addon manifests.Webhook) {
 	switch deployOption.Mode {
 	case operatorapiv1.InstallModeDefault:
 		if deployOption.Default != nil {
 			registration = convertDefaultWebhookConfiguration(deployOption.Default.RegistrationWebhookConfiguration)
 			work = convertDefaultWebhookConfiguration(deployOption.Default.WorkWebhookConfiguration)
+			addon = convertDefaultWebhookConfiguration(deployOption.Default.AddonWebhookConfiguration)
 			return
 		}
 	case operatorapiv1.InstallModeHosted:
 		if deployOption.Hosted != nil {
 			registration = convertHostedWebhookConfiguration(deployOption.Hosted.RegistrationWebhookConfiguration)
 			work = convertHostedWebhookConfiguration(deployOption.Hosted.WorkWebhookConfiguration)
+			addon = manifests.Webhook{
+				Port:            defaultWebhookPort,
+				HealthProbePort: defaultHealthProbePort,
+				MetricsPort:     defaultMetricsPort,
+			}
 			return
 		}
 	}
 
-	registration = manifests.Webhook{
+	defaultWebhook := manifests.Webhook{
 		Port:            defaultWebhookPort,
 		HealthProbePort: defaultHealthProbePort,
 		MetricsPort:     defaultMetricsPort,
 	}
-	work = manifests.Webhook{
-		Port:            defaultWebhookPort,
-		HealthProbePort: defaultHealthProbePort,
-		MetricsPort:     defaultMetricsPort,
-	}
-	return
+	return defaultWebhook, defaultWebhook, defaultWebhook
 }
 
 func convertHostedWebhookConfiguration(webhookConfiguration operatorapiv1.HostedWebhookConfiguration) manifests.Webhook {

@@ -200,26 +200,31 @@ var _ = ginkgo.Describe("Addon management", ginkgo.Ordered, ginkgo.Label("addon-
 			ginkgo.Fail(fmt.Sprintf("failed to delete custom signer secret namespace %v: %v", signerSecretNamespace, err))
 		}
 
-		// delete all CSR created for the addon on the hub cluster, otherwise if it reches the limit number 10, the
+		// delete all CSR created for the addon on the hub cluster, otherwise if it reaches the limit number 10, the
 		// other tests will fail
+		ginkgo.By(fmt.Sprintf("delete CSRs for addon %v on cluster %v", addOnName, universalClusterName))
 		gomega.Eventually(func() error {
-			csrs, err := hub.KubeClient.CertificatesV1().CertificateSigningRequests().List(context.TODO(),
-				metav1.ListOptions{
-					LabelSelector: fmt.Sprintf("%s=%s,%s=%s", addonapiv1alpha1.AddonLabelKey, addOnName,
-						clusterv1.ClusterNameLabelKey, universalClusterName),
-				})
+			listOpts := metav1.ListOptions{
+				LabelSelector: fmt.Sprintf("%s=%s,%s=%s", addonapiv1alpha1.AddonLabelKey, addOnName,
+					clusterv1.ClusterNameLabelKey, universalClusterName),
+			}
+
+			csrs, err := hub.KubeClient.CertificatesV1().CertificateSigningRequests().List(context.TODO(), listOpts)
 			if err != nil {
 				return err
 			}
 
-			for _, csr := range csrs.Items {
-				err = hub.KubeClient.CertificatesV1().CertificateSigningRequests().Delete(context.TODO(),
-					csr.Name, metav1.DeleteOptions{})
-				if err != nil {
+			if len(csrs.Items) > 0 {
+				klog.Infof("Found %d CSRs to delete:", len(csrs.Items))
+				err := hub.KubeClient.CertificatesV1().CertificateSigningRequests().DeleteCollection(context.TODO(),
+					metav1.DeleteOptions{}, listOpts)
+				if err != nil && !errors.IsNotFound(err) {
 					return err
 				}
+				return fmt.Errorf("waiting for %d CSRs to be fully deleted", len(csrs.Items))
 			}
 
+			klog.Infof("All CSRs deleted successfully")
 			return nil
 		}).ShouldNot(gomega.HaveOccurred())
 	})
@@ -1117,7 +1122,6 @@ func createResourcesFromYamlFiles(
 			continue
 		}
 		if err != nil {
-			fmt.Printf("Error creating %q (%T): %v\n", fileName, mapping.Resource, err)
 			appliedErrs = append(appliedErrs, fmt.Errorf("%q (%T): %v", fileName, mapping.Resource, err))
 		}
 	}
@@ -1158,7 +1162,6 @@ func deleteResourcesFromYamlFiles(
 			continue
 		}
 		if err != nil {
-			fmt.Printf("Error deleting %q (%T): %v\n", fileName, mapping.Resource, err)
 			appliedErrs = append(appliedErrs, fmt.Errorf("%q (%T): %v", fileName, mapping.Resource, err))
 		}
 	}

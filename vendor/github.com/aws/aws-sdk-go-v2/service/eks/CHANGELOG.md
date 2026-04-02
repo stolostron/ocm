@@ -1,3 +1,16 @@
+# v1.81.2 (2026-03-26)
+
+* **Bug Fix**: Fix a bug where a recorded clock skew could persist on the client even if the client and server clock ended up realigning.
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.81.1 (2026-03-13)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.81.0 (2026-03-11)
+
+* **Feature**: Adds support for a new tier in controlPlaneScalingConfig on EKS Clusters.
+
 # v1.80.2 (2026-03-03)
 
 * **Dependency Update**: Bump minimum Go version to 1.24
