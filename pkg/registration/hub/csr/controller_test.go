@@ -26,17 +26,35 @@ import (
 	"open-cluster-management.io/ocm/pkg/registration/hub/user"
 )
 
+const (
+	testClusterName = "managedcluster1"
+	testAgentName   = "spokeagent1"
+)
+
 var (
+	testClusterAgent = testClusterName + ":" + testAgentName
+
 	validCSR = testinghelpers.CSRHolder{
 		Name:         "testcsr",
-		Labels:       map[string]string{"open-cluster-management.io/cluster-name": "managedcluster1"},
+		Labels:       map[string]string{clusterv1.ClusterNameLabelKey: testClusterName},
 		SignerName:   certificatesv1.KubeAPIServerClientSignerName,
-		CN:           user.SubjectPrefix + "managedcluster1:spokeagent1",
-		Orgs:         []string{user.SubjectPrefix + "managedcluster1", user.ManagedClustersGroup},
-		Username:     user.SubjectPrefix + "managedcluster1:spokeagent1",
+		CN:           user.SubjectPrefix + testClusterAgent,
+		Orgs:         []string{user.SubjectPrefix + testClusterName, user.ManagedClustersGroup},
+		Username:     user.SubjectPrefix + testClusterAgent,
 		ReqBlockType: "CERTIFICATE REQUEST",
 	}
 )
+
+// newSecurityTestCSR creates a CSR test case for security validation tests
+func newSecurityTestCSR(cn string, orgs []string) testinghelpers.CSRHolder {
+	return testinghelpers.CSRHolder{
+		Labels:       map[string]string{clusterv1.ClusterNameLabelKey: testClusterName},
+		SignerName:   validCSR.SignerName,
+		CN:           cn,
+		Orgs:         orgs,
+		ReqBlockType: validCSR.ReqBlockType,
+	}
+}
 
 func TestSync(t *testing.T) {
 	cases := []struct {
@@ -305,84 +323,42 @@ func TestIsSpokeClusterClientCertRenewal(t *testing.T) {
 			name:        "a renewal csr",
 			csr:         validCSR,
 			isRenewal:   true,
-			clusterName: "managedcluster1",
+			clusterName: testClusterName,
 			commonName:  validCSR.CN,
 		},
 		{
-			name: "prefix match attack - CN with extra suffix but org has correct cluster",
-			csr: testinghelpers.CSRHolder{
-				Labels:       map[string]string{"open-cluster-management.io/cluster-name": "managedcluster1"},
-				SignerName:   validCSR.SignerName,
-				CN:           user.SubjectPrefix + "managedcluster1xyz:spokeagent1",
-				Orgs:         []string{user.SubjectPrefix + "managedcluster1", user.ManagedClustersGroup},
-				ReqBlockType: validCSR.ReqBlockType,
-			},
+			name:      "prefix match attack - CN with extra suffix but org has correct cluster",
+			csr:       newSecurityTestCSR(user.SubjectPrefix+testClusterName+"xyz:"+testAgentName, []string{user.SubjectPrefix + testClusterName, user.ManagedClustersGroup}),
 			isRenewal: false,
 		},
 		{
-			name: "prefix match attack - org and CN agree on wrong cluster name",
-			csr: testinghelpers.CSRHolder{
-				Labels:       map[string]string{"open-cluster-management.io/cluster-name": "managedcluster1"},
-				SignerName:   validCSR.SignerName,
-				CN:           user.SubjectPrefix + "managedcluster1xyz:spokeagent1",
-				Orgs:         []string{user.SubjectPrefix + "managedcluster1xyz", user.ManagedClustersGroup},
-				ReqBlockType: validCSR.ReqBlockType,
-			},
+			name:      "prefix match attack - org and CN agree on wrong cluster name",
+			csr:       newSecurityTestCSR(user.SubjectPrefix+testClusterName+"xyz:"+testAgentName, []string{user.SubjectPrefix + testClusterName + "xyz", user.ManagedClustersGroup}),
 			isRenewal: false,
 		},
 		{
-			name: "prefix match attack - label and CN match but org has wrong cluster",
-			csr: testinghelpers.CSRHolder{
-				Labels:       map[string]string{"open-cluster-management.io/cluster-name": "managedcluster1"},
-				SignerName:   validCSR.SignerName,
-				CN:           user.SubjectPrefix + "managedcluster1:spokeagent1",
-				Orgs:         []string{user.SubjectPrefix + "managedcluster1xyz", user.ManagedClustersGroup},
-				ReqBlockType: validCSR.ReqBlockType,
-			},
+			name:      "prefix match attack - label and CN match but org has wrong cluster",
+			csr:       newSecurityTestCSR(user.SubjectPrefix+testClusterAgent, []string{user.SubjectPrefix + testClusterName + "xyz", user.ManagedClustersGroup}),
 			isRenewal: false,
 		},
 		{
-			name: "mismatched cluster name between CN and label",
-			csr: testinghelpers.CSRHolder{
-				Labels:       map[string]string{"open-cluster-management.io/cluster-name": "managedcluster1"},
-				SignerName:   validCSR.SignerName,
-				CN:           user.SubjectPrefix + "managedcluster2:spokeagent1",
-				Orgs:         []string{user.SubjectPrefix + "managedcluster1", user.ManagedClustersGroup},
-				ReqBlockType: validCSR.ReqBlockType,
-			},
+			name:      "mismatched cluster name between CN and label",
+			csr:       newSecurityTestCSR(user.SubjectPrefix+"managedcluster2:"+testAgentName, []string{user.SubjectPrefix + testClusterName, user.ManagedClustersGroup}),
 			isRenewal: false,
 		},
 		{
-			name: "mismatched cluster name in org - org has different cluster than label and CN",
-			csr: testinghelpers.CSRHolder{
-				Labels:       map[string]string{"open-cluster-management.io/cluster-name": "managedcluster1"},
-				SignerName:   validCSR.SignerName,
-				CN:           user.SubjectPrefix + "managedcluster1:spokeagent1",
-				Orgs:         []string{user.SubjectPrefix + "managedcluster2", user.ManagedClustersGroup},
-				ReqBlockType: validCSR.ReqBlockType,
-			},
+			name:      "mismatched cluster name in org - org has different cluster than label and CN",
+			csr:       newSecurityTestCSR(user.SubjectPrefix+testClusterAgent, []string{user.SubjectPrefix + "managedcluster2", user.ManagedClustersGroup}),
 			isRenewal: false,
 		},
 		{
-			name: "CN with invalid format - missing agent name",
-			csr: testinghelpers.CSRHolder{
-				Labels:       map[string]string{"open-cluster-management.io/cluster-name": "managedcluster1"},
-				SignerName:   validCSR.SignerName,
-				CN:           user.SubjectPrefix + "managedcluster1",
-				Orgs:         []string{user.SubjectPrefix + "managedcluster1", user.ManagedClustersGroup},
-				ReqBlockType: validCSR.ReqBlockType,
-			},
+			name:      "CN with invalid format - missing agent name",
+			csr:       newSecurityTestCSR(user.SubjectPrefix+testClusterName, []string{user.SubjectPrefix + testClusterName, user.ManagedClustersGroup}),
 			isRenewal: false,
 		},
 		{
-			name: "CN with invalid format - too many colons",
-			csr: testinghelpers.CSRHolder{
-				Labels:       map[string]string{"open-cluster-management.io/cluster-name": "managedcluster1"},
-				SignerName:   validCSR.SignerName,
-				CN:           user.SubjectPrefix + "managedcluster1:spokeagent1:extra",
-				Orgs:         []string{user.SubjectPrefix + "managedcluster1", user.ManagedClustersGroup},
-				ReqBlockType: validCSR.ReqBlockType,
-			},
+			name:      "CN with invalid format - too many colons",
+			csr:       newSecurityTestCSR(user.SubjectPrefix+testClusterAgent+":extra", []string{user.SubjectPrefix + testClusterName, user.ManagedClustersGroup}),
 			isRenewal: false,
 		},
 	}
