@@ -54,6 +54,8 @@ type ClusterManager struct {
 type ClusterProfileStatus struct {
 	// Conditions contains the different condition statuses for this cluster.
 	// +optional
+	// +listType=map
+	// +listMapKey=type
 	Conditions []metav1.Condition `json:"conditions"`
 
 	// Version defines the version information of the cluster.
@@ -66,7 +68,26 @@ type ClusterProfileStatus struct {
 	// The names of the properties can be predefined names from ClusterProperty resources
 	// and is allowed to be customized by different cluster managers.
 	// +optional
+	// +listType=map
+	// +listMapKey=name
 	Properties []Property `json:"properties,omitempty"`
+
+	// CredentialProviders is a list of cluster access providers that can provide access
+	// information for clusters.
+	// Deprecated: Use AccessProviders instead. If both AccessProviders and CredentialProviders are provided,
+	// both are used. In case they specify a provider with the same name, the one in AccessProviders is preferred.
+	// +optional
+	// +deprecated
+	// +listType=map
+	// +listMapKey=name
+	CredentialProviders []CredentialProvider `json:"credentialProviders,omitempty"`
+
+	// AccessProviders is a list of cluster access providers that can provide access
+	// information for clusters.
+	// +optional
+	// +listType=map
+	// +listMapKey=name
+	AccessProviders []AccessProvider `json:"accessProviders,omitempty"`
 }
 
 // ClusterVersion represents version information about the cluster.
@@ -82,8 +103,8 @@ type ClusterVersion struct {
 // The name of the property can be predefined name from a ClusterProperty resource
 // and is allowed to be customized by different cluster managers.
 // This property can store various configurable details and metrics of a cluster,
-// which may include information such as the number of nodes, total and free CPU,
-// and total and free memory, among other potential attributes.
+// which may include information such as the entry point of the cluster, types of nodes, location,
+// etc. according to KEP 4322.
 type Property struct {
 	// Name is the name of a property resource on cluster. It's a well-known
 	// or customized name to identify the property.
@@ -97,6 +118,14 @@ type Property struct {
 	// +kubebuilder:validation:MinLength=1
 	// +required
 	Value string `json:"value"`
+
+	// LastObservedTime is the last time the property was observed on the corresponding cluster.
+	// The value is the timestamp when the property was observed not the time when the property
+	// was updated in the cluster-profile.
+	// +kubebuilder:validation:Type=string
+	// +kubebuilder:validation:Format=date-time
+	// +optional
+	LastObservedTime metav1.Time `json:"lastObservedTime,omitempty"`
 }
 
 // Predefined healthy conditions indicate the cluster is in a good state or not.
@@ -116,7 +145,8 @@ const (
 
 	// LabelClusterSetKey is used on a namespace to indicate the clusterset that a ClusterProfile belongs to.
 	// If a cluster inventory represents a ClusterSet,
-	// all its ClusterProfile objects MUST be part of the same clusterSet and namespace must be used as the grouping mechanism.
+	// all its ClusterProfile objects MUST be part of the same clusterSet
+	// and namespace must be used as the grouping mechanism.
 	// The namespace MUST have LabelClusterSet and the value as the name of the clusterSet.
 	LabelClusterSetKey = "multicluster.x-k8s.io/clusterset"
 )
