@@ -20,199 +20,129 @@ import (
 
 	commonoptions "open-cluster-management.io/ocm/pkg/common/options"
 	"open-cluster-management.io/ocm/pkg/registration/hub/user"
-	registerfactory "open-cluster-management.io/ocm/pkg/registration/register/factory"
 	"open-cluster-management.io/ocm/pkg/registration/spoke"
 	"open-cluster-management.io/ocm/test/integration/util"
 )
 
+// setupTestCluster sets up a managed cluster and returns a cleanup function
+func setupTestCluster(clusterName, secretName, dirSuffix string) func() {
+	hubKubeconfigDir := path.Join(util.TestDir, dirSuffix, "hub-kubeconfig")
+
+	agentOptions := &spoke.SpokeAgentOptions{
+		BootstrapKubeconfig:      bootstrapKubeConfigFile,
+		HubKubeconfigSecret:      secretName,
+		ClusterHealthCheckPeriod: 1 * time.Minute,
+	}
+
+	commOptions := commonoptions.NewAgentOptions()
+	commOptions.HubKubeconfigDir = hubKubeconfigDir
+	commOptions.SpokeClusterName = clusterName
+
+	cancel := runAgent(dirSuffix, agentOptions, commOptions, spokeCfg)
+
+	// Wait for cluster and CSR creation
+	gomega.Eventually(func() error {
+		if _, err := util.GetManagedCluster(clusterClient, clusterName); err != nil {
+			return err
+		}
+		return nil
+	}, eventuallyTimeout, eventuallyInterval).ShouldNot(gomega.HaveOccurred())
+
+	gomega.Eventually(func() error {
+		if _, err := util.FindUnapprovedSpokeCSR(kubeClient, clusterName); err != nil {
+			return err
+		}
+		return nil
+	}, eventuallyTimeout, eventuallyInterval).ShouldNot(gomega.HaveOccurred())
+
+	// Approve and accept
+	err := authn.ApproveSpokeClusterCSR(kubeClient, clusterName, 24*time.Hour)
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
+
+	err = util.AcceptManagedCluster(clusterClient, clusterName)
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
+
+	// Wait for kubeconfig
+	gomega.Eventually(func() error {
+		if _, err := util.GetFilledHubKubeConfigSecret(kubeClient, testNamespace, secretName); err != nil {
+			return err
+		}
+		return nil
+	}, eventuallyTimeout, eventuallyInterval).ShouldNot(gomega.HaveOccurred())
+
+	return cancel
+}
+
+// verifyCSRRejected creates a malicious CSR and verifies it's NOT auto-approved
+func verifyCSRRejected(clusterName, cn string, orgs []string) {
+	maliciousCSR := createMaliciousCSR(clusterName, cn, orgs)
+
+	_, err := kubeClient.CertificatesV1().CertificateSigningRequests().Create(
+		context.Background(),
+		maliciousCSR,
+		metav1.CreateOptions{},
+	)
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
+
+	// Verify CSR remains unapproved
+	gomega.Consistently(func() bool {
+		csr, err := kubeClient.CertificatesV1().CertificateSigningRequests().Get(
+			context.Background(),
+			maliciousCSR.Name,
+			metav1.GetOptions{},
+		)
+		if err != nil {
+			return false
+		}
+		return len(csr.Status.Conditions) == 0
+	}, 10*time.Second, 1*time.Second).Should(gomega.BeTrue(), "Malicious CSR should NOT be auto-approved")
+
+	// Cleanup
+	err = kubeClient.CertificatesV1().CertificateSigningRequests().Delete(
+		context.Background(),
+		maliciousCSR.Name,
+		metav1.DeleteOptions{},
+	)
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
+}
+
 var _ = ginkgo.Describe("CSR Security Validation", func() {
 	ginkgo.It("Should reject CSR with prefix-matched organization that doesn't exactly match cluster name", func() {
-		var err error
-
 		managedClusterName := "securitytest-cluster1"
 		//#nosec G101
 		hubKubeconfigSecret := "securitytest-hub-kubeconfig-secret"
-		hubKubeconfigDir := path.Join(util.TestDir, "securitytest", "hub-kubeconfig")
 
-		agentOptions := &spoke.SpokeAgentOptions{
-			BootstrapKubeconfig:      bootstrapKubeConfigFile,
-			HubKubeconfigSecret:      hubKubeconfigSecret,
-			ClusterHealthCheckPeriod: 1 * time.Minute,
-			RegisterDriverOption:     registerfactory.NewOptions(),
-		}
-
-		commOptions := commonoptions.NewAgentOptions()
-		commOptions.HubKubeconfigDir = hubKubeconfigDir
-		commOptions.SpokeClusterName = managedClusterName
-
-		// run registration agent
-		cancel := runAgent("securitytest", agentOptions, commOptions, spokeCfg)
+		cancel := setupTestCluster(managedClusterName, hubKubeconfigSecret, "securitytest")
 		defer cancel()
 
-		// after bootstrap the spokecluster and csr should be created
-		gomega.Eventually(func() error {
-			if _, err := util.GetManagedCluster(clusterClient, managedClusterName); err != nil {
-				return err
-			}
-			return nil
-		}, eventuallyTimeout, eventuallyInterval).ShouldNot(gomega.HaveOccurred())
-
-		gomega.Eventually(func() error {
-			if _, err := util.FindUnapprovedSpokeCSR(kubeClient, managedClusterName); err != nil {
-				return err
-			}
-			return nil
-		}, eventuallyTimeout, eventuallyInterval).ShouldNot(gomega.HaveOccurred())
-
-		// approve the initial CSR and accept the cluster
-		err = authn.ApproveSpokeClusterCSR(kubeClient, managedClusterName, 24*time.Hour)
-		gomega.Expect(err).NotTo(gomega.HaveOccurred())
-
-		err = util.AcceptManagedCluster(clusterClient, managedClusterName)
-		gomega.Expect(err).NotTo(gomega.HaveOccurred())
-
-		// the hub kubeconfig secret should be filled after the csr is approved
-		gomega.Eventually(func() error {
-			if _, err := util.GetFilledHubKubeConfigSecret(kubeClient, testNamespace, hubKubeconfigSecret); err != nil {
-				return err
-			}
-			return nil
-		}, eventuallyTimeout, eventuallyInterval).ShouldNot(gomega.HaveOccurred())
-
-		// Now create a malicious CSR where:
+		// Create malicious CSR where:
 		// - label has correct cluster name: "securitytest-cluster1"
 		// - CN has correct cluster name: "system:open-cluster-management:securitytest-cluster1:agent1"
 		// - BUT org has prefix-matched name: "system:open-cluster-management:securitytest-cluster1xyz"
-		// This should NOT be auto-approved
-		maliciousCSR := createMaliciousCSR(
+		verifyCSRRejected(
 			managedClusterName,
 			user.SubjectPrefix+managedClusterName+":agent1",
 			[]string{user.SubjectPrefix + managedClusterName + "xyz", user.ManagedClustersGroup},
 		)
-
-		_, err = kubeClient.CertificatesV1().CertificateSigningRequests().Create(
-			context.Background(),
-			maliciousCSR,
-			metav1.CreateOptions{},
-		)
-		gomega.Expect(err).NotTo(gomega.HaveOccurred())
-
-		// Wait and verify the malicious CSR is NOT auto-approved
-		// The CSR should remain unapproved for at least 10 seconds
-		gomega.Consistently(func() bool {
-			csr, err := kubeClient.CertificatesV1().CertificateSigningRequests().Get(
-				context.Background(),
-				maliciousCSR.Name,
-				metav1.GetOptions{},
-			)
-			if err != nil {
-				return false
-			}
-			// Check if CSR is still unapproved
-			return len(csr.Status.Conditions) == 0
-		}, 10*time.Second, 1*time.Second).Should(gomega.BeTrue(), "Malicious CSR should NOT be auto-approved")
-
-		// Clean up the malicious CSR
-		err = kubeClient.CertificatesV1().CertificateSigningRequests().Delete(
-			context.Background(),
-			maliciousCSR.Name,
-			metav1.DeleteOptions{},
-		)
-		gomega.Expect(err).NotTo(gomega.HaveOccurred())
 	})
 
 	ginkgo.It("Should reject CSR where org and CN agree on wrong cluster name", func() {
-		var err error
-
 		managedClusterName := "securitytest-cluster2"
 		//#nosec G101
 		hubKubeconfigSecret := "securitytest2-hub-kubeconfig-secret"
-		hubKubeconfigDir := path.Join(util.TestDir, "securitytest2", "hub-kubeconfig")
 
-		agentOptions := &spoke.SpokeAgentOptions{
-			BootstrapKubeconfig:      bootstrapKubeConfigFile,
-			HubKubeconfigSecret:      hubKubeconfigSecret,
-			ClusterHealthCheckPeriod: 1 * time.Minute,
-			RegisterDriverOption:     registerfactory.NewOptions(),
-		}
-
-		commOptions := commonoptions.NewAgentOptions()
-		commOptions.HubKubeconfigDir = hubKubeconfigDir
-		commOptions.SpokeClusterName = managedClusterName
-
-		// run registration agent
-		cancel := runAgent("securitytest2", agentOptions, commOptions, spokeCfg)
+		cancel := setupTestCluster(managedClusterName, hubKubeconfigSecret, "securitytest2")
 		defer cancel()
 
-		// after bootstrap the spokecluster and csr should be created
-		gomega.Eventually(func() error {
-			if _, err := util.GetManagedCluster(clusterClient, managedClusterName); err != nil {
-				return err
-			}
-			return nil
-		}, eventuallyTimeout, eventuallyInterval).ShouldNot(gomega.HaveOccurred())
-
-		gomega.Eventually(func() error {
-			if _, err := util.FindUnapprovedSpokeCSR(kubeClient, managedClusterName); err != nil {
-				return err
-			}
-			return nil
-		}, eventuallyTimeout, eventuallyInterval).ShouldNot(gomega.HaveOccurred())
-
-		// approve the initial CSR and accept the cluster
-		err = authn.ApproveSpokeClusterCSR(kubeClient, managedClusterName, 24*time.Hour)
-		gomega.Expect(err).NotTo(gomega.HaveOccurred())
-
-		err = util.AcceptManagedCluster(clusterClient, managedClusterName)
-		gomega.Expect(err).NotTo(gomega.HaveOccurred())
-
-		// the hub kubeconfig secret should be filled after the csr is approved
-		gomega.Eventually(func() error {
-			if _, err := util.GetFilledHubKubeConfigSecret(kubeClient, testNamespace, hubKubeconfigSecret); err != nil {
-				return err
-			}
-			return nil
-		}, eventuallyTimeout, eventuallyInterval).ShouldNot(gomega.HaveOccurred())
-
-		// Now create a malicious CSR where:
+		// Create malicious CSR where:
 		// - label has correct cluster name: "securitytest-cluster2"
 		// - BUT both CN and org have a different cluster name with prefix match: "securitytest-cluster2xyz"
-		// This should NOT be auto-approved
 		wrongClusterName := managedClusterName + "xyz"
-		maliciousCSR := createMaliciousCSR(
-			managedClusterName, // label still has correct name
+		verifyCSRRejected(
+			managedClusterName,
 			user.SubjectPrefix+wrongClusterName+":agent1",
 			[]string{user.SubjectPrefix + wrongClusterName, user.ManagedClustersGroup},
 		)
-
-		_, err = kubeClient.CertificatesV1().CertificateSigningRequests().Create(
-			context.Background(),
-			maliciousCSR,
-			metav1.CreateOptions{},
-		)
-		gomega.Expect(err).NotTo(gomega.HaveOccurred())
-
-		// Wait and verify the malicious CSR is NOT auto-approved
-		gomega.Consistently(func() bool {
-			csr, err := kubeClient.CertificatesV1().CertificateSigningRequests().Get(
-				context.Background(),
-				maliciousCSR.Name,
-				metav1.GetOptions{},
-			)
-			if err != nil {
-				return false
-			}
-			// Check if CSR is still unapproved
-			return len(csr.Status.Conditions) == 0
-		}, 10*time.Second, 1*time.Second).Should(gomega.BeTrue(), "Malicious CSR should NOT be auto-approved")
-
-		// Clean up the malicious CSR
-		err = kubeClient.CertificatesV1().CertificateSigningRequests().Delete(
-			context.Background(),
-			maliciousCSR.Name,
-			metav1.DeleteOptions{},
-		)
-		gomega.Expect(err).NotTo(gomega.HaveOccurred())
 	})
 })
 
