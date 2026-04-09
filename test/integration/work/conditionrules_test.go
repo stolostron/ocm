@@ -3,6 +3,7 @@ package work
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/onsi/ginkgo/v2"
 	"github.com/onsi/gomega"
@@ -135,15 +136,26 @@ var _ = ginkgo.Describe("ManifestWork Condition Rules", func() {
 					return err
 				}
 
+				now := metav1.Now()
+				startTime := metav1.NewTime(now.Add(-5 * time.Minute))
+
 				job.Status.Active = 0
 				job.Status.Ready = ptr.To(int32(0))
 				job.Status.Succeeded = 1
+				job.Status.StartTime = &startTime
+				job.Status.CompletionTime = &now
 				job.Status.Conditions = []batchv1.JobCondition{
 					{
-						Type:    batchv1.JobComplete,
-						Status:  corev1.ConditionTrue,
-						Reason:  batchv1.JobReasonCompletionsReached,
-						Message: "Reached expected number of succeeded pods",
+						Type:               batchv1.JobSuccessCriteriaMet,
+						Status:             corev1.ConditionTrue,
+						LastTransitionTime: now,
+					},
+					{
+						Type:               batchv1.JobComplete,
+						Status:             corev1.ConditionTrue,
+						LastTransitionTime: now,
+						Reason:             batchv1.JobReasonCompletionsReached,
+						Message:            "Reached expected number of succeeded pods",
 					},
 				}
 
@@ -402,15 +414,26 @@ var _ = ginkgo.Describe("ManifestWork Condition Rules", func() {
 					return err
 				}
 
+				now := metav1.Now()
+				startTime := metav1.NewTime(now.Add(-5 * time.Minute))
+
 				job.Status.Active = 0
 				job.Status.Ready = ptr.To(int32(0))
 				job.Status.Succeeded = 1
+				job.Status.StartTime = &startTime
+				job.Status.CompletionTime = &now
 				job.Status.Conditions = []batchv1.JobCondition{
 					{
-						Type:    batchv1.JobComplete,
-						Status:  corev1.ConditionTrue,
-						Reason:  batchv1.JobReasonCompletionsReached,
-						Message: "Reached expected number of succeeded pods",
+						Type:               batchv1.JobSuccessCriteriaMet,
+						Status:             corev1.ConditionTrue,
+						LastTransitionTime: now,
+					},
+					{
+						Type:               batchv1.JobComplete,
+						Status:             corev1.ConditionTrue,
+						LastTransitionTime: now,
+						Reason:             batchv1.JobReasonCompletionsReached,
+						Message:            "Reached expected number of succeeded pods",
 					},
 				}
 
@@ -519,15 +542,26 @@ var _ = ginkgo.Describe("ManifestWork Condition Rules", func() {
 					return err
 				}
 
+				now := metav1.Now()
+				startTime := metav1.NewTime(now.Add(-5 * time.Minute))
+
 				job.Status.Active = 0
 				job.Status.Ready = ptr.To(int32(0))
 				job.Status.Succeeded = 1
+				job.Status.StartTime = &startTime
+				job.Status.CompletionTime = &now
 				job.Status.Conditions = []batchv1.JobCondition{
 					{
-						Type:    batchv1.JobComplete,
-						Status:  corev1.ConditionTrue,
-						Reason:  batchv1.JobReasonCompletionsReached,
-						Message: "Reached expected number of succeeded pods",
+						Type:               batchv1.JobSuccessCriteriaMet,
+						Status:             corev1.ConditionTrue,
+						LastTransitionTime: now,
+					},
+					{
+						Type:               batchv1.JobComplete,
+						Status:             corev1.ConditionTrue,
+						LastTransitionTime: now,
+						Reason:             batchv1.JobReasonCompletionsReached,
+						Message:            "Reached expected number of succeeded pods",
 					},
 				}
 
