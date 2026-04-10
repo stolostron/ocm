@@ -109,43 +109,44 @@ func verifyCSRRejected(clusterName, cn string, orgs []string) {
 }
 
 var _ = ginkgo.Describe("CSR Security Validation", func() {
-	ginkgo.It("Should reject CSR with prefix-matched organization that doesn't exactly match cluster name", func() {
-		managedClusterName := "securitytest-cluster1"
-		//#nosec G101
-		hubKubeconfigSecret := "securitytest-hub-kubeconfig-secret"
+	type csrSecurityTestCase struct {
+		clusterName string
+		secret      string
+		dirSuffix   string
+		cnCluster   string
+		orgCluster  string
+	}
 
-		cancel := setupTestCluster(managedClusterName, hubKubeconfigSecret, "securitytest")
-		defer cancel()
+	tests := []csrSecurityTestCase{
+		{
+			clusterName: "securitytest-cluster1",
+			secret:      "securitytest-hub-kubeconfig-secret", //#nosec G101
+			dirSuffix:   "securitytest",
+			cnCluster:   "securitytest-cluster1",
+			orgCluster:  "securitytest-cluster1xyz",
+		},
+		{
+			clusterName: "securitytest-cluster2",
+			secret:      "securitytest2-hub-kubeconfig-secret", //#nosec G101
+			dirSuffix:   "securitytest2",
+			cnCluster:   "securitytest-cluster2xyz",
+			orgCluster:  "securitytest-cluster2xyz",
+		},
+	}
 
-		// Create malicious CSR where:
-		// - label has correct cluster name: "securitytest-cluster1"
-		// - CN has correct cluster name: "system:open-cluster-management:securitytest-cluster1:agent1"
-		// - BUT org has prefix-matched name: "system:open-cluster-management:securitytest-cluster1xyz"
-		verifyCSRRejected(
-			managedClusterName,
-			user.SubjectPrefix+managedClusterName+":agent1",
-			[]string{user.SubjectPrefix + managedClusterName + "xyz", user.ManagedClustersGroup},
-		)
-	})
+	for i, tc := range tests {
+		tc := tc
+		ginkgo.It(fmt.Sprintf("Should reject malicious CSR (case %d) where CN or org cluster name doesn't exactly match label", i+1), func() {
+			cancel := setupTestCluster(tc.clusterName, tc.secret, tc.dirSuffix)
+			defer cancel()
 
-	ginkgo.It("Should reject CSR where org and CN agree on wrong cluster name", func() {
-		managedClusterName := "securitytest-cluster2"
-		//#nosec G101
-		hubKubeconfigSecret := "securitytest2-hub-kubeconfig-secret"
-
-		cancel := setupTestCluster(managedClusterName, hubKubeconfigSecret, "securitytest2")
-		defer cancel()
-
-		// Create malicious CSR where:
-		// - label has correct cluster name: "securitytest-cluster2"
-		// - BUT both CN and org have a different cluster name with prefix match: "securitytest-cluster2xyz"
-		wrongClusterName := managedClusterName + "xyz"
-		verifyCSRRejected(
-			managedClusterName,
-			user.SubjectPrefix+wrongClusterName+":agent1",
-			[]string{user.SubjectPrefix + wrongClusterName, user.ManagedClustersGroup},
-		)
-	})
+			verifyCSRRejected(
+				tc.clusterName,
+				user.SubjectPrefix+tc.cnCluster+":agent1",
+				[]string{user.SubjectPrefix + tc.orgCluster, user.ManagedClustersGroup},
+			)
+		})
+	}
 })
 
 // createMaliciousCSR creates a CSR with custom label, CN, and organizations for testing

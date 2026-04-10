@@ -231,80 +231,44 @@ func TestSync(t *testing.T) {
 	}
 }
 
-// Helper functions for building test CSR components
-func clusterCN(cluster, agent string) string {
-	return user.SubjectPrefix + cluster + ":" + agent
-}
-
-func clusterOrgs(cluster string) []string {
-	return []string{user.SubjectPrefix + cluster, user.ManagedClustersGroup}
-}
-
-// newSecurityTestCSR creates a CSR test case for cluster name validation tests
-// cnCluster is the cluster name in the CN, orgCluster is the cluster name in the org
-func newSecurityTestCSR(name, cnCluster, orgCluster string) struct {
+type csrValidationTestCase struct {
 	name        string
 	csr         testinghelpers.CSRHolder
 	isRenewal   bool
 	clusterName string
 	commonName  string
-} {
-	return struct {
-		name        string
-		csr         testinghelpers.CSRHolder
-		isRenewal   bool
-		clusterName string
-		commonName  string
-	}{
+}
+
+func newSecurityTestCSR(name, cnCluster, orgCluster string) csrValidationTestCase {
+	return csrValidationTestCase{
 		name: name,
 		csr: testinghelpers.CSRHolder{
 			Labels:       map[string]string{"open-cluster-management.io/cluster-name": "managedcluster1"},
 			SignerName:   validCSR.SignerName,
-			CN:           clusterCN(cnCluster, "spokeagent1"),
-			Orgs:         clusterOrgs(orgCluster),
+			CN:           user.SubjectPrefix + cnCluster + ":spokeagent1",
+			Orgs:         []string{user.SubjectPrefix + orgCluster, user.ManagedClustersGroup},
 			ReqBlockType: validCSR.ReqBlockType,
 		},
-		isRenewal: false,
 	}
 }
 
-// newInvalidCNFormatTest creates a test case for invalid CN format
-func newInvalidCNFormatTest(name, cn string) struct {
-	name        string
-	csr         testinghelpers.CSRHolder
-	isRenewal   bool
-	clusterName string
-	commonName  string
-} {
-	return struct {
-		name        string
-		csr         testinghelpers.CSRHolder
-		isRenewal   bool
-		clusterName string
-		commonName  string
-	}{
+func newInvalidCNFormatTest(name, cn string) csrValidationTestCase {
+	return csrValidationTestCase{
 		name: name,
 		csr: testinghelpers.CSRHolder{
 			Labels:       map[string]string{"open-cluster-management.io/cluster-name": "managedcluster1"},
 			SignerName:   validCSR.SignerName,
 			CN:           cn,
-			Orgs:         clusterOrgs("managedcluster1"),
+			Orgs:         []string{user.SubjectPrefix + "managedcluster1", user.ManagedClustersGroup},
 			ReqBlockType: validCSR.ReqBlockType,
 		},
-		isRenewal: false,
 	}
 }
 
 func TestIsSpokeClusterClientCertRenewal(t *testing.T) {
 	invalidSignerName := "invalidsigner"
 
-	cases := []struct {
-		name        string
-		csr         testinghelpers.CSRHolder
-		isRenewal   bool
-		clusterName string
-		commonName  string
-	}{
+	cases := []csrValidationTestCase{
 		{
 			name:      "a spoke cluster csr without labels",
 			csr:       testinghelpers.CSRHolder{},

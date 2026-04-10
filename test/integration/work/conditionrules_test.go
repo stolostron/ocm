@@ -18,6 +18,31 @@ import (
 	"open-cluster-management.io/ocm/test/integration/util"
 )
 
+func setJobCompleted(job *batchv1.Job) {
+	now := metav1.Now()
+	startTime := metav1.NewTime(now.Add(-5 * time.Minute))
+
+	job.Status.Active = 0
+	job.Status.Ready = ptr.To(int32(0))
+	job.Status.Succeeded = 1
+	job.Status.StartTime = &startTime
+	job.Status.CompletionTime = &now
+	job.Status.Conditions = []batchv1.JobCondition{
+		{
+			Type:               batchv1.JobSuccessCriteriaMet,
+			Status:             corev1.ConditionTrue,
+			LastTransitionTime: now,
+		},
+		{
+			Type:               batchv1.JobComplete,
+			Status:             corev1.ConditionTrue,
+			LastTransitionTime: now,
+			Reason:             batchv1.JobReasonCompletionsReached,
+			Message:            "Reached expected number of succeeded pods",
+		},
+	}
+}
+
 var _ = ginkgo.Describe("ManifestWork Condition Rules", func() {
 	var cancel context.CancelFunc
 	var clusterName string
@@ -136,28 +161,7 @@ var _ = ginkgo.Describe("ManifestWork Condition Rules", func() {
 					return err
 				}
 
-				now := metav1.Now()
-				startTime := metav1.NewTime(now.Add(-5 * time.Minute))
-
-				job.Status.Active = 0
-				job.Status.Ready = ptr.To(int32(0))
-				job.Status.Succeeded = 1
-				job.Status.StartTime = &startTime
-				job.Status.CompletionTime = &now
-				job.Status.Conditions = []batchv1.JobCondition{
-					{
-						Type:               batchv1.JobSuccessCriteriaMet,
-						Status:             corev1.ConditionTrue,
-						LastTransitionTime: now,
-					},
-					{
-						Type:               batchv1.JobComplete,
-						Status:             corev1.ConditionTrue,
-						LastTransitionTime: now,
-						Reason:             batchv1.JobReasonCompletionsReached,
-						Message:            "Reached expected number of succeeded pods",
-					},
-				}
+				setJobCompleted(job)
 
 				_, err = spokeKubeClient.BatchV1().Jobs(clusterName).UpdateStatus(context.Background(), job, metav1.UpdateOptions{})
 				return err
@@ -414,28 +418,7 @@ var _ = ginkgo.Describe("ManifestWork Condition Rules", func() {
 					return err
 				}
 
-				now := metav1.Now()
-				startTime := metav1.NewTime(now.Add(-5 * time.Minute))
-
-				job.Status.Active = 0
-				job.Status.Ready = ptr.To(int32(0))
-				job.Status.Succeeded = 1
-				job.Status.StartTime = &startTime
-				job.Status.CompletionTime = &now
-				job.Status.Conditions = []batchv1.JobCondition{
-					{
-						Type:               batchv1.JobSuccessCriteriaMet,
-						Status:             corev1.ConditionTrue,
-						LastTransitionTime: now,
-					},
-					{
-						Type:               batchv1.JobComplete,
-						Status:             corev1.ConditionTrue,
-						LastTransitionTime: now,
-						Reason:             batchv1.JobReasonCompletionsReached,
-						Message:            "Reached expected number of succeeded pods",
-					},
-				}
+				setJobCompleted(job)
 
 				_, err = spokeKubeClient.BatchV1().Jobs(clusterName).UpdateStatus(context.Background(), job, metav1.UpdateOptions{})
 				return err
@@ -542,28 +525,7 @@ var _ = ginkgo.Describe("ManifestWork Condition Rules", func() {
 					return err
 				}
 
-				now := metav1.Now()
-				startTime := metav1.NewTime(now.Add(-5 * time.Minute))
-
-				job.Status.Active = 0
-				job.Status.Ready = ptr.To(int32(0))
-				job.Status.Succeeded = 1
-				job.Status.StartTime = &startTime
-				job.Status.CompletionTime = &now
-				job.Status.Conditions = []batchv1.JobCondition{
-					{
-						Type:               batchv1.JobSuccessCriteriaMet,
-						Status:             corev1.ConditionTrue,
-						LastTransitionTime: now,
-					},
-					{
-						Type:               batchv1.JobComplete,
-						Status:             corev1.ConditionTrue,
-						LastTransitionTime: now,
-						Reason:             batchv1.JobReasonCompletionsReached,
-						Message:            "Reached expected number of succeeded pods",
-					},
-				}
+				setJobCompleted(job)
 
 				_, err = spokeKubeClient.BatchV1().Jobs(clusterName).UpdateStatus(context.Background(), job, metav1.UpdateOptions{})
 				return err
