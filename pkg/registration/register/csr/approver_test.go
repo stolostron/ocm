@@ -231,16 +231,44 @@ func TestSync(t *testing.T) {
 	}
 }
 
+type csrValidationTestCase struct {
+	name        string
+	csr         testinghelpers.CSRHolder
+	isRenewal   bool
+	clusterName string
+	commonName  string
+}
+
+func newSecurityTestCSR(name, cnCluster, orgCluster string) csrValidationTestCase {
+	return csrValidationTestCase{
+		name: name,
+		csr: testinghelpers.CSRHolder{
+			Labels:       map[string]string{"open-cluster-management.io/cluster-name": "managedcluster1"},
+			SignerName:   validCSR.SignerName,
+			CN:           user.SubjectPrefix + cnCluster + ":spokeagent1",
+			Orgs:         []string{user.SubjectPrefix + orgCluster, user.ManagedClustersGroup},
+			ReqBlockType: validCSR.ReqBlockType,
+		},
+	}
+}
+
+func newInvalidCNFormatTest(name, cn string) csrValidationTestCase {
+	return csrValidationTestCase{
+		name: name,
+		csr: testinghelpers.CSRHolder{
+			Labels:       map[string]string{"open-cluster-management.io/cluster-name": "managedcluster1"},
+			SignerName:   validCSR.SignerName,
+			CN:           cn,
+			Orgs:         []string{user.SubjectPrefix + "managedcluster1", user.ManagedClustersGroup},
+			ReqBlockType: validCSR.ReqBlockType,
+		},
+	}
+}
+
 func TestIsSpokeClusterClientCertRenewal(t *testing.T) {
 	invalidSignerName := "invalidsigner"
 
-	cases := []struct {
-		name        string
-		csr         testinghelpers.CSRHolder
-		isRenewal   bool
-		clusterName string
-		commonName  string
-	}{
+	cases := []csrValidationTestCase{
 		{
 			name:      "a spoke cluster csr without labels",
 			csr:       testinghelpers.CSRHolder{},
@@ -312,6 +340,13 @@ func TestIsSpokeClusterClientCertRenewal(t *testing.T) {
 			clusterName: "managedcluster1",
 			commonName:  validCSR.CN,
 		},
+		newSecurityTestCSR("prefix match attack - CN with extra suffix but org has correct cluster", "managedcluster1xyz", "managedcluster1"),
+		newSecurityTestCSR("prefix match attack - org and CN agree on wrong cluster name", "managedcluster1xyz", "managedcluster1xyz"),
+		newSecurityTestCSR("prefix match attack - label and CN match but org has wrong cluster", "managedcluster1", "managedcluster1xyz"),
+		newSecurityTestCSR("mismatched cluster name between CN and label", "managedcluster2", "managedcluster1"),
+		newSecurityTestCSR("mismatched cluster name in org - org has different cluster than label and CN", "managedcluster1", "managedcluster2"),
+		newInvalidCNFormatTest("CN with invalid format - missing agent name", user.SubjectPrefix+"managedcluster1"),
+		newInvalidCNFormatTest("CN with invalid format - too many colons", user.SubjectPrefix+"managedcluster1:spokeagent1:extra"),
 	}
 
 	for _, c := range cases {
