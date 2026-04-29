@@ -21,6 +21,10 @@ spec:
     value: '{{source_url}}'
   - name: revision
     value: '{{revision}}'
+  - name: fetchTags
+    value: 'true'
+  - name: depth
+    value: '0'
   - name: output-image
     value: quay.io/redhat-user-workloads/crt-redhat-acm-tenant/addon-manager-mce-51:{{revision}}
   - name: build-platforms
@@ -31,8 +35,6 @@ spec:
     - linux/s390x
   - name: dockerfile
     value: build/Dockerfile.addon.rhtap
-  - name: path-context
-    value: .
   - name: send-slack-notification
     value: 'true'
   - name: konflux-application-name
