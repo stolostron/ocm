@@ -31,8 +31,6 @@ spec:
     - linux/s390x
   - name: dockerfile
     value: build/Dockerfile.placement.rhtap
-  - name: path-context
-    value: .
   - name: send-slack-notification
     value: 'true'
   - name: konflux-application-name
