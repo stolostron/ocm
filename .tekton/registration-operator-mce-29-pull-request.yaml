@@ -18,24 +18,21 @@ metadata:
   namespace: crt-redhat-acm-tenant
 spec:
   params:
-  - name: git-url
-    value: "{{source_url}}"
-  - name: revision
-    value: "{{revision}}"
-  - name: output-image
-    value: quay.io/redhat-user-workloads/crt-redhat-acm-tenant/registration-operator-mce-29:on-pr-{{revision}}
-  - name: image-expires-after
-    value: 5d
-  - name: build-platforms
-    value:
-    - linux/x86_64
-    - linux/arm64
-    - linux/ppc64le
-    - linux/s390x
-  - name: dockerfile
-    value: build/Dockerfile.registration-operator.rhtap
-  - name: path-context
-    value: .
+    - name: git-url
+      value: "{{source_url}}"
+    - name: revision
+      value: "{{revision}}"
+    - name: output-image
+      value: quay.io/redhat-user-workloads/crt-redhat-acm-tenant/registration-operator-mce-29:on-pr-{{revision}}
+    - name: image-expires-after
+      value: 5d
+    - name: build-platforms
+      value:
+        - linux/x86_64
+    - name: dockerfile
+      value: build/Dockerfile.registration-operator.rhtap
+    - name: path-context
+      value: .
   pipelineRef:
     resolver: git
     params:
@@ -48,7 +45,7 @@ spec:
   taskRunTemplate:
     serviceAccountName: build-pipeline-registration-operator-mce-29
   workspaces:
-  - name: git-auth
-    secret:
-      secretName: "{{ git_auth_secret }}"
+    - name: git-auth
+      secret:
+        secretName: "{{ git_auth_secret }}"
 status: {}
