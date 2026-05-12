@@ -34,8 +34,8 @@ do
     kind load docker-image --name=e2e quay.io/open-cluster-management/addon-manager:$IMAGE_TAG
 
     # This is for addon-manager test: /workspaces/OCM/test/e2e/manifests/addon/addon_template.yaml
-    docker pull quay.io/open-cluster-management/addon-examples:latest
-    kind load docker-image --name=e2e quay.io/open-cluster-management/addon-examples:latest
+    docker pull "$(cat test/e2e/ADDON_EXAMPLE_IMAGE)"
+    kind load docker-image --name=e2e "$(cat test/e2e/ADDON_EXAMPLE_IMAGE)"
 
     kind get kubeconfig --name=e2e > .kubeconfig
 

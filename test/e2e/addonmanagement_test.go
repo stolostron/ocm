@@ -47,9 +47,11 @@ const (
 )
 
 var (
-	nodeSelector = map[string]string{"kubernetes.io/os": "linux"}
-	tolerations  = []corev1.Toleration{{Key: "foo", Operator: corev1.TolerationOpExists, Effect: corev1.TaintEffectNoExecute}}
-	registries   = []addonapiv1alpha1.ImageMirror{
+	//go:embed ADDON_EXAMPLE_IMAGE
+	addonExampleImage embed.FS
+	nodeSelector      = map[string]string{"kubernetes.io/os": "linux"}
+	tolerations       = []corev1.Toleration{{Key: "foo", Operator: corev1.TolerationOpExists, Effect: corev1.TaintEffectNoExecute}}
+	registries        = []addonapiv1alpha1.ImageMirror{
 		{
 			Source: "quay.io/open-cluster-management/addon-examples",
 			Mirror: "quay.io/ocm/addon-examples",
@@ -74,6 +76,8 @@ var (
 )
 
 var _ = ginkgo.Describe("Enable addon management feature gate", ginkgo.Ordered, ginkgo.Label("addon-manager"), func() {
+	addonExampleImageBytes, _ := addonExampleImage.ReadFile("ADDON_EXAMPLE_IMAGE")
+	addonExampleImage := string(addonExampleImageBytes)
 	addOnName := "hello-template"
 	addonInstallNamespace := "test-addon-template"
 
@@ -120,6 +124,7 @@ var _ = ginkgo.Describe("Enable addon management feature gate", ginkgo.Ordered, 
 			defaultAddonTemplateReaderManifestsFunc(manifests.AddonManifestFiles, map[string]interface{}{
 				"Namespace":                   universalClusterName,
 				"AddonInstallNamespace":       addonInstallNamespace,
+				"AddonExampleImage":           addonExampleImage,
 				"CustomSignerName":            customSignerName,
 				"AddonManagerNamespace":       templateagent.AddonManagerNamespace(),
 				"CustomSignerSecretName":      customSignerSecretName,
@@ -177,6 +182,7 @@ var _ = ginkgo.Describe("Enable addon management feature gate", ginkgo.Ordered, 
 			defaultAddonTemplateReaderManifestsFunc(manifests.AddonManifestFiles, map[string]interface{}{
 				"Namespace":                   universalClusterName,
 				"AddonInstallNamespace":       addonInstallNamespace,
+				"AddonExampleImage":           addonExampleImage,
 				"CustomSignerName":            customSignerName,
 				"AddonManagerNamespace":       templateagent.AddonManagerNamespace(),
 				"CustomSignerSecretName":      customSignerSecretName,
@@ -482,7 +488,7 @@ var _ = ginkgo.Describe("Enable addon management feature gate", ginkgo.Ordered, 
 				return fmt.Errorf("expect one container, but %v", containers)
 			}
 
-			if containers[0].Image != originalImageValue {
+			if containers[0].Image != addonExampleImage {
 				return fmt.Errorf("unexpected image %s", containers[0].Image)
 			}
 
@@ -672,7 +678,7 @@ var _ = ginkgo.Describe("Enable addon management feature gate", ginkgo.Ordered, 
 				return fmt.Errorf("expect one container, but %v", containers)
 			}
 
-			if containers[0].Image != originalImageValue {
+			if containers[0].Image != addonExampleImage {
 				return fmt.Errorf("unexpected image %s", containers[0].Image)
 			}
 
