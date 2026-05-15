@@ -15,7 +15,6 @@ type HubConfig struct {
 	PlacementImage                 string
 	PlacementDebugServerEnabled    bool
 	PlacementServingCertSecret     string
-	PlacementAnnotations           map[string]string
 	AddonAPIServiceCABundle        string
 	Replica                        int32
 	HostedMode                     bool
