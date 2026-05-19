@@ -36,8 +36,8 @@ const (
 	nodePlacementDeploymentConfigName = "node-placement-deploy-config"
 	imageOverrideDeploymentConfigName = "image-override-deploy-config"
 	namespaceOverrideConfigName       = "namespace-override-config"
-	originalImageValue                = "quay.io/open-cluster-management/addon-examples:latest"
-	overrideImageValue                = "quay.io/ocm/addon-examples:latest"
+	originalImageValue                = "quay.io/open-cluster-management/addon-examples:v1.2.0"
+	overrideImageValue                = "quay.io/ocm/addon-examples:v1.2.0"
 	customSignerName                  = "example.com/signer-name"
 	//#nosec G101
 	customSignerSecretName = "addon-signer-secret"
