@@ -17,32 +17,32 @@ metadata:
   namespace: crt-redhat-acm-tenant
 spec:
   params:
-  - name: git-url
-    value: "{{source_url}}"
-  - name: revision
-    value: "{{revision}}"
-  - name: fetchTags
-    value: 'true'
-  - name: depth
-    value: '0'
-  - name: output-image
-    value: quay.io/redhat-user-workloads/crt-redhat-acm-tenant/placement-mce-29:{{revision}}
-  - name: build-platforms
-    value:
-    - linux/x86_64
-    - linux/arm64
-    - linux/ppc64le
-    - linux/s390x
-  - name: dockerfile
-    value: build/Dockerfile.placement.rhtap
-  - name: path-context
-    value: .
-  - name: send-slack-notification
-    value: true
-  - name: konflux-application-name
-    value: release-mce-29
-  - name: slack-member-id
-    value: U02CRCBPXK4
+    - name: git-url
+      value: "{{source_url}}"
+    - name: revision
+      value: "{{revision}}"
+    - name: fetchTags
+      value: 'true'
+    - name: depth
+      value: '0'
+    - name: output-image
+      value: quay.io/redhat-user-workloads/crt-redhat-acm-tenant/placement-mce-29:{{revision}}
+    - name: build-platforms
+      value:
+        - linux/x86_64
+        - linux/arm64
+        - linux/ppc64le
+        - linux/s390x
+    - name: dockerfile
+      value: build/Dockerfile.placement.rhtap
+    - name: path-context
+      value: .
+    - name: send-slack-notification
+      value: true
+    - name: konflux-application-name
+      value: release-mce-29
+    - name: slack-member-id
+      value: U02CRCBPXK4
   pipelineRef:
     resolver: git
     params:
@@ -55,7 +55,7 @@ spec:
   taskRunTemplate:
     serviceAccountName: build-pipeline-placement-mce-29
   workspaces:
-  - name: git-auth
-    secret:
-      secretName: "{{ git_auth_secret }}"
+    - name: git-auth
+      secret:
+        secretName: "{{ git_auth_secret }}"
 status: {}
