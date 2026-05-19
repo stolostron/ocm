@@ -39,8 +39,8 @@ const (
 	namespaceOverrideConfigName              = "namespace-override-config"
 	proxyDeploymentConfigName                = "proxy-deploy-config"
 	resourceRequirementsDeploymentConfigName = "resource-requirements-deploy-config"
-	originalImageValue                       = "quay.io/open-cluster-management/addon-examples:latest"
-	overrideImageValue                       = "quay.io/ocm/addon-examples:latest"
+	originalImageValue                       = "quay.io/open-cluster-management/addon-examples:v1.2.0"
+	overrideImageValue                       = "quay.io/ocm/addon-examples:v1.2.0"
 	customSignerName                         = "example.com/signer-name"
 	// #nosec G101
 	customSignerSecretName = "addon-signer-secret"
