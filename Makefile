@@ -52,6 +52,8 @@ endif
 # Add packages to do unit test
 GO_TEST_PACKAGES :=./pkg/...
 GO_TEST_FLAGS := -race -coverprofile=coverage.out
+# api v1.2.x fake clients lack WatchList opt-out; client-go v0.35 enables WatchListClient by default.
+export KUBE_FEATURE_WatchListClient=false
 
 IMAGE_REGISTRY?=quay.io/open-cluster-management
 IMAGE_TAG?=latest
