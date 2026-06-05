@@ -374,8 +374,18 @@ func callDebugServiceWithPod(hub *framework.Hub, namespace, method, path, token 
 			Containers: []corev1.Container{
 				{
 					Name:    "curl",
-					Image:   "curlimages/curl:latest",
+					Image:   "docker.io/curlimages/curl:latest",
 					Command: curlCmd,
+					SecurityContext: &corev1.SecurityContext{
+						AllowPrivilegeEscalation: &[]bool{false}[0],
+						Capabilities: &corev1.Capabilities{
+							Drop: []corev1.Capability{"ALL"},
+						},
+						RunAsNonRoot: &[]bool{true}[0],
+						SeccompProfile: &corev1.SeccompProfile{
+							Type: corev1.SeccompProfileTypeRuntimeDefault,
+						},
+					},
 				},
 			},
 		},
