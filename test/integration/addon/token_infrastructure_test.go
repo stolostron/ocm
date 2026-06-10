@@ -6,18 +6,17 @@ import (
 
 	ginkgo "github.com/onsi/ginkgo/v2"
 	"github.com/onsi/gomega"
-	certificates "k8s.io/api/certificates/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/rand"
 
-	addonapiv1alpha1 "open-cluster-management.io/api/addon/v1alpha1"
+	addonapiv1beta1 "open-cluster-management.io/api/addon/v1beta1"
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
 )
 
-var _ = ginkgo.Describe("Token Infrastructure Controller", func() {
+var _ = ginkgo.Describe("Token Infrastructure Controller Beta", func() {
 	var managedClusterName, addOnName string
 	var err error
 
@@ -109,7 +108,7 @@ var _ = ginkgo.Describe("Token Infrastructure Controller", func() {
 
 		ginkgo.By("Verify TokenInfrastructureReady condition is set to True")
 		gomega.Eventually(func() error {
-			addon, err := hubAddonClient.AddonV1alpha1().ManagedClusterAddOns(clusterName).Get(context.Background(), addonName, metav1.GetOptions{})
+			addon, err := hubAddonClient.AddonV1beta1().ManagedClusterAddOns(clusterName).Get(context.Background(), addonName, metav1.GetOptions{})
 			if err != nil {
 				return err
 			}
@@ -152,32 +151,32 @@ var _ = ginkgo.Describe("Token Infrastructure Controller", func() {
 
 	ginkgo.It("should create token infrastructure when addon uses token driver", func() {
 		ginkgo.By("Create ManagedClusterAddOn")
-		addOn := &addonapiv1alpha1.ManagedClusterAddOn{
+		addOn := &addonapiv1beta1.ManagedClusterAddOn{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      addOnName,
 				Namespace: managedClusterName,
 			},
-			Spec: addonapiv1alpha1.ManagedClusterAddOnSpec{
-				InstallNamespace: addOnName,
-			},
+			Spec: addonapiv1beta1.ManagedClusterAddOnSpec{},
 		}
-		_, err = hubAddonClient.AddonV1alpha1().ManagedClusterAddOns(managedClusterName).Create(context.Background(), addOn, metav1.CreateOptions{})
+		_, err = hubAddonClient.AddonV1beta1().ManagedClusterAddOns(managedClusterName).Create(context.Background(), addOn, metav1.CreateOptions{})
 		gomega.Expect(err).ToNot(gomega.HaveOccurred())
 
 		ginkgo.By("Update addon status with kubeClient registration and token driver")
 		gomega.Eventually(func() error {
-			addon, err := hubAddonClient.AddonV1alpha1().ManagedClusterAddOns(managedClusterName).Get(context.Background(), addOnName, metav1.GetOptions{})
+			addon, err := hubAddonClient.AddonV1beta1().ManagedClusterAddOns(managedClusterName).Get(context.Background(), addOnName, metav1.GetOptions{})
 			if err != nil {
 				return err
 			}
 
-			addon.Status.Registrations = []addonapiv1alpha1.RegistrationConfig{
+			addon.Status.Registrations = []addonapiv1beta1.RegistrationConfig{
 				{
-					SignerName: certificates.KubeAPIServerClientSignerName,
+					Type: "kubeClient",
+					KubeClient: &addonapiv1beta1.KubeClientConfig{
+						Driver: "token",
+					},
 				},
 			}
-			addon.Status.KubeClientDriver = "token"
-			_, err = hubAddonClient.AddonV1alpha1().ManagedClusterAddOns(managedClusterName).UpdateStatus(context.Background(), addon, metav1.UpdateOptions{})
+			_, err = hubAddonClient.AddonV1beta1().ManagedClusterAddOns(managedClusterName).UpdateStatus(context.Background(), addon, metav1.UpdateOptions{})
 			return err
 		}, eventuallyTimeout, eventuallyInterval).Should(gomega.Succeed())
 
@@ -186,31 +185,31 @@ var _ = ginkgo.Describe("Token Infrastructure Controller", func() {
 
 	ginkgo.It("should cleanup token infrastructure when addon switches from token to CSR driver", func() {
 		ginkgo.By("Create ManagedClusterAddOn with token driver")
-		addOn := &addonapiv1alpha1.ManagedClusterAddOn{
+		addOn := &addonapiv1beta1.ManagedClusterAddOn{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      addOnName,
 				Namespace: managedClusterName,
 			},
-			Spec: addonapiv1alpha1.ManagedClusterAddOnSpec{
-				InstallNamespace: addOnName,
-			},
+			Spec: addonapiv1beta1.ManagedClusterAddOnSpec{},
 		}
-		_, err = hubAddonClient.AddonV1alpha1().ManagedClusterAddOns(managedClusterName).Create(context.Background(), addOn, metav1.CreateOptions{})
+		_, err = hubAddonClient.AddonV1beta1().ManagedClusterAddOns(managedClusterName).Create(context.Background(), addOn, metav1.CreateOptions{})
 		gomega.Expect(err).ToNot(gomega.HaveOccurred())
 
 		gomega.Eventually(func() error {
-			addon, err := hubAddonClient.AddonV1alpha1().ManagedClusterAddOns(managedClusterName).Get(context.Background(), addOnName, metav1.GetOptions{})
+			addon, err := hubAddonClient.AddonV1beta1().ManagedClusterAddOns(managedClusterName).Get(context.Background(), addOnName, metav1.GetOptions{})
 			if err != nil {
 				return err
 			}
 
-			addon.Status.Registrations = []addonapiv1alpha1.RegistrationConfig{
+			addon.Status.Registrations = []addonapiv1beta1.RegistrationConfig{
 				{
-					SignerName: certificates.KubeAPIServerClientSignerName,
+					Type: "kubeClient",
+					KubeClient: &addonapiv1beta1.KubeClientConfig{
+						Driver: "token",
+					},
 				},
 			}
-			addon.Status.KubeClientDriver = "token"
-			_, err = hubAddonClient.AddonV1alpha1().ManagedClusterAddOns(managedClusterName).UpdateStatus(context.Background(), addon, metav1.UpdateOptions{})
+			_, err = hubAddonClient.AddonV1beta1().ManagedClusterAddOns(managedClusterName).UpdateStatus(context.Background(), addon, metav1.UpdateOptions{})
 			return err
 		}, eventuallyTimeout, eventuallyInterval).Should(gomega.Succeed())
 
@@ -218,14 +217,21 @@ var _ = ginkgo.Describe("Token Infrastructure Controller", func() {
 
 		ginkgo.By("Switch addon to CSR driver")
 		gomega.Eventually(func() error {
-			addon, err := hubAddonClient.AddonV1alpha1().ManagedClusterAddOns(managedClusterName).Get(context.Background(), addOnName, metav1.GetOptions{})
+			addon, err := hubAddonClient.AddonV1beta1().ManagedClusterAddOns(managedClusterName).Get(context.Background(), addOnName, metav1.GetOptions{})
 			if err != nil {
 				return err
 			}
 
-			// Update kubeClientDriver to switch to CSR driver
-			addon.Status.KubeClientDriver = "csr"
-			_, err = hubAddonClient.AddonV1alpha1().ManagedClusterAddOns(managedClusterName).UpdateStatus(context.Background(), addon, metav1.UpdateOptions{})
+			// Update kubeClient driver from "token" to "csr"
+			addon.Status.Registrations = []addonapiv1beta1.RegistrationConfig{
+				{
+					Type: "kubeClient",
+					KubeClient: &addonapiv1beta1.KubeClientConfig{
+						Driver: "csr",
+					},
+				},
+			}
+			_, err = hubAddonClient.AddonV1beta1().ManagedClusterAddOns(managedClusterName).UpdateStatus(context.Background(), addon, metav1.UpdateOptions{})
 			return err
 		}, eventuallyTimeout, eventuallyInterval).Should(gomega.Succeed())
 
@@ -233,7 +239,7 @@ var _ = ginkgo.Describe("Token Infrastructure Controller", func() {
 
 		ginkgo.By("Verify TokenInfrastructureReady condition is removed")
 		gomega.Eventually(func() bool {
-			addon, err := hubAddonClient.AddonV1alpha1().ManagedClusterAddOns(managedClusterName).Get(context.Background(), addOnName, metav1.GetOptions{})
+			addon, err := hubAddonClient.AddonV1beta1().ManagedClusterAddOns(managedClusterName).Get(context.Background(), addOnName, metav1.GetOptions{})
 			if err != nil {
 				return false
 			}
@@ -245,38 +251,38 @@ var _ = ginkgo.Describe("Token Infrastructure Controller", func() {
 
 	ginkgo.It("should cleanup token infrastructure when addon is deleted", func() {
 		ginkgo.By("Create ManagedClusterAddOn with token driver")
-		addOn := &addonapiv1alpha1.ManagedClusterAddOn{
+		addOn := &addonapiv1beta1.ManagedClusterAddOn{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      addOnName,
 				Namespace: managedClusterName,
 			},
-			Spec: addonapiv1alpha1.ManagedClusterAddOnSpec{
-				InstallNamespace: addOnName,
-			},
+			Spec: addonapiv1beta1.ManagedClusterAddOnSpec{},
 		}
-		_, err = hubAddonClient.AddonV1alpha1().ManagedClusterAddOns(managedClusterName).Create(context.Background(), addOn, metav1.CreateOptions{})
+		_, err = hubAddonClient.AddonV1beta1().ManagedClusterAddOns(managedClusterName).Create(context.Background(), addOn, metav1.CreateOptions{})
 		gomega.Expect(err).ToNot(gomega.HaveOccurred())
 
 		gomega.Eventually(func() error {
-			addon, err := hubAddonClient.AddonV1alpha1().ManagedClusterAddOns(managedClusterName).Get(context.Background(), addOnName, metav1.GetOptions{})
+			addon, err := hubAddonClient.AddonV1beta1().ManagedClusterAddOns(managedClusterName).Get(context.Background(), addOnName, metav1.GetOptions{})
 			if err != nil {
 				return err
 			}
 
-			addon.Status.Registrations = []addonapiv1alpha1.RegistrationConfig{
+			addon.Status.Registrations = []addonapiv1beta1.RegistrationConfig{
 				{
-					SignerName: certificates.KubeAPIServerClientSignerName,
+					Type: "kubeClient",
+					KubeClient: &addonapiv1beta1.KubeClientConfig{
+						Driver: "token",
+					},
 				},
 			}
-			addon.Status.KubeClientDriver = "token"
-			_, err = hubAddonClient.AddonV1alpha1().ManagedClusterAddOns(managedClusterName).UpdateStatus(context.Background(), addon, metav1.UpdateOptions{})
+			_, err = hubAddonClient.AddonV1beta1().ManagedClusterAddOns(managedClusterName).UpdateStatus(context.Background(), addon, metav1.UpdateOptions{})
 			return err
 		}, eventuallyTimeout, eventuallyInterval).Should(gomega.Succeed())
 
 		assertTokenInfrastructureReady(managedClusterName, addOnName)
 
 		ginkgo.By("Delete the addon")
-		err = hubAddonClient.AddonV1alpha1().ManagedClusterAddOns(managedClusterName).Delete(context.Background(), addOnName, metav1.DeleteOptions{})
+		err = hubAddonClient.AddonV1beta1().ManagedClusterAddOns(managedClusterName).Delete(context.Background(), addOnName, metav1.DeleteOptions{})
 		gomega.Expect(err).ToNot(gomega.HaveOccurred())
 
 		assertTokenInfrastructureCleanedUp(managedClusterName, addOnName)
@@ -284,34 +290,37 @@ var _ = ginkgo.Describe("Token Infrastructure Controller", func() {
 
 	ginkgo.It("should handle addon with multiple registrations where only one is token-based", func() {
 		ginkgo.By("Create ManagedClusterAddOn with multiple registrations including token driver")
-		addOn := &addonapiv1alpha1.ManagedClusterAddOn{
+		addOn := &addonapiv1beta1.ManagedClusterAddOn{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      addOnName,
 				Namespace: managedClusterName,
 			},
-			Spec: addonapiv1alpha1.ManagedClusterAddOnSpec{
-				InstallNamespace: addOnName,
-			},
+			Spec: addonapiv1beta1.ManagedClusterAddOnSpec{},
 		}
-		_, err = hubAddonClient.AddonV1alpha1().ManagedClusterAddOns(managedClusterName).Create(context.Background(), addOn, metav1.CreateOptions{})
+		_, err = hubAddonClient.AddonV1beta1().ManagedClusterAddOns(managedClusterName).Create(context.Background(), addOn, metav1.CreateOptions{})
 		gomega.Expect(err).ToNot(gomega.HaveOccurred())
 
 		gomega.Eventually(func() error {
-			addon, err := hubAddonClient.AddonV1alpha1().ManagedClusterAddOns(managedClusterName).Get(context.Background(), addOnName, metav1.GetOptions{})
+			addon, err := hubAddonClient.AddonV1beta1().ManagedClusterAddOns(managedClusterName).Get(context.Background(), addOnName, metav1.GetOptions{})
 			if err != nil {
 				return err
 			}
 
-			addon.Status.Registrations = []addonapiv1alpha1.RegistrationConfig{
+			addon.Status.Registrations = []addonapiv1beta1.RegistrationConfig{
 				{
-					SignerName: certificates.KubeAPIServerClientSignerName,
+					Type: "kubeClient",
+					KubeClient: &addonapiv1beta1.KubeClientConfig{
+						Driver: "token",
+					},
 				},
 				{
-					SignerName: "example.com/custom-signer",
+					Type: "customSigner",
+					CustomSigner: &addonapiv1beta1.CustomSignerConfig{
+						SignerName: "example.com/custom-signer",
+					},
 				},
 			}
-			addon.Status.KubeClientDriver = "token"
-			_, err = hubAddonClient.AddonV1alpha1().ManagedClusterAddOns(managedClusterName).UpdateStatus(context.Background(), addon, metav1.UpdateOptions{})
+			_, err = hubAddonClient.AddonV1beta1().ManagedClusterAddOns(managedClusterName).UpdateStatus(context.Background(), addon, metav1.UpdateOptions{})
 			return err
 		}, eventuallyTimeout, eventuallyInterval).Should(gomega.Succeed())
 

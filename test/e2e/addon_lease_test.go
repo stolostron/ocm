@@ -23,14 +23,14 @@ import (
 
 const availableLabelValue = "available"
 
-var _ = ginkgo.Describe("Addon Health Check", ginkgo.Label("addon-lease"), func() {
+var _ = ginkgo.Describe("Addon Health Check (v1beta1)", ginkgo.Label("addon-lease"), func() {
 	ginkgo.Context("Checking addon lease on managed cluster to update addon status", func() {
 		var addOnName string
 		ginkgo.BeforeEach(func() {
 			// create an addon on created managed cluster
 			addOnName = fmt.Sprintf("addon-%s", rand.String(6))
 			ginkgo.By(fmt.Sprintf("Creating managed cluster addon %q", addOnName))
-			err := hub.CreateManagedClusterAddOn(universalClusterName, addOnName, addOnName)
+			err := hub.CreateManagedClusterAddOnV1Beta1(universalClusterName, addOnName, addOnName)
 			gomega.Expect(err).ToNot(gomega.HaveOccurred())
 
 			// create addon installation namespace
@@ -63,7 +63,7 @@ var _ = ginkgo.Describe("Addon Health Check", ginkgo.Label("addon-lease"), func(
 			gomega.Expect(err).ToNot(gomega.HaveOccurred())
 
 			gomega.Eventually(func() error {
-				found, err := hub.AddonClient.AddonV1alpha1().ManagedClusterAddOns(universalClusterName).Get(context.TODO(), addOnName, metav1.GetOptions{})
+				found, err := hub.AddonClient.AddonV1beta1().ManagedClusterAddOns(universalClusterName).Get(context.TODO(), addOnName, metav1.GetOptions{})
 				if err != nil {
 					return err
 				}
@@ -101,7 +101,7 @@ var _ = ginkgo.Describe("Addon Health Check", ginkgo.Label("addon-lease"), func(
 			gomega.Expect(err).ToNot(gomega.HaveOccurred())
 
 			gomega.Eventually(func() error {
-				found, err := hub.AddonClient.AddonV1alpha1().ManagedClusterAddOns(universalClusterName).Get(context.TODO(), addOnName, metav1.GetOptions{})
+				found, err := hub.AddonClient.AddonV1beta1().ManagedClusterAddOns(universalClusterName).Get(context.TODO(), addOnName, metav1.GetOptions{})
 				if err != nil {
 					return err
 				}
@@ -132,7 +132,7 @@ var _ = ginkgo.Describe("Addon Health Check", ginkgo.Label("addon-lease"), func(
 			gomega.Expect(err).ToNot(gomega.HaveOccurred())
 
 			gomega.Eventually(func() error {
-				found, err := hub.AddonClient.AddonV1alpha1().ManagedClusterAddOns(universalClusterName).Get(context.TODO(), addOnName, metav1.GetOptions{})
+				found, err := hub.AddonClient.AddonV1beta1().ManagedClusterAddOns(universalClusterName).Get(context.TODO(), addOnName, metav1.GetOptions{})
 				if err != nil {
 					return err
 				}
@@ -170,7 +170,7 @@ var _ = ginkgo.Describe("Addon Health Check", ginkgo.Label("addon-lease"), func(
 			gomega.Expect(err).ToNot(gomega.HaveOccurred())
 
 			gomega.Eventually(func() error {
-				found, err := hub.AddonClient.AddonV1alpha1().ManagedClusterAddOns(universalClusterName).Get(context.TODO(), addOnName, metav1.GetOptions{})
+				found, err := hub.AddonClient.AddonV1beta1().ManagedClusterAddOns(universalClusterName).Get(context.TODO(), addOnName, metav1.GetOptions{})
 				if err != nil {
 					return err
 				}
@@ -198,7 +198,7 @@ var _ = ginkgo.Describe("Addon Health Check", ginkgo.Label("addon-lease"), func(
 			gomega.Expect(err).ToNot(gomega.HaveOccurred())
 
 			gomega.Eventually(func() error {
-				found, err := hub.AddonClient.AddonV1alpha1().ManagedClusterAddOns(universalClusterName).Get(context.TODO(), addOnName, metav1.GetOptions{})
+				found, err := hub.AddonClient.AddonV1beta1().ManagedClusterAddOns(universalClusterName).Get(context.TODO(), addOnName, metav1.GetOptions{})
 				if err != nil {
 					return err
 				}
@@ -235,7 +235,7 @@ var _ = ginkgo.Describe("Addon Health Check", ginkgo.Label("addon-lease"), func(
 			// create an addon on created managed cluster
 			addOnName = fmt.Sprintf("addon-%s", rand.String(6))
 			ginkgo.By(fmt.Sprintf("Creating managed cluster addon %q", addOnName))
-			gomega.Expect(hub.CreateManagedClusterAddOn(clusterName, addOnName, addOnName)).ToNot(gomega.HaveOccurred())
+			gomega.Expect(hub.CreateManagedClusterAddOnV1Beta1(clusterName, addOnName, addOnName)).ToNot(gomega.HaveOccurred())
 
 			// create addon installation namespace
 			ginkgo.By(fmt.Sprintf("Creating managed cluster addon installation namespace %q", addOnName))
@@ -269,7 +269,7 @@ var _ = ginkgo.Describe("Addon Health Check", ginkgo.Label("addon-lease"), func(
 			gomega.Expect(err).ToNot(gomega.HaveOccurred())
 
 			gomega.Eventually(func() error {
-				found, err := hub.AddonClient.AddonV1alpha1().ManagedClusterAddOns(clusterName).Get(context.TODO(), addOnName, metav1.GetOptions{})
+				found, err := hub.AddonClient.AddonV1beta1().ManagedClusterAddOns(clusterName).Get(context.TODO(), addOnName, metav1.GetOptions{})
 				if err != nil {
 					return err
 				}
@@ -320,7 +320,7 @@ var _ = ginkgo.Describe("Addon Health Check", ginkgo.Label("addon-lease"), func(
 			gomega.Expect(err).ToNot(gomega.HaveOccurred())
 
 			gomega.Eventually(func() error {
-				found, err := hub.AddonClient.AddonV1alpha1().ManagedClusterAddOns(clusterName).Get(context.TODO(), addOnName, metav1.GetOptions{})
+				found, err := hub.AddonClient.AddonV1beta1().ManagedClusterAddOns(clusterName).Get(context.TODO(), addOnName, metav1.GetOptions{})
 				if err != nil {
 					return err
 				}
