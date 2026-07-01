@@ -23,7 +23,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           fetch-depth: 1
           path: go/src/open-cluster-management.io/ocm
@@ -45,12 +45,12 @@ jobs:
       contents: write
     steps:
       - name: checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           fetch-depth: 1
           path: go/src/open-cluster-management.io/ocm
       - name: Set up Python 3.x
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           # Semantic version range syntax or exact version of a Python version
           python-version: '3.x'
@@ -63,7 +63,7 @@ jobs:
           python hack/changelog.py ${{ secrets.GITHUB_TOKEN }} ${{ needs.env.outputs.RELEASE_VERSION }} > /home/runner/work/changelog.txt
           cat /home/runner/work/changelog.txt
       - name: setup helm
-        uses: azure/setup-helm@v4
+        uses: azure/setup-helm@v5
       - name: chart package
         if: github.event_name != 'pull_request'
         run: |
@@ -74,7 +74,7 @@ jobs:
           popd
       - name: publish release
         if: github.event_name != 'pull_request'
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
