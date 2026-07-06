@@ -1,3 +1,37 @@
+# v1.88.1 (2026-07-01)
+
+* **Bug Fix**: Bump smithy-go to 1.27.3, fix JSON encorder for document.Number, endpoint host label format validation and CBOR union serialization on new serde
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.88.0 (2026-06-30)
+
+* **Feature**: Adds Kubernetes version rollback support, including the CancelUpdate operation to cancel an in-progress VersionRollback update, the RollbackConfig structure with a timeoutMinutes field, and the Cancellation structure surfaced via the new cancellation field on the Update object.
+
+# v1.87.1 (2026-06-29)
+
+* No change notes available for this release.
+
+# v1.87.0 (2026-06-18)
+
+* **Feature**: Adds support for configurable control plane egress routing in Amazon EKS, allowing you to route control plane egress traffic through your VPC and control how the control plane reaches resources in your network such as webhook servers and OIDC providers.
+
+# v1.86.0 (2026-06-12)
+
+* **Feature**: Patches missing enum values for EKS updates
+
+# v1.85.0 (2026-06-11)
+
+* **Feature**: Introduce new CreateCluster parameters for Amazon EKS local clusters on AWS Outposts. Added etcdInstanceType for configuring the EC2 instance type for dedicated etcd instances, and spreadLevel for configuring the placement group spread level for Kubernetes control plane and etcd instances.
+
+# v1.84.6 (2026-06-08)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.84.5 (2026-06-04)
+
+* **Dependency Update**: Update to smithy-go v1.27.1 to fix several union-related deserialization bugs in schema-serde-enabled services.
+* **Dependency Update**: Updated to the latest SDK module versions
+
 # v1.84.4 (2026-06-03)
 
 * **Dependency Update**: Updated to the latest SDK module versions

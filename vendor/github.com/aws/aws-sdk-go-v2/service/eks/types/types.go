@@ -512,6 +512,21 @@ type BlockStorage struct {
 	noSmithyDocumentSerde
 }
 
+// Contains information about the latest cancellation of an update to an Amazon
+// EKS cluster.
+type Cancellation struct {
+
+	// A message providing additional details about the cancellation, such as the
+	// reason for the cancellation or failure details.
+	Reason *string
+
+	// The current status of the cancellation. Valid values are InProgress , Failed ,
+	// and Successful .
+	Status CancellationStatus
+
+	noSmithyDocumentSerde
+}
+
 // An object representing a managed capability in an Amazon EKS cluster. This
 // includes all configuration, status, and health information for the capability.
 type Capability struct {
@@ -1001,6 +1016,11 @@ type ControlPlanePlacementRequest struct {
 	// This setting can't be changed after cluster creation.
 	GroupName *string
 
+	// Optional parameter to specify the placement group spread level for control
+	// plane instances. If not provided, Amazon EKS will deploy control plane instances
+	// without a placement group.
+	SpreadLevel SpreadLevel
+
 	noSmithyDocumentSerde
 }
 
@@ -1013,6 +1033,10 @@ type ControlPlanePlacementResponse struct {
 
 	// The name of the placement group for the Kubernetes control plane instances.
 	GroupName *string
+
+	// The spread level used with the placement group for control plane instances on
+	// your local Amazon EKS cluster on Amazon Web Services Outposts.
+	SpreadLevel SpreadLevel
 
 	noSmithyDocumentSerde
 }
@@ -1195,6 +1219,35 @@ type ErrorDetail struct {
 
 	// An optional field that contains the resource IDs associated with the error.
 	ResourceIds []string
+
+	noSmithyDocumentSerde
+}
+
+// The placement configuration for the etcd instances of your local Amazon EKS
+// cluster on an Amazon Web Services Outpost. For more information, see [Capacity considerations]in the
+// Amazon EKS User Guide.
+//
+// [Capacity considerations]: https://docs.aws.amazon.com/eks/latest/userguide/eks-outposts-capacity-considerations.html
+type EtcdPlacementRequest struct {
+
+	// Optional parameter to specify the placement group spread level for etcd
+	// instances. If not provided, Amazon EKS will deploy etcd instances without a
+	// placement group.
+	SpreadLevel SpreadLevel
+
+	noSmithyDocumentSerde
+}
+
+// The placement configuration for the etcd instances of your local Amazon EKS
+// cluster on an Amazon Web Services Outpost. For more information, see [Capacity considerations]in the
+// Amazon EKS User Guide.
+//
+// [Capacity considerations]: https://docs.aws.amazon.com/eks/latest/userguide/eks-outposts-capacity-considerations.html
+type EtcdPlacementResponse struct {
+
+	// The spread level used with the placement group for etcd instances on your local
+	// Amazon EKS cluster on Amazon Web Services Outposts.
+	SpreadLevel SpreadLevel
 
 	noSmithyDocumentSerde
 }
@@ -2119,13 +2172,12 @@ type OidcIdentityProviderConfigRequest struct {
 // [Creating a local cluster on an Outpost]: https://docs.aws.amazon.com/eks/latest/userguide/eks-outposts-local-cluster-create.html
 type OutpostConfigRequest struct {
 
-	// The Amazon EC2 instance type that you want to use for your local Amazon EKS
-	// cluster on Outposts. Choose an instance type based on the number of nodes that
-	// your cluster will have. For more information, see [Capacity considerations]in the Amazon EKS User Guide.
+	// The Amazon EC2 instance type for the Kubernetes control plane instances of your
+	// local Amazon EKS cluster on Amazon Web Services Outposts. This instance type
+	// applies to all control plane instances and cannot be changed after cluster
+	// creation.
 	//
-	// The instance type that you specify is used for all Kubernetes control plane
-	// instances. The instance type can't be changed after cluster creation. The
-	// control plane is not automatically scaled by Amazon EKS.
+	// For more information, see [Capacity considerations] in the Amazon EKS User Guide.
 	//
 	// [Capacity considerations]: https://docs.aws.amazon.com/eks/latest/userguide/eks-outposts-capacity-considerations.html
 	//
@@ -2145,6 +2197,18 @@ type OutpostConfigRequest struct {
 	// [Capacity considerations]: https://docs.aws.amazon.com/eks/latest/userguide/eks-outposts-capacity-considerations.html
 	ControlPlanePlacement *ControlPlanePlacementRequest
 
+	// The Amazon EC2 instance type for etcd instances of your local Amazon EKS
+	// cluster on Amazon Web Services Outposts. This instance type applies to all etcd
+	// instances and cannot be changed after cluster creation.
+	EtcdInstanceType *string
+
+	// An object representing the placement configuration for the etcd instances of
+	// your local Amazon EKS cluster on an Amazon Web Services Outpost. For more
+	// information, see [Capacity considerations]in the Amazon EKS User Guide.
+	//
+	// [Capacity considerations]: https://docs.aws.amazon.com/eks/latest/userguide/eks-outposts-capacity-considerations.html
+	EtcdPlacement *EtcdPlacementRequest
+
 	noSmithyDocumentSerde
 }
 
@@ -2153,7 +2217,8 @@ type OutpostConfigRequest struct {
 // the Amazon Web Services cloud.
 type OutpostConfigResponse struct {
 
-	// The Amazon EC2 instance type used for the control plane. The instance type is
+	// The Amazon EC2 instance type for the Kubernetes control plane instances of your
+	// local Amazon EKS cluster on Amazon Web Services Outposts. The instance type is
 	// the same for all control plane instances.
 	//
 	// This member is required.
@@ -2171,6 +2236,18 @@ type OutpostConfigResponse struct {
 	//
 	// [Capacity considerations]: https://docs.aws.amazon.com/eks/latest/userguide/eks-outposts-capacity-considerations.html
 	ControlPlanePlacement *ControlPlanePlacementResponse
+
+	// The Amazon EC2 instance type for etcd instances of your local Amazon EKS
+	// cluster on Amazon Web Services Outposts. The instance type is the same for all
+	// etcd instances.
+	EtcdInstanceType *string
+
+	// An object representing the placement configuration for the etcd instances of
+	// your local Amazon EKS cluster on an Amazon Web Services Outpost. For more
+	// information, see [Capacity considerations]in the Amazon EKS User Guide.
+	//
+	// [Capacity considerations]: https://docs.aws.amazon.com/eks/latest/userguide/eks-outposts-capacity-considerations.html
+	EtcdPlacement *EtcdPlacementResponse
 
 	noSmithyDocumentSerde
 }
@@ -2548,6 +2625,18 @@ type RemotePodNetwork struct {
 	noSmithyDocumentSerde
 }
 
+// The rollback configuration for the cluster version rollback.
+type RollbackConfig struct {
+
+	// The length of time in minutes to wait before cancelling the update. Timeout is
+	// a minimum-bound property, meaning the timeout occurs no sooner than the time you
+	// specify, but can occur shortly thereafter. This value can be between 120 (2
+	// hours) and 10080 (7 days). Default: 720 (12 hours) if not specified.
+	TimeoutMinutes *int32
+
+	noSmithyDocumentSerde
+}
+
 // An IAM Identity CenterIAM; Identity Center identity (user or group) that can be
 // assigned permissions in a capability.
 type SsoIdentity struct {
@@ -2608,6 +2697,10 @@ type Taint struct {
 
 // An object representing an asynchronous update.
 type Update struct {
+
+	// The latest cancellation information for the update. This field is present only
+	// if any cancellation is attempted for the update.
+	Cancellation *Cancellation
 
 	// The Unix epoch timestamp at object creation.
 	CreatedAt *time.Time
@@ -2765,6 +2858,21 @@ type UpgradePolicyResponse struct {
 // An object representing the VPC configuration to use for an Amazon EKS cluster.
 type VpcConfigRequest struct {
 
+	// Specifies the control plane egress routing mode for the cluster. If the cluster
+	// is set to AWS_MANAGED , Amazon EKS manages the egress path from the control
+	// plane and you don't need to configure NAT gateways or other routing
+	// infrastructure for control plane traffic. If the cluster is set to
+	// CUSTOMER_ROUTED , you manage the egress path from the control plane in your VPC
+	// subnets. You are responsible for ensuring that the control plane can reach
+	// required endpoints such as webhook servers and OIDC providers. The default value
+	// is AWS_MANAGED . Once set to CUSTOMER_ROUTED , this setting cannot be changed
+	// back to AWS_MANAGED on the same cluster.
+	//
+	// [Learn more about control plane egress routing in the Amazon EKS User Guide.]
+	//
+	// [Learn more about control plane egress routing in the Amazon EKS User Guide.]: https://docs.aws.amazon.com/eks/latest/userguide/control-plane-egress.html
+	ControlPlaneEgressMode ControlPlaneEgressModeType
+
 	// Set this value to true to enable private access for your cluster's Kubernetes
 	// API server endpoint. If you enable private access, Kubernetes API requests from
 	// within your cluster's VPC use the private VPC endpoint. The default value for
@@ -2828,6 +2936,16 @@ type VpcConfigResponse struct {
 	// Managed node groups use this security group for control-plane-to-data-plane
 	// communication.
 	ClusterSecurityGroupId *string
+
+	// The current control plane egress routing mode for the cluster. If the cluster
+	// is set to AWS_MANAGED , Amazon EKS manages the egress path from the control
+	// plane. If the cluster is set to CUSTOMER_ROUTED , you manage the egress path
+	// from the control plane in your VPC subnets.
+	//
+	// [Learn more about control plane egress routing in the Amazon EKS User Guide.]
+	//
+	// [Learn more about control plane egress routing in the Amazon EKS User Guide.]: https://docs.aws.amazon.com/eks/latest/userguide/control-plane-egress.html
+	ControlPlaneEgressMode ControlPlaneEgressModeType
 
 	// This parameter indicates whether the Amazon EKS private API server endpoint is
 	// enabled. If the Amazon EKS private API server endpoint is enabled, Kubernetes
