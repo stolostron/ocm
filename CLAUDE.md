@@ -116,7 +116,48 @@ with open('go.sum', 'w') as f:
 "
 ```
 
-### Step 5: Verify downstream-only files
+### Step 5: Update downstream-only Dockerfiles
+
+If the upstream sync includes a **Go version bump** (check `go.mod` for a changed `go` directive),
+the RHTAP Dockerfiles must be updated manually — they are downstream-only and won't be touched by
+the merge.
+
+```bash
+# Check current Go version in go.mod
+head -5 go.mod
+
+# Check current version in RHTAP Dockerfiles
+grep "golang-builder" build/Dockerfile.*.rhtap
+```
+
+Update all five RHTAP Dockerfiles to match (e.g. `rhel_9_1.25` -> `rhel_9_1.26`):
+
+```
+build/Dockerfile.addon.rhtap
+build/Dockerfile.placement.rhtap
+build/Dockerfile.registration.rhtap
+build/Dockerfile.registration-operator.rhtap
+build/Dockerfile.work.rhtap
+```
+
+The builder image tag pattern is `rhel_9_<goversion>`, e.g.:
+
+```
+FROM brew.registry.redhat.io/rh-osbs/openshift-golang-builder:rhel_9_1.26 AS builder
+```
+
+Note: the runtime base image (`ubi9/ubi-minimal`) and Red Hat `LABEL` blocks in the RHTAP
+Dockerfiles are intentionally different from the upstream Dockerfiles (`ubi9/ubi-micro`, no
+labels) and should **not** be changed to match upstream.
+
+Commit the Dockerfile changes separately:
+
+```bash
+git add build/Dockerfile.*.rhtap
+git commit -m "chore: upgrade RHTAP Dockerfiles to Go <version>"
+```
+
+### Step 6: Verify downstream-only files
 
 After resolving conflicts, verify these files still exist and are unchanged:
 
@@ -128,7 +169,7 @@ cat TRIGGER_BUILD
 cat OWNERS
 ```
 
-### Step 6: Commit and push
+### Step 7: Commit and push
 
 ```bash
 git commit -m "Sync with upstream open-cluster-management-io/ocm $(date +%Y-%m-%d)"
@@ -136,6 +177,10 @@ git push origin sync-upstream-$(date +%Y%m%d)
 ```
 
 Then create a PR on GitHub targeting `main`.
+
+**Important:** When merging the PR, always use **"Create a merge commit"** — not squash or
+rebase. This preserves the original upstream commit SHAs in the downstream history, making
+future syncs and divergence checks accurate.
 
 ## Handling Manual/Urgent Cherry-Picks
 
