@@ -95,6 +95,11 @@ type KlusterletSpec struct {
 	// +optional
 	ResourceRequirement *ResourceRequirement `json:"resourceRequirement,omitempty"`
 
+	// networkPolicies configures NetworkPolicies for components managed by the Klusterlet.
+	// When enabled is false or unset, no NetworkPolicies are applied (default).
+	// +optional
+	NetworkPolicies *NetworkPoliciesConfig `json:"networkPolicies,omitempty"`
+
 	// PriorityClassName is the name of the PriorityClass that will be used by the
 	// deployed klusterlet agent. It will be ignored when the PriorityClass/v1 API
 	// is not available on the managed cluster.

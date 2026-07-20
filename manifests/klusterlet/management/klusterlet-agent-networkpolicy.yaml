@@ -1,0 +1,34 @@
+# Simple example NetworkPolicy for the singleton klusterlet agent.
+# Applied only when Klusterlet.spec.networkPolicies.enabled=true.
+# Denies all ingress; allows DNS, spoke API, and hub API egress.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ .KlusterletName }}-agent
+  namespace: {{ .AgentNamespace }}
+  labels:
+    app: klusterlet-agent
+spec:
+  podSelector:
+    matchLabels:
+      app: klusterlet-agent
+  policyTypes:
+  - Ingress
+  - Egress
+  egress:
+  # DNS
+  - ports:
+    - protocol: UDP
+      port: 53
+    - protocol: TCP
+      port: 53
+    - protocol: UDP
+      port: 5353
+    - protocol: TCP
+      port: 5353
+  # Spoke API and hub API
+  - ports:
+    - protocol: TCP
+      port: 443
+    - protocol: TCP
+      port: 6443

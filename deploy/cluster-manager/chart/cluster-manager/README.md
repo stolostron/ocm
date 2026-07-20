@@ -38,3 +38,22 @@ kubectl delete clustermanagers cluster-manager
 ```bash
 helm uninstall cluster-manager --namespace=open-cluster-management
 ```
+
+## NetworkPolicies (optional)
+
+Opt-in NetworkPolicies for hub components (disabled by default).
+
+```bash
+helm upgrade --install cluster-manager ocm/cluster-manager \
+  --namespace open-cluster-management --create-namespace \
+  --set networkPolicies.enabled=true
+```
+
+Or patch after install:
+
+```bash
+kubectl patch clustermanager cluster-manager --type=merge -p \
+  '{"spec":{"networkPolicies":{"enabled":true}}}'
+```
+
+On **MCE / stolostron**, use the CR patch (the product does not use this Helm chart for hub pods). See [NETWORK_POLICIES.md](../../../NETWORK_POLICIES.md) for full details, backward compatibility, and MCE notes.

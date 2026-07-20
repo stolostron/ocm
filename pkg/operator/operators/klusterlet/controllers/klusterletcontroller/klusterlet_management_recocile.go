@@ -37,6 +37,11 @@ var (
 		"klusterlet/management/klusterlet-work-rolebinding.yaml",
 		"klusterlet/management/klusterlet-work-rolebinding-extension-apiserver.yaml",
 	}
+
+	// Example NetworkPolicy for singleton agent; applied when networkPolicies.enabled=true.
+	agentNetworkPolicyFiles = []string{
+		"klusterlet/management/klusterlet-agent-networkpolicy.yaml",
+	}
 )
 
 type managementReconcile struct {
@@ -88,6 +93,34 @@ func (r *managementReconcile) reconcile(ctx context.Context, klusterlet *operato
 		}
 	}
 
+	// Apply or clean example NetworkPolicies for the singleton agent.
+	if config.NetworkPoliciesEnabled && helpers.IsSingleton(config.InstallMode) {
+		npResults := helpers.ApplyDirectly(
+			ctx,
+			r.kubeClient,
+			nil,
+			r.recorder,
+			r.cache,
+			func(name string) ([]byte, error) {
+				template, err := manifests.KlusterletManifestFiles.ReadFile(name)
+				if err != nil {
+					return nil, err
+				}
+				objData := assets.MustCreateAssetFromTemplate(name, template, config).Data
+				helpers.SetRelatedResourcesStatusesWithObj(ctx, &klusterlet.Status.RelatedResources, objData)
+				return objData, nil
+			},
+			agentNetworkPolicyFiles...,
+		)
+		for _, result := range npResults {
+			if result.Error != nil {
+				errs = append(errs, fmt.Errorf("%q (%T): %v", result.File, result.Type, result.Error))
+			}
+		}
+	} else if err := removeStaticResources(ctx, r.kubeClient, nil, agentNetworkPolicyFiles, config); err != nil {
+		errs = append(errs, err)
+	}
+
 	if len(errs) > 0 {
 		applyErrors := utilerrors.NewAggregate(errs)
 		meta.SetStatusCondition(&klusterlet.Status.Conditions, metav1.Condition{
@@ -119,6 +152,9 @@ func (r *managementReconcile) clean(ctx context.Context, klusterlet *operatorapi
 	// remove static file on the management cluster
 	err := removeStaticResources(ctx, r.kubeClient, nil, managementStaticResourceFiles, config)
 	if err != nil {
+		return klusterlet, reconcileStop, err
+	}
+	if err := removeStaticResources(ctx, r.kubeClient, nil, agentNetworkPolicyFiles, config); err != nil {
 		return klusterlet, reconcileStop, err
 	}
 

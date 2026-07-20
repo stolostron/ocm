@@ -221,6 +221,9 @@ type klusterletConfig struct {
 	AboutAPIEnabled bool
 	TLSMinVersion   string
 	TLSCipherSuites string
+
+	// NetworkPoliciesEnabled controls whether example NetworkPolicies are applied for agents.
+	NetworkPoliciesEnabled bool
 }
 
 // If multiplehubs feature gate is enabled, using the bootstrapkubeconfigs from klusterlet CR.
@@ -421,6 +424,7 @@ func (n *klusterletController) sync(ctx context.Context, controllerContext facto
 
 	config.AboutAPIEnabled = helpers.FeatureGateEnabled(
 		registrationFeatureGates, ocmfeature.DefaultSpokeRegistrationFeatureGates, ocmfeature.ClusterProperty)
+	config.NetworkPoliciesEnabled = klusterlet.Spec.NetworkPolicies != nil && klusterlet.Spec.NetworkPolicies.Enabled
 	config.RegistrationFeatureGates, registrationFeatureMsgs = helpers.ConvertToFeatureGateFlags("Registration",
 		registrationFeatureGates, ocmfeature.DefaultSpokeRegistrationFeatureGates)
 

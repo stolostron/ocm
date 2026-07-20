@@ -176,6 +176,16 @@ spec:
                       type: object
                     type: array
                 type: object
+              networkPolicies:
+                description: networkPolicies configures NetworkPolicies for components
+                  managed by the Klusterlet. When enabled is false or unset, no
+                  NetworkPolicies are applied (default).
+                properties:
+                  enabled:
+                    description: Enabled controls whether NetworkPolicies are applied
+                      for managed components. Defaults to false.
+                    type: boolean
+                type: object
               priorityClassName:
                 description: |-
                   PriorityClassName is the name of the PriorityClass that will be used by the

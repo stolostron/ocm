@@ -11,6 +11,7 @@ import (
 	"github.com/openshift/library-go/pkg/operator/resource/resourceapply"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	networkingv1 "k8s.io/api/networking/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	fakeapiextensions "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/fake"
@@ -1556,6 +1557,82 @@ func TestPlacementFeatureGate(t *testing.T) {
 
 			if test.expectDebugServer != placementServiceFound {
 				t.Errorf("Expected placement service: %v, found: %v", test.expectDebugServer, placementServiceFound)
+			}
+		})
+	}
+}
+
+func TestNetworkPoliciesToggle(t *testing.T) {
+	tests := []struct {
+		name            string
+		networkPolicies *operatorapiv1.NetworkPoliciesConfig
+		expectNP        bool
+	}{
+		{
+			name:            "networkPolicies enabled",
+			networkPolicies: &operatorapiv1.NetworkPoliciesConfig{Enabled: true},
+			expectNP:        true,
+		},
+		{
+			name:            "networkPolicies disabled",
+			networkPolicies: &operatorapiv1.NetworkPoliciesConfig{Enabled: false},
+			expectNP:        false,
+		},
+		{
+			name:            "networkPolicies unset",
+			networkPolicies: nil,
+			expectNP:        false,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			clusterManager := &operatorapiv1.ClusterManager{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:       "test-cluster-manager",
+					Finalizers: []string{clusterManagerFinalizer},
+				},
+				Spec: operatorapiv1.ClusterManagerSpec{
+					RegistrationImagePullSpec: "testregistration",
+					PlacementImagePullSpec:    "testplacement",
+					DeployOption: operatorapiv1.ClusterManagerDeployOption{
+						Mode: operatorapiv1.InstallModeDefault,
+					},
+					NetworkPolicies: test.networkPolicies,
+				},
+			}
+
+			tc := newTestController(t, clusterManager)
+			clusterManagerNamespace := helpers.ClusterManagerNamespace(clusterManager.Name, clusterManager.Spec.DeployOption.Mode)
+			setup(t, tc, nil)
+
+			syncContext := testingcommon.NewFakeSyncContext(t, "test-cluster-manager")
+
+			err := tc.clusterManagerController.sync(ctx, syncContext, "test-cluster-manager")
+			if err != nil {
+				t.Fatalf("Expected no error when sync, %v", err)
+			}
+
+			kubeActions := append(tc.hubKubeClient.Actions(), tc.managementKubeClient.Actions()...)
+			npName := clusterManager.Name + "-placement-controller"
+
+			var networkPolicyFound bool
+			for _, action := range kubeActions {
+				if action.GetVerb() != createVerb {
+					continue
+				}
+				np, ok := action.(clienttesting.CreateActionImpl).Object.(*networkingv1.NetworkPolicy)
+				if !ok {
+					continue
+				}
+				if np.Name == npName && np.Namespace == clusterManagerNamespace {
+					networkPolicyFound = true
+					break
+				}
+			}
+
+			if test.expectNP != networkPolicyFound {
+				t.Errorf("Expected NetworkPolicy created: %v, found: %v", test.expectNP, networkPolicyFound)
 			}
 		})
 	}

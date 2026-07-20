@@ -34,4 +34,6 @@ spec:
   {{- if .Values.priorityClassName }}
   priorityClassName: "{{ .Values.priorityClassName }}"
   {{- end }}
+  networkPolicies:
+    enabled: {{ .Values.networkPolicies.enabled | default false }}
 {{- end }}

@@ -88,6 +88,12 @@ affinity:
 # enableSyncLabels is to enable the feature which can sync the labels from klusterlet to all agent resources.
 enableSyncLabels: false
 
+# networkPolicies configures whether the registration-operator applies NetworkPolicies
+# for agents managed by Klusterlet. Disabled by default.
+# Example: enables a simple NetworkPolicy for the singleton klusterlet agent.
+networkPolicies:
+  enabled: false
+
 # The content of the kubeConfig for the hub cluster. Can be set via --set-file bootstrapHubKubeConfig=<path to hub cluster kubeConfig file>
 # or set the kubeConfig content directly here.
 # bootstrapHubKubeConfig: |

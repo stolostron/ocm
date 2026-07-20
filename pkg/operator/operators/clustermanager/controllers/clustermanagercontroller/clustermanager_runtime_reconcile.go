@@ -38,6 +38,11 @@ var (
 		"cluster-manager/management/placement/service.yaml",
 	}
 
+	// Example NetworkPolicy for placement; applied when networkPolicies.enabled=true.
+	networkPolicyFiles = []string{
+		"cluster-manager/management/placement/networkpolicy.yaml",
+	}
+
 	addOnManagerDeploymentFiles = []string{
 		"cluster-manager/management/addon-manager/deployment.yaml",
 	}
@@ -93,6 +98,14 @@ func (c *runtimeReconcile) reconcile(ctx context.Context, cm *operatorapiv1.Clus
 	// Remove placement service if the placement debug server is disabled
 	if !config.PlacementDebugServerEnabled {
 		_, _, err := cleanResources(ctx, c.kubeClient, cm, config, placementServiceFiles...)
+		if err != nil {
+			return cm, reconcileStop, err
+		}
+	}
+
+	// Remove NetworkPolicies when disabled (default).
+	if !config.NetworkPoliciesEnabled {
+		_, _, err := cleanResources(ctx, c.kubeClient, cm, config, networkPolicyFiles...)
 		if err != nil {
 			return cm, reconcileStop, err
 		}
@@ -154,6 +167,9 @@ func (c *runtimeReconcile) reconcile(ctx context.Context, cm *operatorapiv1.Clus
 	managementResources := []string{namespaceResource}
 	if config.PlacementDebugServerEnabled {
 		managementResources = append(managementResources, placementServiceFiles...)
+	}
+	if config.NetworkPoliciesEnabled {
+		managementResources = append(managementResources, networkPolicyFiles...)
 	}
 
 	var appliedErrs []error

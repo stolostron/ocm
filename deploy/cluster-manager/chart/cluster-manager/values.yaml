@@ -100,6 +100,12 @@ createBootstrapToken: false
 # if true, will create a serviceAccount to generate token for cluster join and auto approve.
 createBootstrapSA: false
 
+# networkPolicies configures whether the registration-operator applies NetworkPolicies
+# for hub components managed by ClusterManager. Disabled by default.
+# Example: enables a simple NetworkPolicy for the placement controller.
+networkPolicies:
+  enabled: false
+
 # configurations for clusterManager CR.
 clusterManager:
   # if false, will not create clusterManager instance, default is true.
