@@ -81,10 +81,23 @@ type ClusterManagerSpec struct {
 	// +optional
 	ServerConfiguration *ServerConfiguration `json:"serverConfiguration,omitempty"`
 
+	// networkPolicies configures NetworkPolicies for components managed by the ClusterManager.
+	// When enabled is false or unset, no NetworkPolicies are applied (default).
+	// +optional
+	NetworkPolicies *NetworkPoliciesConfig `json:"networkPolicies,omitempty"`
+
 	// ResourceRequirement specify QoS classes of deployments managed by clustermanager.
 	// It applies to all the containers in the deployments.
 	// +optional
 	ResourceRequirement *ResourceRequirement `json:"resourceRequirement,omitempty"`
+}
+
+// NetworkPoliciesConfig configures NetworkPolicies for operator-managed components.
+type NetworkPoliciesConfig struct {
+	// Enabled controls whether NetworkPolicies are applied for managed components.
+	// Defaults to false.
+	// +optional
+	Enabled bool `json:"enabled,omitempty"`
 }
 
 // NodePlacement describes node scheduling configuration for the pods.

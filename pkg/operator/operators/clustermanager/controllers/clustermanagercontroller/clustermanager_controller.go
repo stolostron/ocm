@@ -231,6 +231,8 @@ func (n *clusterManagerController) sync(ctx context.Context, controllerContext f
 		config.PlacementServingCertSecret = helpers.PlacementDebugServingCertSecret
 	}
 
+	config.NetworkPoliciesEnabled = clusterManager.Spec.NetworkPolicies != nil && clusterManager.Spec.NetworkPolicies.Enabled
+
 	featureGateCondition := helpers.BuildFeatureCondition(registrationFeatureMsgs, workFeatureMsgs, addonFeatureMsgs, placementFeatureMsgs)
 
 	// Check if addon management is enabled by the feature gate

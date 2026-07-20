@@ -82,3 +82,24 @@ kubectl delete klusterlet <klusterlet name>
 ```bash
 helm uninstall klusterlet --namespace=open-cluster-management
 ```
+
+## NetworkPolicies (optional)
+
+Opt-in NetworkPolicies for the singleton klusterlet agent (disabled by default).
+
+```bash
+helm upgrade --install klusterlet ocm/klusterlet \
+  --namespace open-cluster-management --create-namespace \
+  --set networkPolicies.enabled=true \
+  --set klusterlet.clusterName=<cluster-name> \
+  --set-file bootstrapHubKubeConfig=<path-to-bootstrap-kubeconfig>
+```
+
+Or patch after install:
+
+```bash
+kubectl patch klusterlet <klusterlet-name> --type=merge -p \
+  '{"spec":{"networkPolicies":{"enabled":true}}}'
+```
+
+On **MCE / stolostron** managed clusters, patch the `Klusterlet` CR the same way. See [NETWORK_POLICIES.md](../../../NETWORK_POLICIES.md) for full details, backward compatibility, and MCE notes.

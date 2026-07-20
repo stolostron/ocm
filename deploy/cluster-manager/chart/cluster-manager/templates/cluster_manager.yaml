@@ -49,4 +49,6 @@ spec:
   serverConfiguration:
     {{- toYaml . | nindent 4 }}
   {{- end }}
+  networkPolicies:
+    enabled: {{ .Values.networkPolicies.enabled | default false }}
 {{- end }}

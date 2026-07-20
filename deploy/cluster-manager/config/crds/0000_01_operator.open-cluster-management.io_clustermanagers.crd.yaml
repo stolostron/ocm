@@ -567,6 +567,16 @@ spec:
                 description: registrationImagePullSpec represents the desired image
                   of registration controller/webhook installed on hub.
                 type: string
+              networkPolicies:
+                description: networkPolicies configures NetworkPolicies for components
+                  managed by the ClusterManager. When enabled is false or unset, no
+                  NetworkPolicies are applied (default).
+                properties:
+                  enabled:
+                    description: Enabled controls whether NetworkPolicies are applied
+                      for managed components. Defaults to false.
+                    type: boolean
+                type: object
               resourceRequirement:
                 description: |-
                   ResourceRequirement specify QoS classes of deployments managed by clustermanager.

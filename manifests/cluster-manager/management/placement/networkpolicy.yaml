@@ -1,0 +1,34 @@
+# Simple example NetworkPolicy for the placement controller.
+# Applied only when ClusterManager.spec.networkPolicies.enabled=true.
+# Denies all ingress; allows DNS and Kubernetes API egress.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ .ClusterManagerName }}-placement-controller
+  namespace: {{ .ClusterManagerNamespace }}
+  labels:
+    app: {{ .ClusterManagerName }}-placement-controller
+spec:
+  podSelector:
+    matchLabels:
+      app: clustermanager-placement-controller
+  policyTypes:
+  - Ingress
+  - Egress
+  egress:
+  # DNS
+  - ports:
+    - protocol: UDP
+      port: 53
+    - protocol: TCP
+      port: 53
+    - protocol: UDP
+      port: 5353
+    - protocol: TCP
+      port: 5353
+  # Kubernetes / OpenShift API
+  - ports:
+    - protocol: TCP
+      port: 443
+    - protocol: TCP
+      port: 6443
