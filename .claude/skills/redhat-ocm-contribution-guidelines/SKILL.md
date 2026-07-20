@@ -12,10 +12,12 @@ description: >
   an open-cluster-management-io addon/component. Also trigger when a Red Hatter asks
   something like "how do I contribute this ACM/OCP/HCM Jira fix upstream", "can I reference
   this Jira ticket in the PR", "should this be a GitHub issue first", "should I post this in
-  the OCM Slack", or "should we create a new repo for X". Use it to sanitize internal
-  references (Jira IDs, customer/case names, internal links) out of anything public, and to
-  decide whether the change needs an issue, a design review, an enhancement proposal, and/or
-  a community Slack post before/alongside the PR.
+  the OCM Slack", "should we create a new repo for X", or "should this be ACM-specific or work
+  for any OCM adopter". Use it to sanitize internal references (Jira IDs, customer/case names,
+  internal links) out of anything public, to decide whether the change needs an issue, a
+  design review, an enhancement proposal, and/or a community Slack post before/alongside the
+  PR, and to nudge (not gate) the solution design toward vendor/platform-agnostic where that's
+  low-cost.
   SKIP when the change is not destined for one of the repos listed above (purely
   ACM-internal code, internal tooling, internal docs) — this guidance does not apply there.
 ---
@@ -99,6 +101,30 @@ the public PR/issue/commit.
    [CONTRIBUTING.md](../../../CONTRIBUTING.md).
 5. Confirm the PR title uses this repo's emoji convention (`:bug:`, `:sparkles:`, `:book:`,
    `:seedling:`, etc. — see [.github/pull_request_template.md](../../../.github/pull_request_template.md)).
+
+## Design lean: favor vendor and platform-agnostic solutions (not a gate)
+
+When the underlying need comes from an ACM/OCP/HCM Jira, the fastest path is usually to solve
+it exactly as filed. Where it doesn't cost much extra thought or effort, lean toward a
+solution that works for any OCM adopter running on any platform — not just Red Hat's specific
+ACM/OpenShift setup.
+
+In practice that usually means:
+
+- Prefer a config option, feature gate, or extension point over behavior that's hardcoded to
+  ACM's specific names, namespaces, defaults, or assumptions.
+- Ask yourself: "would another company running OCM on their own platform get value from this,
+  as designed?" If yes, you're in good shape. If the honest answer is "only Red Hat would ever
+  use this," that's a signal the change might belong downstream-only rather than in the
+  community repo at all — see [Scope](#scope-which-repos-this-applies-to).
+
+Why this is worth the extra thought: a solution that's genuinely useful to the whole community
+gets used, tested, and maintained by more than just Red Hat engineers, so it's far less likely
+to bit-rot, get flagged as dead weight, or get reworked/reverted by maintainers later. It's
+also an investment that compounds — the more of OCM stays truly multi-vendor, the more other
+companies' contributions and fixes benefit ACM in return. A narrowly ACM-specific change that
+lands upstream can quietly turn into tech debt that only Red Hat has the context to keep
+alive, which is a worse long-term outcome than spending a bit more thought on the design now.
 
 ## The recommended workflow
 
