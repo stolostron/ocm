@@ -3,16 +3,16 @@ module open-cluster-management.io/ocm
 go 1.26.0
 
 require (
-	github.com/aws/aws-sdk-go-v2 v1.42.1
-	github.com/aws/aws-sdk-go-v2/config v1.32.27
-	github.com/aws/aws-sdk-go-v2/service/eks v1.88.1
-	github.com/aws/aws-sdk-go-v2/service/iam v1.54.7
-	github.com/aws/smithy-go v1.27.3
+	github.com/aws/aws-sdk-go-v2 v1.43.0
+	github.com/aws/aws-sdk-go-v2/config v1.32.31
+	github.com/aws/aws-sdk-go-v2/service/eks v1.90.0
+	github.com/aws/aws-sdk-go-v2/service/iam v1.56.0
+	github.com/aws/smithy-go v1.27.4
 	github.com/cloudevents/sdk-go/v2 v2.16.2
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc
 	github.com/evanphx/json-patch v5.9.11+incompatible
 	github.com/ghodss/yaml v1.0.0
-	github.com/google/cel-go v0.29.0
+	github.com/google/cel-go v0.29.2
 	github.com/google/go-cmp v0.7.0
 	github.com/itchyny/gojq v0.12.19
 	github.com/onsi/ginkgo/v2 v2.32.0
@@ -26,7 +26,7 @@ require (
 	github.com/spf13/pflag v1.0.10
 	github.com/stretchr/testify v1.11.1
 	github.com/valyala/fasttemplate v1.2.2
-	google.golang.org/grpc v1.81.1
+	google.golang.org/grpc v1.82.1
 	gopkg.in/yaml.v2 v2.4.0
 	helm.sh/helm/v3 v3.21.1
 	k8s.io/api v0.35.4
@@ -40,8 +40,8 @@ require (
 	k8s.io/kubectl v0.35.4
 	k8s.io/utils v0.0.0-20260210185600-b8788abfbbc2
 	open-cluster-management.io/addon-framework v1.3.0
-	open-cluster-management.io/api v1.3.0
-	open-cluster-management.io/sdk-go v1.3.0
+	open-cluster-management.io/api v1.3.1-0.20260709055002-403378b57558
+	open-cluster-management.io/sdk-go v1.3.1-0.20260713072928-c812bc0c3b06
 	sigs.k8s.io/about-api v0.0.0-20250131010323-518069c31c03
 	sigs.k8s.io/cluster-inventory-api v0.1.0
 	sigs.k8s.io/controller-runtime v0.23.3
@@ -65,17 +65,17 @@ require (
 	github.com/Masterminds/sprig/v3 v3.3.0 // indirect
 	github.com/NYTimes/gziphandler v1.1.1 // indirect
 	github.com/antlr4-go/antlr/v4 v4.13.1 // indirect
-	github.com/aws/aws-sdk-go-v2/credentials v1.19.26 // indirect
-	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.18.30 // indirect
-	github.com/aws/aws-sdk-go-v2/internal/configsources v1.4.30 // indirect
-	github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.7.30 // indirect
-	github.com/aws/aws-sdk-go-v2/internal/v4a v1.4.31 // indirect
+	github.com/aws/aws-sdk-go-v2/credentials v1.19.30 // indirect
+	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.18.31 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/configsources v1.4.31 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.7.31 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/v4a v1.4.32 // indirect
 	github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding v1.13.13 // indirect
-	github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.13.30 // indirect
-	github.com/aws/aws-sdk-go-v2/service/signin v1.2.2 // indirect
-	github.com/aws/aws-sdk-go-v2/service/sso v1.31.5 // indirect
-	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.36.8 // indirect
-	github.com/aws/aws-sdk-go-v2/service/sts v1.43.5 // indirect
+	github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.13.31 // indirect
+	github.com/aws/aws-sdk-go-v2/service/signin v1.5.0 // indirect
+	github.com/aws/aws-sdk-go-v2/service/sso v1.33.0 // indirect
+	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.38.0 // indirect
+	github.com/aws/aws-sdk-go-v2/service/sts v1.45.0 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/blang/semver/v4 v4.0.0 // indirect
 	github.com/bwmarrin/snowflake v0.3.0 // indirect
@@ -183,8 +183,8 @@ require (
 	gomodules.xyz/jsonpatch/v2 v2.4.0 // indirect
 	google.golang.org/api v0.255.0 // indirect
 	google.golang.org/genproto v0.0.0-20250603155806-513f23925822 // indirect
-	google.golang.org/genproto/googleapis/api v0.0.0-20260401024825-9d38bb4040a9 // indirect
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20260406210006-6f92a3bedf2d // indirect
+	google.golang.org/genproto/googleapis/api v0.0.0-20260414002931-afd174a4e478 // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20260414002931-afd174a4e478 // indirect
 	google.golang.org/protobuf v1.36.11 // indirect
 	gopkg.in/evanphx/json-patch.v4 v4.13.0 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
