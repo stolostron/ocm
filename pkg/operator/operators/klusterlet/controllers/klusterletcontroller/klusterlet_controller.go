@@ -3,6 +3,7 @@ package klusterletcontroller
 import (
 	"context"
 	"fmt"
+	"sort"
 	"strings"
 	"time"
 
@@ -18,7 +19,6 @@ import (
 	coreinformer "k8s.io/client-go/informers/core/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
-	"k8s.io/component-base/featuregate"
 	"k8s.io/klog/v2"
 
 	operatorv1client "open-cluster-management.io/api/client/operator/clientset/versioned/typed/operator/v1"
@@ -45,27 +45,19 @@ const (
 	klusterletFinalizer                   = "operator.open-cluster-management.io/klusterlet-cleanup"
 	managedResourcesEvictionTimestampAnno = "operator.open-cluster-management.io/managed-resources-eviction-timestamp"
 	klusterletNamespaceLabelKey           = "operator.open-cluster-management.io/klusterlet"
-
-	// NetworkPolicies is an operator-internal feature gate that controls whether NetworkPolicy
-	// manifests are applied to the agent namespace. Disabled by default; enable via the Klusterlet
-	// CR's registrationConfiguration.featureGates.
-	NetworkPolicies featuregate.Feature = "NetworkPolicies"
 )
 
-// operatorOnlyFeatureGates are feature gates consumed by the operator itself,
-// not passed through to agent binaries as CLI flags.
-var operatorOnlyFeatureGates = map[featuregate.Feature]bool{
-	NetworkPolicies: true,
-}
-
-func filterOperatorFeatureGates(features []operatorapiv1.FeatureGate) []operatorapiv1.FeatureGate {
-	var filtered []operatorapiv1.FeatureGate
-	for _, f := range features {
-		if !operatorOnlyFeatureGates[featuregate.Feature(f.Feature)] {
-			filtered = append(filtered, f)
-		}
+// buildClusterAnnotationsString renders the ClusterAnnotations map into the
+// comma-separated "key1=value1,key2=value2" form consumed by the registration
+// agent's --cluster-annotations flag. Keys are sorted deterministically.
+func buildClusterAnnotationsString(annotations map[string]string) string {
+	filtered := commonhelpers.FilterClusterAnnotations(annotations)
+	arr := make([]string, 0, len(filtered))
+	for k, v := range filtered {
+		arr = append(arr, fmt.Sprintf("%s=%s", k, v))
 	}
-	return filtered
+	sort.Strings(arr)
+	return strings.Join(arr, ",")
 }
 
 type klusterletController struct {
@@ -422,12 +414,7 @@ func (n *klusterletController) sync(ctx context.Context, controllerContext facto
 				klusterlet.Spec.RegistrationConfiguration.ClusterClaimConfiguration.ReservedClusterClaimSuffixes, ",")
 		}
 
-		// construct cluster annotations string, the final format is "key1=value1,key2=value2"
-		var annotationsArray []string
-		for k, v := range commonhelpers.FilterClusterAnnotations(klusterlet.Spec.RegistrationConfiguration.ClusterAnnotations) {
-			annotationsArray = append(annotationsArray, fmt.Sprintf("%s=%s", k, v))
-		}
-		config.ClusterAnnotationsString = strings.Join(annotationsArray, ",")
+		config.ClusterAnnotationsString = buildClusterAnnotationsString(klusterlet.Spec.RegistrationConfiguration.ClusterAnnotations)
 
 		// Set AddOnKubeClientRegistrationAuth from the Klusterlet spec
 		if klusterlet.Spec.RegistrationConfiguration.AddOnKubeClientRegistrationDriver != nil &&
@@ -446,9 +433,9 @@ func (n *klusterletController) sync(ctx context.Context, controllerContext facto
 	config.AboutAPIEnabled = helpers.FeatureGateEnabled(
 		registrationFeatureGates, ocmfeature.DefaultSpokeRegistrationFeatureGates, ocmfeature.ClusterProperty)
 	config.NetworkPoliciesEnabled = helpers.FeatureGateEnabled(
-		registrationFeatureGates, ocmfeature.DefaultSpokeRegistrationFeatureGates, NetworkPolicies)
+		registrationFeatureGates, ocmfeature.DefaultSpokeRegistrationFeatureGates, helpers.NetworkPolicies)
 	config.RegistrationFeatureGates, registrationFeatureMsgs = helpers.ConvertToFeatureGateFlags("Registration",
-		filterOperatorFeatureGates(registrationFeatureGates), ocmfeature.DefaultSpokeRegistrationFeatureGates)
+		helpers.FilterOperatorFeatureGates(registrationFeatureGates), ocmfeature.DefaultSpokeRegistrationFeatureGates)
 
 	var workFeatureGates []operatorapiv1.FeatureGate
 	if klusterlet.Spec.WorkConfiguration != nil {
