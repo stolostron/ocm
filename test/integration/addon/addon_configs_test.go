@@ -473,4 +473,177 @@ var _ = ginkgo.Describe("AddConfigs", func() {
 			},
 		})
 	})
+
+	ginkgo.It("Should preserve config reference ordering for multiple same-GVK configs in a placement", func() {
+		// Create two AddonDeploymentConfigs of the same GVK in the placement namespace.
+		// The ordering in the CMA placement spec should be preserved in both the CMA status
+		// InstallProgressions and the MCA status ConfigReferences.
+		config1 := &addonapiv1alpha1.AddOnDeploymentConfig{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "config-first",
+				Namespace: configDefaultNamespace,
+			},
+			Spec: addOnTest1ConfigSpec,
+		}
+		_, err = hubAddonClient.AddonV1alpha1().AddOnDeploymentConfigs(configDefaultNamespace).Create(
+			context.Background(), config1, metav1.CreateOptions{})
+		gomega.Expect(err).ToNot(gomega.HaveOccurred())
+
+		config2 := &addonapiv1alpha1.AddOnDeploymentConfig{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "config-second",
+				Namespace: configDefaultNamespace,
+			},
+			Spec: addOnTest2ConfigSpec,
+		}
+		_, err = hubAddonClient.AddonV1alpha1().AddOnDeploymentConfigs(configDefaultNamespace).Create(
+			context.Background(), config2, metav1.CreateOptions{})
+		gomega.Expect(err).ToNot(gomega.HaveOccurred())
+
+		// Patch CMA to use a placement strategy with 2 configs of the same GVK.
+		// The ordering config-first → config-second must be preserved.
+		cma, err := hubAddonClient.AddonV1alpha1().ClusterManagementAddOns().Get(
+			context.Background(), testAddOnConfigsImpl.name, metav1.GetOptions{})
+		gomega.Expect(err).ToNot(gomega.HaveOccurred())
+
+		cma.Spec.InstallStrategy = addonapiv1alpha1.InstallStrategy{
+			Type: addonapiv1alpha1.AddonInstallStrategyPlacements,
+			Placements: []addonapiv1alpha1.PlacementStrategy{
+				{
+					PlacementRef: addonapiv1alpha1.PlacementRef{
+						Name:      "test-placement",
+						Namespace: configDefaultNamespace,
+					},
+					Configs: []addonapiv1alpha1.AddOnConfig{
+						{
+							ConfigGroupResource: addonapiv1alpha1.ConfigGroupResource{
+								Group:    addOnDeploymentConfigGVR.Group,
+								Resource: addOnDeploymentConfigGVR.Resource,
+							},
+							ConfigReferent: addonapiv1alpha1.ConfigReferent{
+								Namespace: configDefaultNamespace,
+								Name:      "config-first",
+							},
+						},
+						{
+							ConfigGroupResource: addonapiv1alpha1.ConfigGroupResource{
+								Group:    addOnDeploymentConfigGVR.Group,
+								Resource: addOnDeploymentConfigGVR.Resource,
+							},
+							ConfigReferent: addonapiv1alpha1.ConfigReferent{
+								Namespace: configDefaultNamespace,
+								Name:      "config-second",
+							},
+						},
+					},
+					RolloutStrategy: clusterv1alpha1.RolloutStrategy{
+						Type: clusterv1alpha1.All,
+					},
+				},
+			},
+		}
+		patchClusterManagementAddOn(context.Background(), cma)
+
+		// Create placement and placement decision so the cluster is selected.
+		placement := &clusterv1beta1.Placement{
+			ObjectMeta: metav1.ObjectMeta{Name: "test-placement", Namespace: configDefaultNamespace},
+		}
+		_, err = hubClusterClient.ClusterV1beta1().Placements(configDefaultNamespace).Create(
+			context.Background(), placement, metav1.CreateOptions{})
+		gomega.Expect(err).ToNot(gomega.HaveOccurred())
+
+		decision := &clusterv1beta1.PlacementDecision{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "test-placement",
+				Namespace: configDefaultNamespace,
+				Labels: map[string]string{
+					clusterv1beta1.PlacementLabel:          "test-placement",
+					clusterv1beta1.DecisionGroupIndexLabel: "0",
+				},
+			},
+		}
+		decision, err = hubClusterClient.ClusterV1beta1().PlacementDecisions(configDefaultNamespace).Create(
+			context.Background(), decision, metav1.CreateOptions{})
+		gomega.Expect(err).ToNot(gomega.HaveOccurred())
+
+		decision.Status.Decisions = []clusterv1beta1.ClusterDecision{
+			{ClusterName: managedClusterName},
+		}
+		_, err = hubClusterClient.ClusterV1beta1().PlacementDecisions(configDefaultNamespace).UpdateStatus(
+			context.Background(), decision, metav1.UpdateOptions{})
+		gomega.Expect(err).ToNot(gomega.HaveOccurred())
+
+		// CMA status: InstallProgressions should have both configs in spec order (config-first → config-second).
+		assertClusterManagementAddOnInstallProgression(testAddOnConfigsImpl.name, addonapiv1alpha1.InstallProgression{
+			PlacementRef: addonapiv1alpha1.PlacementRef{Name: "test-placement", Namespace: configDefaultNamespace},
+			ConfigReferences: []addonapiv1alpha1.InstallConfigReference{
+				{
+					ConfigGroupResource: addonapiv1alpha1.ConfigGroupResource{
+						Group:    addOnDeploymentConfigGVR.Group,
+						Resource: addOnDeploymentConfigGVR.Resource,
+					},
+					DesiredConfig: &addonapiv1alpha1.ConfigSpecHash{
+						ConfigReferent: addonapiv1alpha1.ConfigReferent{
+							Namespace: configDefaultNamespace,
+							Name:      "config-first",
+						},
+						SpecHash: addOnTest1ConfigSpecHash,
+					},
+				},
+				{
+					ConfigGroupResource: addonapiv1alpha1.ConfigGroupResource{
+						Group:    addOnDeploymentConfigGVR.Group,
+						Resource: addOnDeploymentConfigGVR.Resource,
+					},
+					DesiredConfig: &addonapiv1alpha1.ConfigSpecHash{
+						ConfigReferent: addonapiv1alpha1.ConfigReferent{
+							Namespace: configDefaultNamespace,
+							Name:      "config-second",
+						},
+						SpecHash: addOnTest2ConfigSpecHash,
+					},
+				},
+			},
+		})
+
+		// MCA status: ConfigReferences should reflect the same order (config-first → config-second).
+		assertManagedClusterAddOnConfigReferences(testAddOnConfigsImpl.name, managedClusterName,
+			addonapiv1alpha1.ConfigReference{
+				ConfigGroupResource: addonapiv1alpha1.ConfigGroupResource{
+					Group:    addOnDeploymentConfigGVR.Group,
+					Resource: addOnDeploymentConfigGVR.Resource,
+				},
+				ConfigReferent: addonapiv1alpha1.ConfigReferent{
+					Namespace: configDefaultNamespace,
+					Name:      "config-first",
+				},
+				LastObservedGeneration: 1,
+				DesiredConfig: &addonapiv1alpha1.ConfigSpecHash{
+					ConfigReferent: addonapiv1alpha1.ConfigReferent{
+						Namespace: configDefaultNamespace,
+						Name:      "config-first",
+					},
+					SpecHash: addOnTest1ConfigSpecHash,
+				},
+			},
+			addonapiv1alpha1.ConfigReference{
+				ConfigGroupResource: addonapiv1alpha1.ConfigGroupResource{
+					Group:    addOnDeploymentConfigGVR.Group,
+					Resource: addOnDeploymentConfigGVR.Resource,
+				},
+				ConfigReferent: addonapiv1alpha1.ConfigReferent{
+					Namespace: configDefaultNamespace,
+					Name:      "config-second",
+				},
+				LastObservedGeneration: 1,
+				DesiredConfig: &addonapiv1alpha1.ConfigSpecHash{
+					ConfigReferent: addonapiv1alpha1.ConfigReferent{
+						Namespace: configDefaultNamespace,
+						Name:      "config-second",
+					},
+					SpecHash: addOnTest2ConfigSpecHash,
+				},
+			},
+		)
+	})
 })

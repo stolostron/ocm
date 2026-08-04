@@ -5,7 +5,6 @@ import (
 	"sort"
 
 	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/klog/v2"
 
 	addonv1alpha1 "open-cluster-management.io/api/addon/v1alpha1"
@@ -130,10 +129,10 @@ func setInstallProgression(supportedConfigs []addonv1alpha1.ConfigMeta, placemen
 		}
 
 		// set config references as default configuration
-		installConfigReferencesMap := map[addonv1alpha1.ConfigGroupResource]sets.Set[addonv1alpha1.ConfigReferent]{}
+		installConfigReferencesMap := map[addonv1alpha1.ConfigGroupResource][]addonv1alpha1.ConfigReferent{}
 		for _, config := range supportedConfigs {
 			if config.DefaultConfig != nil {
-				installConfigReferencesMap[config.ConfigGroupResource] = sets.New[addonv1alpha1.ConfigReferent](*config.DefaultConfig)
+				installConfigReferencesMap[config.ConfigGroupResource] = []addonv1alpha1.ConfigReferent{*config.DefaultConfig}
 			}
 		}
 
@@ -156,7 +155,7 @@ func setInstallProgression(supportedConfigs []addonv1alpha1.ConfigMeta, placemen
 		installConfigReferences := []addonv1alpha1.InstallConfigReference{}
 		for _, gvk := range gvks {
 			if configRefs, ok := installConfigReferencesMap[gvk]; ok {
-				for configRef := range configRefs {
+				for _, configRef := range configRefs {
 					installConfigReferences = append(installConfigReferences,
 						addonv1alpha1.InstallConfigReference{
 							ConfigGroupResource: gvk,
@@ -217,23 +216,37 @@ func mergeInstallProgression(newobj, oldobj *addonv1alpha1.InstallProgression) {
 }
 
 // Override the desired configs by a slice of AddOnConfig (from cma install strategy),
+// preserving the order in which configs appear in addOnConfigs and deduplicating by
+// ConfigReferent (namespace + name) within each GVK.
 func overrideConfigMapByAddOnConfigs(
-	desiredConfigs map[addonv1alpha1.ConfigGroupResource]sets.Set[addonv1alpha1.ConfigReferent],
+	desiredConfigs map[addonv1alpha1.ConfigGroupResource][]addonv1alpha1.ConfigReferent,
 	addOnConfigs []addonv1alpha1.AddOnConfig,
 ) {
-	gvkOverwritten := sets.New[addonv1alpha1.ConfigGroupResource]()
+	gvkOverwritten := map[addonv1alpha1.ConfigGroupResource]bool{}
 	// Go through the cma install strategy configs,
 	// for a group of configs with same gvk, install strategy configs override the desiredConfigs.
 	for _, config := range addOnConfigs {
 		gr := config.ConfigGroupResource
-		if !gvkOverwritten.Has(gr) {
-			desiredConfigs[gr] = sets.New[addonv1alpha1.ConfigReferent]()
-			gvkOverwritten.Insert(gr)
+		if !gvkOverwritten[gr] {
+			desiredConfigs[gr] = []addonv1alpha1.ConfigReferent{}
+			gvkOverwritten[gr] = true
 		}
-		// If a config not exist in the desiredConfigs, append it.
+		// If a config does not exist in the desiredConfigs, append it.
 		// This is to avoid adding duplicate configs (name + namespace).
-		if !desiredConfigs[gr].Has(config.ConfigReferent) {
-			desiredConfigs[gr].Insert(config.ConfigReferent)
+		if !containsConfigReferent(desiredConfigs[gr], config.ConfigReferent) {
+			desiredConfigs[gr] = append(desiredConfigs[gr], config.ConfigReferent)
 		}
 	}
+}
+
+// containsConfigReferent returns true if the given ConfigReferent exists in the slice.
+// ConfigReferent is a struct of two strings (Namespace, Name), so == performs a
+// field-by-field value comparison equivalent to r.Namespace == ref.Namespace && r.Name == ref.Name.
+func containsConfigReferent(refs []addonv1alpha1.ConfigReferent, ref addonv1alpha1.ConfigReferent) bool {
+	for _, r := range refs {
+		if r == ref {
+			return true
+		}
+	}
+	return false
 }
