@@ -87,7 +87,8 @@ verify-crds:
 
 .PHONY: lint
 lint:
-	@bash -o pipefail -c 'curl -fsSL https://raw.githubusercontent.com/open-cluster-management-io/sdk-go/main/ci/lint/run-lint.sh | bash'
+	# Pin golangci-lint to v2.12.2 for Go 1.25 compatibility (v2.8.0 panics on //go:build go1.26 files)
+	@GOLANGCI_LINT_VERSION=v2.12.2 bash -o pipefail -c 'curl -fsSL https://raw.githubusercontent.com/open-cluster-management-io/sdk-go/main/ci/lint/run-lint.sh | bash'
 
 install-golang-gci:
 	go install github.com/daixiang0/gci@v0.13.7
