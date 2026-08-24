@@ -10,7 +10,7 @@ RUN echo "SOURCE_GIT_TAG=${SOURCE_GIT_TAG}"
 
 RUN GO_BUILD_PACKAGES=./cmd/registration-operator make build --warn-undefined-variables
 
-FROM registry.access.redhat.com/ubi9/ubi-minimal:latest
+FROM registry.redhat.io/ubi9/ubi-minimal-pqc:latest
 
 LABEL \
       url="https://github.com/stolostron/ocm" \
