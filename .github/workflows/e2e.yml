@@ -15,7 +15,6 @@ on:
       - release-*
 
 env:
-  GO_VERSION: '1.25'
   GO_REQUIRED_MIN_VERSION: ''
   USE_EXISTING_CLUSTER: false # set to true to use an existing kind cluster for debugging with act
 
@@ -34,7 +33,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v6
         with:
-          go-version: ${{ env.GO_VERSION }}
+          go-version-file: go.mod
       - name: Setup kind
         uses: engineerd/setup-kind@v0.6.2
         with:
@@ -72,7 +71,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v6
         with:
-          go-version: ${{ env.GO_VERSION }}
+          go-version-file: go.mod
       - name: Setup kind
         uses: engineerd/setup-kind@v0.6.2
         with:
@@ -110,7 +109,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v6
         with:
-          go-version: ${{ env.GO_VERSION }}
+          go-version-file: go.mod
       - name: Setup kind
         uses: engineerd/setup-kind@v0.6.2
         with:
