@@ -1,13 +1,13 @@
 package registration
 
 import (
+	"context"
 	"crypto/x509/pkix"
 	"fmt"
 	"strings"
 
 	"github.com/openshift/library-go/pkg/controller/factory"
 	"github.com/openshift/library-go/pkg/operator/events"
-	"golang.org/x/net/context"
 	certificates "k8s.io/api/certificates/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -141,7 +141,7 @@ func haltCSRCreationFunc(indexer cache.Indexer, clusterName string) func() bool 
 }
 
 func GenerateBootstrapStatusUpdater() clientcert.StatusUpdateFunc {
-	return func(ctx context.Context, cond metav1.Condition) error { //nolint:govet
+	return func(ctx context.Context, cond metav1.Condition) error {
 		return nil
 	}
 }
@@ -149,7 +149,7 @@ func GenerateBootstrapStatusUpdater() clientcert.StatusUpdateFunc {
 // GenerateStatusUpdater generates status update func for the certificate management
 func GenerateStatusUpdater(hubClusterClient clientset.Interface,
 	hubClusterLister clusterv1listers.ManagedClusterLister, clusterName string) clientcert.StatusUpdateFunc {
-	return func(ctx context.Context, cond metav1.Condition) error { //nolint:govet
+	return func(ctx context.Context, cond metav1.Condition) error {
 		cluster, err := hubClusterLister.Get(clusterName)
 		if errors.IsNotFound(err) {
 			return nil
