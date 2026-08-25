@@ -141,7 +141,7 @@ func haltCSRCreationFunc(indexer cache.Indexer, clusterName string) func() bool 
 }
 
 func GenerateBootstrapStatusUpdater() clientcert.StatusUpdateFunc {
-	return func(ctx context.Context, cond metav1.Condition) error {
+	return func(ctx context.Context, cond metav1.Condition) error { //nolint:govet
 		return nil
 	}
 }
@@ -149,7 +149,7 @@ func GenerateBootstrapStatusUpdater() clientcert.StatusUpdateFunc {
 // GenerateStatusUpdater generates status update func for the certificate management
 func GenerateStatusUpdater(hubClusterClient clientset.Interface,
 	hubClusterLister clusterv1listers.ManagedClusterLister, clusterName string) clientcert.StatusUpdateFunc {
-	return func(ctx context.Context, cond metav1.Condition) error {
+	return func(ctx context.Context, cond metav1.Condition) error { //nolint:govet
 		cluster, err := hubClusterLister.Get(clusterName)
 		if errors.IsNotFound(err) {
 			return nil
