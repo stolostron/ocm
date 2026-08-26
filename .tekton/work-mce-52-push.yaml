@@ -7,13 +7,13 @@ metadata:
     build.appstudio.redhat.com/target_branch: '{{target_branch}}'
     pipelinesascode.tekton.dev/cancel-in-progress: "false"
     pipelinesascode.tekton.dev/max-keep-runs: "3"
-    pipelinesascode.tekton.dev/on-cel-expression: event == "push" && target_branch == "backplane-5.0"
+    pipelinesascode.tekton.dev/on-cel-expression: event == "push" && target_branch == "backplane-5.2"
   creationTimestamp:
   labels:
-    appstudio.openshift.io/application: release-mce-50
-    appstudio.openshift.io/component: registration-mce-50
+    appstudio.openshift.io/application: release-mce-52
+    appstudio.openshift.io/component: work-mce-52
     pipelines.appstudio.openshift.io/type: build
-  name: registration-mce-50-on-push
+  name: work-mce-52-on-push
   namespace: crt-redhat-acm-tenant
 spec:
   params:
@@ -26,7 +26,7 @@ spec:
   - name: depth
     value: '0'
   - name: output-image
-    value: quay.io/redhat-user-workloads/crt-redhat-acm-tenant/registration-mce-50:{{revision}}
+    value: quay.io/redhat-user-workloads/crt-redhat-acm-tenant/work-mce-52:{{revision}}
   - name: build-platforms
     value:
     - linux/x86_64
@@ -34,11 +34,11 @@ spec:
     - linux/ppc64le
     - linux/s390x
   - name: dockerfile
-    value: build/Dockerfile.registration.rhtap
+    value: build/Dockerfile.work.rhtap
   - name: send-slack-notification
     value: 'true'
   - name: konflux-application-name
-    value: release-mce-50
+    value: release-mce-52
   - name: slack-member-id
     value: U02CRCBPXK4
   pipelineRef:
@@ -51,7 +51,7 @@ spec:
     - name: pathInRepo
       value: pipelines/common.yaml
   taskRunTemplate:
-    serviceAccountName: build-pipeline-registration-mce-50
+    serviceAccountName: build-pipeline-work-mce-52
   workspaces:
   - name: git-auth
     secret:
