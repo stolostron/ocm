@@ -244,6 +244,7 @@ var _ = ginkgo.Describe("Test ManifestWorkReplicaSet", func() {
 					Name:      placementName,
 				},
 				Spec: clusterv1beta1.PlacementSpec{
+					ClusterSets: []string{clusterSetName},
 					Tolerations: []clusterv1beta1.Toleration{
 						{
 							Key:      "cluster.open-cluster-management.io/unreachable",
@@ -300,8 +301,8 @@ var _ = ginkgo.Describe("Test ManifestWorkReplicaSet", func() {
 					return err
 				}
 
-				if mwReplicaSet.Status.Summary.Total != numOfClusters {
-					return fmt.Errorf("total number of clusters is not correct, expect %d, got %d", numOfClusters, mwReplicaSet.Status.Summary.Total)
+				if mwrSet.Status.Summary.Total != numOfClusters {
+					return fmt.Errorf("total number of clusters is not correct, expect %d, got %d", numOfClusters, mwrSet.Status.Summary.Total)
 				}
 				return nil
 			}, t.EventuallyTimeout*5, t.EventuallyInterval*5).Should(gomega.Succeed())

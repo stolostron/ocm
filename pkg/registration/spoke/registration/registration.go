@@ -1,13 +1,13 @@
 package registration
 
 import (
+	"context"
 	"crypto/x509/pkix"
 	"fmt"
 	"strings"
 
 	"github.com/openshift/library-go/pkg/controller/factory"
 	"github.com/openshift/library-go/pkg/operator/events"
-	"golang.org/x/net/context"
 	certificates "k8s.io/api/certificates/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
