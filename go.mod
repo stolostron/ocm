@@ -11,7 +11,7 @@ require (
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc
 	github.com/evanphx/json-patch v5.9.11+incompatible
 	github.com/ghodss/yaml v1.0.0
-	github.com/google/cel-go v0.23.2
+	github.com/google/cel-go v0.30.0
 	github.com/google/go-cmp v0.7.0
 	github.com/mochi-mqtt/server/v2 v2.6.6
 	github.com/onsi/ginkgo/v2 v2.23.4
@@ -55,7 +55,7 @@ require (
 	github.com/Masterminds/sprig/v3 v3.3.0 // indirect
 	github.com/Microsoft/hcsshim v0.12.9 // indirect
 	github.com/NYTimes/gziphandler v1.1.1 // indirect
-	github.com/antlr4-go/antlr/v4 v4.13.0 // indirect
+	github.com/antlr4-go/antlr/v4 v4.13.1 // indirect
 	github.com/asaskevich/govalidator v0.0.0-20230301143203-a9d515a09cc2 // indirect
 	github.com/aws/aws-sdk-go-v2/credentials v1.17.67 // indirect
 	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.16.30 // indirect
@@ -132,7 +132,6 @@ require (
 	github.com/shopspring/decimal v1.4.0 // indirect
 	github.com/sirupsen/logrus v1.9.3 // indirect
 	github.com/spf13/cast v1.7.0 // indirect
-	github.com/stoewer/go-strcase v1.3.0 // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
 	github.com/x448/float16 v0.8.4 // indirect
 	go.etcd.io/etcd/api/v3 v3.5.21 // indirect
@@ -151,6 +150,7 @@ require (
 	go.uber.org/automaxprocs v1.6.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
 	go.uber.org/zap v1.27.0 // indirect
+	go.yaml.in/yaml/v3 v3.0.4 // indirect
 	golang.org/x/crypto v0.53.0 // indirect
 	golang.org/x/exp v0.0.0-20241217172543-b2144cdd0a67 // indirect
 	golang.org/x/net v0.56.0 // indirect
@@ -184,7 +184,7 @@ require (
 // forces OCM dependencies (api, sdk-go, addon-framework) to upgrade with
 // breaking changes. See SOP-older-branch-dep-upgrade.md for details.
 replace (
-	github.com/google/cel-go => github.com/google/cel-go v0.22.0
+	github.com/google/cel-go => github.com/google/cel-go v0.30.0
 	google.golang.org/genproto/googleapis/api => google.golang.org/genproto/googleapis/api v0.0.0-20240826202546-f6391c0de4c7
 	google.golang.org/genproto/googleapis/rpc => google.golang.org/genproto/googleapis/rpc v0.0.0-20240903143218-8af14fe29dc1
 	k8s.io/api => k8s.io/api v0.32.4
