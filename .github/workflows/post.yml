@@ -26,7 +26,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: checkout code
-        uses: actions/checkout@v6.0.2
+        uses: actions/checkout@v6.1.0
       - name: install Go
         uses: actions/setup-go@v6
         with:
@@ -51,7 +51,7 @@ jobs:
         image-name: [ registration-operator, registration, work, placement, addon-manager ]
     steps:
       - name: checkout code
-        uses: actions/checkout@v6.0.2
+        uses: actions/checkout@v6.1.0
       - name: install Go
         uses: actions/setup-go@v6
         with:
@@ -95,7 +95,7 @@ jobs:
     needs: [ images ]
     steps:
       - name: checkout code
-        uses: actions/checkout@v6.0.2
+        uses: actions/checkout@v6.1.0
       # Step to install Skopeo
       - name: Install Skopeo and jq
         run: |

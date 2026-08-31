@@ -29,7 +29,7 @@ jobs:
         run: sudo chown runner:docker /var/run/docker.sock
         if: ${{ env.ACT }} # this step only runs locally when using the https://github.com/nektos/act to debug the e2e
       - name: Checkout
-        uses: actions/checkout@v6.0.2
+        uses: actions/checkout@v6.1.0
       - name: Setup Go
         uses: actions/setup-go@v6
         with:
@@ -67,7 +67,7 @@ jobs:
         run: sudo chown runner:docker /var/run/docker.sock
         if: ${{ env.ACT }} # this step only runs locally when using the https://github.com/nektos/act to debug the e2e
       - name: Checkout
-        uses: actions/checkout@v6.0.2
+        uses: actions/checkout@v6.1.0
       - name: Setup Go
         uses: actions/setup-go@v6
         with:
@@ -105,7 +105,7 @@ jobs:
         run: sudo chown runner:docker /var/run/docker.sock
         if: ${{ env.ACT }} # this step only runs locally when using the https://github.com/nektos/act to debug the e2e
       - name: Checkout
-        uses: actions/checkout@v6.0.2
+        uses: actions/checkout@v6.1.0
       - name: Setup Go
         uses: actions/setup-go@v6
         with:
@@ -143,7 +143,7 @@ jobs:
         run: sudo chown runner:docker /var/run/docker.sock
         if: ${{ env.ACT }} # this step only runs locally when using the https://github.com/nektos/act to debug the e2e
       - name: Checkout
-        uses: actions/checkout@v6.0.2
+        uses: actions/checkout@v6.1.0
       - name: Setup Go
         uses: actions/setup-go@v6
         with:
