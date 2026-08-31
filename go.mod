@@ -12,7 +12,7 @@ require (
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc
 	github.com/evanphx/json-patch v5.9.11+incompatible
 	github.com/ghodss/yaml v1.0.0
-	github.com/google/cel-go v0.26.1
+	github.com/google/cel-go v0.30.0
 	github.com/google/go-cmp v0.7.0
 	github.com/mochi-mqtt/server/v2 v2.7.9
 	github.com/onsi/ginkgo/v2 v2.27.5
@@ -64,7 +64,7 @@ require (
 	github.com/Masterminds/semver/v3 v3.4.0 // indirect
 	github.com/Masterminds/sprig/v3 v3.3.0 // indirect
 	github.com/NYTimes/gziphandler v1.1.1 // indirect
-	github.com/antlr4-go/antlr/v4 v4.13.0 // indirect
+	github.com/antlr4-go/antlr/v4 v4.13.1 // indirect
 	github.com/aws/aws-sdk-go-v2/credentials v1.19.7 // indirect
 	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.18.17 // indirect
 	github.com/aws/aws-sdk-go-v2/internal/configsources v1.4.17 // indirect
@@ -138,7 +138,6 @@ require (
 	github.com/shopspring/decimal v1.4.0 // indirect
 	github.com/sirupsen/logrus v1.9.3 // indirect
 	github.com/spf13/cast v1.7.0 // indirect
-	github.com/stoewer/go-strcase v1.3.1 // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
 	github.com/x448/float16 v0.8.4 // indirect
 	go.etcd.io/etcd/api/v3 v3.6.5 // indirect
