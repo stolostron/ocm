@@ -29,13 +29,13 @@ jobs:
         run: sudo chown runner:docker /var/run/docker.sock
         if: ${{ env.ACT }} # this step only runs locally when using the https://github.com/nektos/act to debug the e2e
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       - name: Setup Go
-        uses: actions/setup-go@v6
+        uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
         with:
           go-version-file: go.mod
       - name: Setup kind
-        uses: engineerd/setup-kind@v0.6.2
+        uses: engineerd/setup-kind@71e45b960fc8dd50b4aeabf6eb6ef2ca0920b4c1 # v0.6.2
         with:
           version: v0.22.0
           skipClusterCreation: ${{ env.USE_EXISTING_CLUSTER }}
@@ -67,13 +67,13 @@ jobs:
         run: sudo chown runner:docker /var/run/docker.sock
         if: ${{ env.ACT }} # this step only runs locally when using the https://github.com/nektos/act to debug the e2e
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       - name: Setup Go
-        uses: actions/setup-go@v6
+        uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
         with:
           go-version-file: go.mod
       - name: Setup kind
-        uses: engineerd/setup-kind@v0.6.2
+        uses: engineerd/setup-kind@71e45b960fc8dd50b4aeabf6eb6ef2ca0920b4c1 # v0.6.2
         with:
           version: v0.22.0
           skipClusterCreation: ${{ env.USE_EXISTING_CLUSTER }}
@@ -105,13 +105,13 @@ jobs:
         run: sudo chown runner:docker /var/run/docker.sock
         if: ${{ env.ACT }} # this step only runs locally when using the https://github.com/nektos/act to debug the e2e
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       - name: Setup Go
-        uses: actions/setup-go@v6
+        uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
         with:
           go-version-file: go.mod
       - name: Setup kind
-        uses: engineerd/setup-kind@v0.6.2
+        uses: engineerd/setup-kind@71e45b960fc8dd50b4aeabf6eb6ef2ca0920b4c1 # v0.6.2
         with:
           version: v0.22.0
           skipClusterCreation: ${{ env.USE_EXISTING_CLUSTER }}
