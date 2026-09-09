@@ -12,7 +12,6 @@ import (
 	"k8s.io/klog/v2/ktesting"
 
 	"open-cluster-management.io/addon-framework/pkg/addonmanager/addontesting"
-	"open-cluster-management.io/addon-framework/pkg/utils"
 	addonv1beta1 "open-cluster-management.io/api/addon/v1beta1"
 	fakeaddon "open-cluster-management.io/api/client/addon/clientset/versioned/fake"
 	addoninformers "open-cluster-management.io/api/client/addon/informers/externalversions"
@@ -330,6 +329,65 @@ func TestAddonInstallReconcile(t *testing.T) {
 			},
 		},
 		{
+			name:                "derive addon hosting annotation from import annotations at create",
+			managedClusteraddon: []runtime.Object{},
+			managedClusters: []runtime.Object{
+				&clusterv1.ManagedCluster{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "cluster1",
+						Annotations: map[string]string{
+							AnnotationKlusterletDeployMode:         "Hosted",
+							AnnotationKlusterletHostingClusterName: "local-cluster",
+							AnnotationEnableHostedModeAddons:       "true",
+						},
+					},
+				},
+			},
+			clusterManagementAddon: func() *addonv1beta1.ClusterManagementAddOn {
+				addon := addontesting.NewClusterManagementAddon("test", "", "").Build()
+				addon.Spec.InstallStrategy = addonv1beta1.InstallStrategy{
+					Type: addonv1beta1.AddonInstallStrategyPlacements,
+					Placements: []addonv1beta1.PlacementStrategy{
+						{
+							PlacementRef: addonv1beta1.PlacementRef{Name: "test-placement", Namespace: "default"},
+						},
+					},
+				}
+				return addon
+			}(),
+			placements: []runtime.Object{
+				&clusterv1beta1.Placement{ObjectMeta: metav1.ObjectMeta{Name: "test-placement", Namespace: "default"}},
+			},
+			placementDecisions: []runtime.Object{
+				&clusterv1beta1.PlacementDecision{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "test-placement",
+						Namespace: "default",
+						Labels:    map[string]string{clusterv1beta1.PlacementLabel: "test-placement"},
+					},
+					Status: clusterv1beta1.PlacementDecisionStatus{
+						Decisions: []clusterv1beta1.ClusterDecision{{ClusterName: "cluster1"}},
+					},
+				},
+			},
+			validateAddonActions: func(t *testing.T, actions []clienttesting.Action) {
+				addontesting.AssertActions(t, actions, "create")
+				actual := actions[0].(clienttesting.CreateActionImpl).GetObject()
+				addon := actual.(*addonv1beta1.ManagedClusterAddOn)
+				if addon.Annotations == nil {
+					t.Fatal("expected annotations on addon, got nil")
+				}
+				if addon.Annotations[addonv1beta1.HostingClusterNameAnnotationKey] != "local-cluster" {
+					t.Fatalf("expected hosting cluster name 'local-cluster', got '%s'",
+						addon.Annotations[addonv1beta1.HostingClusterNameAnnotationKey])
+				}
+				if addon.Annotations[AnnotationEnableHostedModeAddons] != "true" {
+					t.Fatalf("expected enable-hosted-mode-addons true, got '%s'",
+						addon.Annotations[AnnotationEnableHostedModeAddons])
+				}
+			},
+		},
+		{
 			name:                "install addon without addon annotations on managed cluster",
 			managedClusteraddon: []runtime.Object{},
 			managedClusters: []runtime.Object{
@@ -425,7 +483,6 @@ func TestAddonInstallReconcile(t *testing.T) {
 				placementLister:            clusterInformers.Cluster().V1beta1().Placements().Lister(),
 				placementDecisionLister:    clusterInformers.Cluster().V1beta1().PlacementDecisions().Lister(),
 				managedClusterAddonIndexer: addonInformers.Addon().V1beta1().ManagedClusterAddOns().Informer().GetIndexer(),
-				addonFilterFunc:            utils.ManagedByAddonManager,
 			}
 
 			_, _, err = reconcile.reconcile(context.TODO(), c.clusterManagementAddon)
@@ -456,10 +513,6 @@ func TestNewAddonManagementController(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	addonFilterFunc := func(obj interface{}) bool {
-		return true
-	}
-
 	controller := NewAddonManagementController(
 		fakeAddonClient,
 		addonInformers.Addon().V1beta1().ManagedClusterAddOns(),
@@ -467,7 +520,6 @@ func TestNewAddonManagementController(t *testing.T) {
 		clusterInformers.Cluster().V1().ManagedClusters(),
 		clusterInformers.Cluster().V1beta1().Placements(),
 		clusterInformers.Cluster().V1beta1().PlacementDecisions(),
-		addonFilterFunc,
 	)
 
 	if controller == nil {
@@ -622,10 +674,6 @@ func TestAddonManagementControllerSync(t *testing.T) {
 			}
 
 			// Create controller
-			addonFilterFunc := func(obj interface{}) bool {
-				return true
-			}
-
 			controller := &addonManagementController{
 				addonClient:                   fakeAddonClient,
 				clusterManagementAddonLister:  addonInformers.Addon().V1beta1().ClusterManagementAddOns().Lister(),
@@ -637,7 +685,6 @@ func TestAddonManagementControllerSync(t *testing.T) {
 						placementDecisionLister:    clusterInformers.Cluster().V1beta1().PlacementDecisions().Lister(),
 						placementLister:            clusterInformers.Cluster().V1beta1().Placements().Lister(),
 						managedClusterAddonIndexer: addonInformers.Addon().V1beta1().ManagedClusterAddOns().Informer().GetIndexer(),
-						addonFilterFunc:            addonFilterFunc,
 					},
 				},
 			}
