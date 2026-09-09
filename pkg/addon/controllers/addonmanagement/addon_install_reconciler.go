@@ -2,7 +2,6 @@ package addonmanagement
 
 import (
 	"context"
-	"strings"
 
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -18,7 +17,6 @@ import (
 	clusterlisterv1 "open-cluster-management.io/api/client/cluster/listers/cluster/v1"
 	clusterlisterv1beta1 "open-cluster-management.io/api/client/cluster/listers/cluster/v1beta1"
 	clusterv1beta1 "open-cluster-management.io/api/cluster/v1beta1"
-	"open-cluster-management.io/sdk-go/pkg/basecontroller/factory"
 
 	addonindex "open-cluster-management.io/ocm/pkg/addon/index"
 )
@@ -29,18 +27,11 @@ type managedClusterAddonInstallReconciler struct {
 	managedClusterLister       clusterlisterv1.ManagedClusterLister
 	placementLister            clusterlisterv1beta1.PlacementLister
 	placementDecisionLister    clusterlisterv1beta1.PlacementDecisionLister
-	addonFilterFunc            factory.EventFilterFunc
 }
 
 func (d *managedClusterAddonInstallReconciler) reconcile(
 	ctx context.Context, cma *addonv1beta1.ClusterManagementAddOn) (*addonv1beta1.ClusterManagementAddOn, reconcileState, error) {
 	logger := klog.FromContext(ctx)
-	// skip apply install strategy for self-managed addon
-	// this is to avoid conflict when addon also define WithInstallStrategy()
-	// the filter will be removed after WithInstallStrategy() is removed from framework.
-	if !d.addonFilterFunc(cma) {
-		return cma, reconcileContinue, nil
-	}
 
 	if cma.Spec.InstallStrategy.Type == "" || cma.Spec.InstallStrategy.Type == addonv1beta1.AddonInstallStrategyManual {
 		return cma, reconcileContinue, nil
@@ -107,8 +98,8 @@ func (d *managedClusterAddonInstallReconciler) reconcile(
 	return cma, reconcileContinue, utilerrors.NewAggregate(errs)
 }
 
-// getAddonAnnotationsFromCluster returns all annotations with the "addon.open-cluster-management.io" prefix
-// from the ManagedCluster, so they can be appended to the ManagedClusterAddOn.
+// getAddonAnnotationsFromCluster returns addon.open-cluster-management.io/* annotations for a new
+// ManagedClusterAddOn, including a derived hosting-cluster-name when hosted addons are enabled.
 func (d *managedClusterAddonInstallReconciler) getAddonAnnotationsFromCluster(
 	clusterName string) (map[string]string, error) {
 	cluster, err := d.managedClusterLister.Get(clusterName)
@@ -116,13 +107,7 @@ func (d *managedClusterAddonInstallReconciler) getAddonAnnotationsFromCluster(
 		return nil, err
 	}
 
-	addonAnnotations := map[string]string{}
-	for k, v := range cluster.Annotations {
-		if strings.HasPrefix(k, addonv1beta1.GroupName) {
-			addonAnnotations[k] = v
-		}
-	}
-	return addonAnnotations, nil
+	return AddonAnnotationsFromManagedCluster(cluster), nil
 }
 
 func (d *managedClusterAddonInstallReconciler) getAllDecisions(
