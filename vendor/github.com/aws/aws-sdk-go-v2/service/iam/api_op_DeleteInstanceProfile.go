@@ -5,6 +5,7 @@ package iam
 import (
 	"context"
 	"github.com/aws/smithy-go/middleware"
+	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
 // Deletes the specified instance profile. The instance profile must not have an
@@ -66,6 +67,9 @@ func (c *Client) addOperationDeleteInstanceProfileMiddlewares(stack *middleware.
 		return err
 	}
 
+	if err = addlegacyEndpointContextSetter(stack, options); err != nil {
+		return err
+	}
 	if err = addComputeContentLength(stack); err != nil {
 		return err
 	}
@@ -78,10 +82,19 @@ func (c *Client) addOperationDeleteInstanceProfileMiddlewares(stack *middleware.
 	if err = addRecordResponseTiming(stack, options); err != nil {
 		return err
 	}
+	if err = smithyhttp.AddErrorCloseResponseBodyMiddleware(stack); err != nil {
+		return err
+	}
+	if err = smithyhttp.AddCloseResponseBodyMiddleware(stack); err != nil {
+		return err
+	}
 	if err = addCredentialSource(stack, options); err != nil {
 		return err
 	}
 	if err = addOpDeleteInstanceProfileValidationMiddleware(stack); err != nil {
+		return err
+	}
+	if err = stack.Initialize.Add(newServiceMetadataMiddleware(options.Region, "DeleteInstanceProfile"), middleware.Before); err != nil {
 		return err
 	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {

@@ -5,6 +5,7 @@ package iam
 import (
 	"context"
 	"github.com/aws/smithy-go/middleware"
+	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
 // Deactivates the specified MFA device and removes it from association with the
@@ -77,6 +78,9 @@ func (c *Client) addOperationDeactivateMFADeviceMiddlewares(stack *middleware.St
 		return err
 	}
 
+	if err = addlegacyEndpointContextSetter(stack, options); err != nil {
+		return err
+	}
 	if err = addComputeContentLength(stack); err != nil {
 		return err
 	}
@@ -89,10 +93,19 @@ func (c *Client) addOperationDeactivateMFADeviceMiddlewares(stack *middleware.St
 	if err = addRecordResponseTiming(stack, options); err != nil {
 		return err
 	}
+	if err = smithyhttp.AddErrorCloseResponseBodyMiddleware(stack); err != nil {
+		return err
+	}
+	if err = smithyhttp.AddCloseResponseBodyMiddleware(stack); err != nil {
+		return err
+	}
 	if err = addCredentialSource(stack, options); err != nil {
 		return err
 	}
 	if err = addOpDeactivateMFADeviceValidationMiddleware(stack); err != nil {
+		return err
+	}
+	if err = stack.Initialize.Add(newServiceMetadataMiddleware(options.Region, "DeactivateMFADevice"), middleware.Before); err != nil {
 		return err
 	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {

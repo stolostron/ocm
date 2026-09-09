@@ -5,6 +5,7 @@ package iam
 import (
 	"context"
 	"github.com/aws/smithy-go/middleware"
+	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
 // Deletes the specified role. Unlike the Amazon Web Services Management Console,
@@ -78,6 +79,9 @@ func (c *Client) addOperationDeleteRoleMiddlewares(stack *middleware.Stack, opti
 		return err
 	}
 
+	if err = addlegacyEndpointContextSetter(stack, options); err != nil {
+		return err
+	}
 	if err = addComputeContentLength(stack); err != nil {
 		return err
 	}
@@ -90,10 +94,19 @@ func (c *Client) addOperationDeleteRoleMiddlewares(stack *middleware.Stack, opti
 	if err = addRecordResponseTiming(stack, options); err != nil {
 		return err
 	}
+	if err = smithyhttp.AddErrorCloseResponseBodyMiddleware(stack); err != nil {
+		return err
+	}
+	if err = smithyhttp.AddCloseResponseBodyMiddleware(stack); err != nil {
+		return err
+	}
 	if err = addCredentialSource(stack, options); err != nil {
 		return err
 	}
 	if err = addOpDeleteRoleValidationMiddleware(stack); err != nil {
+		return err
+	}
+	if err = stack.Initialize.Add(newServiceMetadataMiddleware(options.Region, "DeleteRole"), middleware.Before); err != nil {
 		return err
 	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {

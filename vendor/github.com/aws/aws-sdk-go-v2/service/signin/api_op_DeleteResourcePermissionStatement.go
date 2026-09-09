@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"github.com/aws/smithy-go/middleware"
 	"github.com/aws/smithy-go/ptr"
+	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
 // Remove a permission statement from the account's SignIn resource-based policy
@@ -62,6 +63,9 @@ func (c *Client) addOperationDeleteResourcePermissionStatementMiddlewares(stack 
 		return err
 	}
 
+	if err = addlegacyEndpointContextSetter(stack, options); err != nil {
+		return err
+	}
 	if err = addComputeContentLength(stack); err != nil {
 		return err
 	}
@@ -74,6 +78,12 @@ func (c *Client) addOperationDeleteResourcePermissionStatementMiddlewares(stack 
 	if err = addRecordResponseTiming(stack, options); err != nil {
 		return err
 	}
+	if err = smithyhttp.AddErrorCloseResponseBodyMiddleware(stack); err != nil {
+		return err
+	}
+	if err = smithyhttp.AddCloseResponseBodyMiddleware(stack); err != nil {
+		return err
+	}
 	if err = addCredentialSource(stack, options); err != nil {
 		return err
 	}
@@ -81,6 +91,9 @@ func (c *Client) addOperationDeleteResourcePermissionStatementMiddlewares(stack 
 		return err
 	}
 	if err = addOpDeleteResourcePermissionStatementValidationMiddleware(stack); err != nil {
+		return err
+	}
+	if err = stack.Initialize.Add(newServiceMetadataMiddleware(options.Region, "DeleteResourcePermissionStatement"), middleware.Before); err != nil {
 		return err
 	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {

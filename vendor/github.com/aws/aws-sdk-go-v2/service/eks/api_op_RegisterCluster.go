@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"github.com/aws/aws-sdk-go-v2/service/eks/types"
 	"github.com/aws/smithy-go/middleware"
+	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
 // Connects a Kubernetes cluster to the Amazon EKS control plane.
@@ -88,6 +89,9 @@ func (c *Client) addOperationRegisterClusterMiddlewares(stack *middleware.Stack,
 		return err
 	}
 
+	if err = addlegacyEndpointContextSetter(stack, options); err != nil {
+		return err
+	}
 	if err = addComputeContentLength(stack); err != nil {
 		return err
 	}
@@ -100,6 +104,12 @@ func (c *Client) addOperationRegisterClusterMiddlewares(stack *middleware.Stack,
 	if err = addRecordResponseTiming(stack, options); err != nil {
 		return err
 	}
+	if err = smithyhttp.AddErrorCloseResponseBodyMiddleware(stack); err != nil {
+		return err
+	}
+	if err = smithyhttp.AddCloseResponseBodyMiddleware(stack); err != nil {
+		return err
+	}
 	if err = addCredentialSource(stack, options); err != nil {
 		return err
 	}
@@ -107,6 +117,9 @@ func (c *Client) addOperationRegisterClusterMiddlewares(stack *middleware.Stack,
 		return err
 	}
 	if err = addOpRegisterClusterValidationMiddleware(stack); err != nil {
+		return err
+	}
+	if err = stack.Initialize.Add(newServiceMetadataMiddleware(options.Region, "RegisterCluster"), middleware.Before); err != nil {
 		return err
 	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {

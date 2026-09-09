@@ -37,6 +37,7 @@ type addonConfigurationController struct {
 	addonClient                  addonclient.Interface
 	clusterManagementAddonLister addonlisterv1beta1.ClusterManagementAddOnLister
 	managedClusterAddonIndexer   cache.Indexer
+	addonFilterFunc              factory.EventFilterFunc
 	placementLister              clusterlisterv1beta1.PlacementLister
 	placementDecisionGetter      helpers.PlacementDecisionGetter
 
@@ -61,6 +62,7 @@ func NewAddonConfigurationController(
 	clusterManagementAddonInformers addoninformerv1beta1.ClusterManagementAddOnInformer,
 	placementInformer clusterinformersv1beta1.PlacementInformer,
 	placementDecisionInformer clusterinformersv1beta1.PlacementDecisionInformer,
+	addonFilterFunc factory.EventFilterFunc,
 ) factory.Controller {
 	c := &addonConfigurationController{
 		addonClient:                  addonClient,
@@ -68,6 +70,7 @@ func NewAddonConfigurationController(
 		managedClusterAddonIndexer:   addonInformers.Informer().GetIndexer(),
 		placementLister:              placementInformer.Lister(),
 		placementDecisionGetter:      helpers.PlacementDecisionGetter{Client: placementDecisionInformer.Lister()},
+		addonFilterFunc:              addonFilterFunc,
 	}
 
 	c.reconcilers = []addonConfigurationReconcile{
@@ -81,8 +84,9 @@ func NewAddonConfigurationController(
 		},
 	}
 
-	controllerFactory := factory.New().WithInformersQueueKeysFunc(
+	controllerFactory := factory.New().WithFilteredEventsInformersQueueKeysFunc(
 		queue.QueueKeyByMetaNamespaceName,
+		c.addonFilterFunc,
 		clusterManagementAddonInformers.Informer()).
 		WithInformersQueueKeysFunc(queue.QueueKeyByMetaName, addonInformers.Informer()).
 		WithInformersQueueKeysFunc(
@@ -103,6 +107,10 @@ func (c *addonConfigurationController) sync(ctx context.Context, syncCtx factory
 		return nil
 	case err != nil:
 		return err
+	}
+
+	if !c.addonFilterFunc(cma) {
+		return nil
 	}
 
 	cma = cma.DeepCopy()

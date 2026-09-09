@@ -12,6 +12,10 @@ on:
       - main
       - release-*
 
+env:
+  GO_VERSION: '1.26'
+  GO_REQUIRED_MIN_VERSION: ''
+
 permissions:
   contents: read
 
@@ -25,7 +29,7 @@ jobs:
       - name: install Go
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
-          go-version-file: go.mod
+          go-version: ${{ env.GO_VERSION }}
       - name: verify
         run: make verify
       - name: verify-deps
@@ -44,7 +48,7 @@ jobs:
       - name: install Go
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
-          go-version-file: go.mod
+          go-version: ${{ env.GO_VERSION }}
       - name: build
         run: make build
 
@@ -57,7 +61,7 @@ jobs:
       - name: install Go
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
-          go-version-file: go.mod
+          go-version: ${{ env.GO_VERSION }}
       - name: unit
         run: make test
       - name: report coverage
@@ -79,6 +83,6 @@ jobs:
       - name: install Go
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
-          go-version-file: go.mod
+          go-version: ${{ env.GO_VERSION }}
       - name: integration
         run: make test-integration

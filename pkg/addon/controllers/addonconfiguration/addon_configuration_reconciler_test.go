@@ -1286,7 +1286,8 @@ func expectPatchConditionAction(t *testing.T, action clienttesting.Action, expec
 		t.Fatal(err)
 	}
 
-	if !meta.IsStatusConditionPresentAndEqual(mca.Status.Conditions, addonv1beta1.ManagedClusterAddOnConditionConfigured, expected) {
+	actualCond := meta.FindStatusCondition(mca.Status.Conditions, addonv1beta1.ManagedClusterAddOnConditionConfigured)
+	if actualCond == nil || actualCond.Status != expected {
 		t.Errorf("Condition not correctly patched, expected %v, actual %v", expected, mca.Status.Conditions)
 	}
 }

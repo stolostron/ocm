@@ -71,9 +71,8 @@ type Schema struct {
 	directMask uint64             // bitmask: bit i set means indexed[i] was declared directly on this schema
 	targetID   ShapeID            // for member schemas, the target's shape ID
 
-	// resolved on the fly and cached
-	listMember       atomic.Pointer[Schema]
-	mapKey, mapValue atomic.Pointer[Schema]
+	listMember       *Schema
+	mapKey, mapValue *Schema
 
 	ext [numExtensionSlots]unsafe.Pointer // lazily-computed codec extensions, accessed atomically
 }
@@ -127,6 +126,9 @@ func (s *Schema) AddMember(name string, target *Schema, ts ...Trait) *Schema {
 		traits:     cloneTraits(target.traits),
 		directMask: 0, // inherited traits are not direct
 		targetID:   target.id,
+		listMember: target.listMember,
+		mapKey:     target.mapKey,
+		mapValue:   target.mapValue,
 	}
 
 	// member-declared traits override and are direct
@@ -141,6 +143,14 @@ func (s *Schema) AddMember(name string, target *Schema, ts ...Trait) *Schema {
 		atomic.StorePointer(&s.ext[i], nil)
 	}
 
+	switch name {
+	case "member":
+		s.listMember = m
+	case "key":
+		s.mapKey = m
+	case "value":
+		s.mapValue = m
+	}
 	return m
 }
 
@@ -166,31 +176,17 @@ func cloneTraits(src map[ShapeID]Trait) map[ShapeID]Trait {
 
 // ListMember returns the "member" schema for list types.
 func (s *Schema) ListMember() *Schema {
-	return s.lookup(&s.listMember, "member")
+	return s.listMember
 }
 
 // MapKey returns the "key" schema for map types.
 func (s *Schema) MapKey() *Schema {
-	return s.lookup(&s.mapKey, "key")
+	return s.mapKey
 }
 
 // MapValue returns the "value" schema for map types.
 func (s *Schema) MapValue() *Schema {
-	return s.lookup(&s.mapValue, "value")
-}
-
-func (s *Schema) lookup(cached *atomic.Pointer[Schema], name string) *Schema {
-	if v := cached.Load(); v != nil {
-		return v
-	}
-
-	m, ok := s.members[name]
-	if !ok {
-		return nil
-	}
-
-	cached.Store(m)
-	return m
+	return s.mapValue
 }
 
 // MemberName returns the member component of the schema's shape ID.

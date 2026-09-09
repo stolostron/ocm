@@ -50,10 +50,6 @@ var jobRule = []workapiv1.JsonPath{
 		Path: `.status.conditions[?(@.type=="Complete")].status`,
 	},
 	{
-		Name: "JobFailed",
-		Path: `.status.conditions[?(@.type=="Failed")].status`,
-	},
-	{
 		Name: "JobSucceeded",
 		Path: `.status.succeeded`,
 	},

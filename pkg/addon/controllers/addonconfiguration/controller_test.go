@@ -34,6 +34,7 @@ func TestAddonConfigurationControllerSync(t *testing.T) {
 		placementDecisions      []runtime.Object
 		expectError             bool
 		expectedErrorMessage    string
+		addonFilterFuncResult   bool
 	}{
 		{
 			name:     "addon not found",
@@ -45,6 +46,18 @@ func TestAddonConfigurationControllerSync(t *testing.T) {
 			expectError:             false,
 		},
 		{
+			name:     "addon filtered out",
+			queueKey: "test-addon",
+			managedClusterAddons: []runtime.Object{
+				addontesting.NewAddon("test-addon", "cluster1"),
+			},
+			clusterManagementAddons: []runtime.Object{
+				addontesting.NewClusterManagementAddon("test-addon", "", "").Build(),
+			},
+			addonFilterFuncResult: false,
+			expectError:           false,
+		},
+		{
 			name:     "basic addon sync",
 			queueKey: "test-addon",
 			managedClusterAddons: []runtime.Object{
@@ -53,9 +66,10 @@ func TestAddonConfigurationControllerSync(t *testing.T) {
 			clusterManagementAddons: []runtime.Object{
 				addontesting.NewClusterManagementAddon("test-addon", "", "").Build(),
 			},
-			placements:         []runtime.Object{},
-			placementDecisions: []runtime.Object{},
-			expectError:        false,
+			placements:            []runtime.Object{},
+			placementDecisions:    []runtime.Object{},
+			addonFilterFuncResult: true,
+			expectError:           false,
 		},
 		{
 			name:     "addon with placement strategy",
@@ -108,7 +122,8 @@ func TestAddonConfigurationControllerSync(t *testing.T) {
 					},
 				},
 			},
-			expectError: false,
+			addonFilterFuncResult: true,
+			expectError:           false,
 		},
 	}
 
@@ -157,7 +172,11 @@ func TestAddonConfigurationControllerSync(t *testing.T) {
 				}
 			}
 
-			// Create controller
+			// Create controller with addon filter function
+			addonFilterFunc := func(obj interface{}) bool {
+				return c.addonFilterFuncResult
+			}
+
 			controller := &addonConfigurationController{
 				addonClient:                  fakeAddonClient,
 				clusterManagementAddonLister: addonInformers.Addon().V1beta1().ClusterManagementAddOns().Lister(),
@@ -166,6 +185,7 @@ func TestAddonConfigurationControllerSync(t *testing.T) {
 				placementDecisionGetter: helpers.PlacementDecisionGetter{
 					Client: clusterInformers.Cluster().V1beta1().PlacementDecisions().Lister(),
 				},
+				addonFilterFunc: addonFilterFunc,
 				reconcilers: []addonConfigurationReconcile{
 					&managedClusterAddonConfigurationReconciler{
 						addonClient: fakeAddonClient,

@@ -15,6 +15,7 @@ import (
 	"k8s.io/klog/v2"
 
 	"open-cluster-management.io/addon-framework/pkg/index"
+	"open-cluster-management.io/addon-framework/pkg/utils"
 	addonv1beta1 "open-cluster-management.io/api/addon/v1beta1"
 	addonclient "open-cluster-management.io/api/client/addon/clientset/versioned"
 	addoninformers "open-cluster-management.io/api/client/addon/informers/externalversions"
@@ -164,6 +165,7 @@ func RunControllerManagerWithInformers(
 		clusterInformers.Cluster().V1().ManagedClusters(),
 		clusterInformers.Cluster().V1beta1().Placements(),
 		clusterInformers.Cluster().V1beta1().PlacementDecisions(),
+		utils.ManagedByAddonManager,
 	)
 
 	addonConfigurationController := addonconfiguration.NewAddonConfigurationController(
@@ -172,12 +174,14 @@ func RunControllerManagerWithInformers(
 		addonInformers.Addon().V1beta1().ClusterManagementAddOns(),
 		clusterInformers.Cluster().V1beta1().Placements(),
 		clusterInformers.Cluster().V1beta1().PlacementDecisions(),
+		utils.ManagedByAddonManager,
 	)
 
 	addonOwnerController := addonowner.NewAddonOwnerController(
 		hubAddOnClient,
 		addonInformers.Addon().V1beta1().ManagedClusterAddOns(),
 		addonInformers.Addon().V1beta1().ClusterManagementAddOns(),
+		utils.ManagedByAddonManager,
 	)
 
 	addonProgressingController := addonprogressing.NewAddonProgressingController(
@@ -185,12 +189,14 @@ func RunControllerManagerWithInformers(
 		addonInformers.Addon().V1beta1().ManagedClusterAddOns(),
 		addonInformers.Addon().V1beta1().ClusterManagementAddOns(),
 		workinformers.Work().V1().ManifestWorks(),
+		utils.ManagedByAddonManager,
 	)
 
 	mgmtAddonInstallProgressionController := cmainstallprogression.NewCMAInstallProgressionController(
 		hubAddOnClient,
 		addonInformers.Addon().V1beta1().ManagedClusterAddOns(),
 		addonInformers.Addon().V1beta1().ClusterManagementAddOns(),
+		utils.ManagedByAddonManager,
 	)
 
 	addonAnnotationController := addonannotation.NewAddonAnnotationController(
