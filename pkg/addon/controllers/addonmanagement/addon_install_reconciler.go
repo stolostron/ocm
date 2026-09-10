@@ -14,6 +14,7 @@ import (
 
 	addonv1alpha1 "open-cluster-management.io/api/addon/v1alpha1"
 	addonv1alpha1client "open-cluster-management.io/api/client/addon/clientset/versioned"
+	clusterlisterv1 "open-cluster-management.io/api/client/cluster/listers/cluster/v1"
 	clusterlisterv1beta1 "open-cluster-management.io/api/client/cluster/listers/cluster/v1beta1"
 	clusterv1beta1 "open-cluster-management.io/api/cluster/v1beta1"
 	"open-cluster-management.io/sdk-go/pkg/basecontroller/factory"
@@ -24,6 +25,7 @@ import (
 type managedClusterAddonInstallReconciler struct {
 	addonClient                addonv1alpha1client.Interface
 	managedClusterAddonIndexer cache.Indexer
+	managedClusterLister       clusterlisterv1.ManagedClusterLister
 	placementLister            clusterlisterv1beta1.PlacementLister
 	placementDecisionLister    clusterlisterv1beta1.PlacementDecisionLister
 	addonFilterFunc            factory.EventFilterFunc
@@ -69,15 +71,26 @@ func (d *managedClusterAddonInstallReconciler) reconcile(
 
 	var errs []error
 	for cluster := range toAdd {
-		_, err := d.addonClient.AddonV1alpha1().ManagedClusterAddOns(cluster).Create(ctx, &addonv1alpha1.ManagedClusterAddOn{
+		addon := &addonv1alpha1.ManagedClusterAddOn{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:            cma.Name,
 				Namespace:       cluster,
 				OwnerReferences: []metav1.OwnerReference{*owner},
 			},
 			Spec: addonv1alpha1.ManagedClusterAddOnSpec{},
-		}, metav1.CreateOptions{})
+		}
 
+		// Copy addon annotations from the managed cluster to the addon
+		addonAnnotations, err := d.getAddonAnnotationsFromCluster(cluster)
+		if err != nil {
+			errs = append(errs, err)
+			continue
+		}
+		if len(addonAnnotations) > 0 {
+			addon.Annotations = addonAnnotations
+		}
+
+		_, err = d.addonClient.AddonV1alpha1().ManagedClusterAddOns(cluster).Create(ctx, addon, metav1.CreateOptions{})
 		if err != nil && !errors.IsAlreadyExists(err) {
 			errs = append(errs, err)
 		}
@@ -91,6 +104,18 @@ func (d *managedClusterAddonInstallReconciler) reconcile(
 	}
 
 	return cma, reconcileContinue, utilerrors.NewAggregate(errs)
+}
+
+// getAddonAnnotationsFromCluster returns addon.open-cluster-management.io/* annotations for a new
+// ManagedClusterAddOn, including a derived hosting-cluster-name when hosted addons are enabled.
+func (d *managedClusterAddonInstallReconciler) getAddonAnnotationsFromCluster(
+	clusterName string) (map[string]string, error) {
+	cluster, err := d.managedClusterLister.Get(clusterName)
+	if err != nil {
+		return nil, err
+	}
+
+	return AddonAnnotationsFromManagedCluster(cluster), nil
 }
 
 func (d *managedClusterAddonInstallReconciler) getAllDecisions(
