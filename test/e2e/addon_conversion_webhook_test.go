@@ -496,11 +496,11 @@ var _ = ginkgo.Describe("Create v1alpha1 ClusterManagementAddOn", ginkgo.Label("
 		_, err := hub.CreateClusterManagementAddOnV1Alpha1(addonName, addon)
 		gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
-		ginkgo.By("Update v1alpha1 ClusterManagementAddOn status using v1alpha1 client")
-		gomega.Eventually(func() bool {
-			addon, err = hub.GetClusterManagementAddOnV1Alpha1(addonName)
+		ginkgo.By("Update v1alpha1 ClusterManagementAddOn status and verify v1beta1 conversion")
+		gomega.Eventually(func() error {
+			addon, err := hub.GetClusterManagementAddOnV1Alpha1(addonName)
 			if err != nil {
-				return false
+				return err
 			}
 			addon.Status.DefaultConfigReferences = []addonv1alpha1.DefaultConfigReference{
 				{
@@ -518,33 +518,28 @@ var _ = ginkgo.Describe("Create v1alpha1 ClusterManagementAddOn", ginkgo.Label("
 			_, err = hub.AddonClient.AddonV1alpha1().ClusterManagementAddOns().UpdateStatus(
 				context.Background(), addon, metav1.UpdateOptions{})
 			if err != nil {
-				return false
+				return err
 			}
-			return true
-		}).Should(gomega.BeTrue())
-
-		ginkgo.By("Get v1alpha1 ClusterManagementAddOn using v1beta1 client and verify conversion")
-		gomega.Eventually(func() bool {
 			v1beta1Addon, err := hub.GetClusterManagementAddOnV1Beta1(addonName)
 			if err != nil {
-				return false
+				return err
 			}
 			// Verify spec.supportedConfigs → spec.defaultConfigs conversion
 			if len(v1beta1Addon.Spec.DefaultConfigs) != 1 {
-				return false
+				return fmt.Errorf("expected 1 default config, got %d", len(v1beta1Addon.Spec.DefaultConfigs))
 			}
 			if v1beta1Addon.Spec.DefaultConfigs[0].Name != "test-config" {
-				return false
+				return fmt.Errorf("expected test-config, got %s", v1beta1Addon.Spec.DefaultConfigs[0].Name)
 			}
 			// Verify status.DefaultConfigReferences conversion
 			if len(v1beta1Addon.Status.DefaultConfigReferences) != 1 {
-				return false
+				return fmt.Errorf("expected 1 default config reference, got %d", len(v1beta1Addon.Status.DefaultConfigReferences))
 			}
 			if v1beta1Addon.Status.DefaultConfigReferences[0].DesiredConfig.Name != "status-config" {
-				return false
+				return fmt.Errorf("expected status-config, got %s", v1beta1Addon.Status.DefaultConfigReferences[0].DesiredConfig.Name)
 			}
-			return true
-		}).Should(gomega.BeTrue())
+			return nil
+		}).Should(gomega.Succeed())
 
 		ginkgo.By("Update v1alpha1 ClusterManagementAddOn using v1beta1 client")
 		gomega.Eventually(func() error {
@@ -706,11 +701,11 @@ var _ = ginkgo.Describe("Create v1beta1 ClusterManagementAddOn", ginkgo.Label("a
 		_, err := hub.CreateClusterManagementAddOnV1Beta1(addonName, addon)
 		gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
-		ginkgo.By("Update v1beta1 ClusterManagementAddOn status using v1beta1 client")
-		gomega.Eventually(func() bool {
-			addon, err = hub.GetClusterManagementAddOnV1Beta1(addonName)
+		ginkgo.By("Update v1beta1 ClusterManagementAddOn status and verify v1alpha1 conversion")
+		gomega.Eventually(func() error {
+			addon, err := hub.GetClusterManagementAddOnV1Beta1(addonName)
 			if err != nil {
-				return false
+				return err
 			}
 			addon.Status.InstallProgressions = []addonv1beta1.InstallProgression{
 				{
@@ -736,36 +731,31 @@ var _ = ginkgo.Describe("Create v1beta1 ClusterManagementAddOn", ginkgo.Label("a
 			_, err = hub.AddonClient.AddonV1beta1().ClusterManagementAddOns().UpdateStatus(
 				context.Background(), addon, metav1.UpdateOptions{})
 			if err != nil {
-				return false
+				return err
 			}
-			return true
-		}).Should(gomega.BeTrue())
-
-		ginkgo.By("Get v1beta1 ClusterManagementAddOn using v1alpha1 client and verify conversion")
-		gomega.Eventually(func() bool {
 			v1alpha1Addon, err := hub.GetClusterManagementAddOnV1Alpha1(addonName)
 			if err != nil {
-				return false
+				return err
 			}
 			// Verify spec.defaultConfigs → spec.supportedConfigs conversion
 			if len(v1alpha1Addon.Spec.SupportedConfigs) != 1 {
-				return false
+				return fmt.Errorf("expected 1 supported config, got %d", len(v1alpha1Addon.Spec.SupportedConfigs))
 			}
 			if v1alpha1Addon.Spec.SupportedConfigs[0].DefaultConfig.Name != "beta-config" {
-				return false
+				return fmt.Errorf("expected beta-config, got %s", v1alpha1Addon.Spec.SupportedConfigs[0].DefaultConfig.Name)
 			}
 			// Verify status.InstallProgressions conversion
 			if len(v1alpha1Addon.Status.InstallProgressions) != 1 {
-				return false
+				return fmt.Errorf("expected 1 install progression, got %d", len(v1alpha1Addon.Status.InstallProgressions))
 			}
 			if len(v1alpha1Addon.Status.InstallProgressions[0].ConfigReferences) != 1 {
-				return false
+				return fmt.Errorf("expected 1 config reference, got %d", len(v1alpha1Addon.Status.InstallProgressions[0].ConfigReferences))
 			}
 			if v1alpha1Addon.Status.InstallProgressions[0].ConfigReferences[0].DesiredConfig.Name != "progression-config" {
-				return false
+				return fmt.Errorf("expected progression-config, got %s", v1alpha1Addon.Status.InstallProgressions[0].ConfigReferences[0].DesiredConfig.Name)
 			}
-			return true
-		}).Should(gomega.BeTrue())
+			return nil
+		}).Should(gomega.Succeed())
 
 		ginkgo.By("Update v1beta1 ClusterManagementAddOn using v1alpha1 client")
 		gomega.Eventually(func() error {
