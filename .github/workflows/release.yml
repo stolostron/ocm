@@ -23,7 +23,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           fetch-depth: 1
           path: go/src/open-cluster-management.io/ocm
@@ -46,12 +46,12 @@ jobs:
       contents: write
     steps:
       - name: checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           fetch-depth: 1
           path: go/src/open-cluster-management.io/ocm
       - name: Set up Python 3.x
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
         with:
           # Semantic version range syntax or exact version of a Python version
           python-version: '3.x'
@@ -64,7 +64,7 @@ jobs:
           python hack/changelog.py ${{ secrets.GITHUB_TOKEN }} ${{ needs.env.outputs.RELEASE_VERSION }} > /home/runner/work/changelog.txt
           cat /home/runner/work/changelog.txt
       - name: setup helm
-        uses: azure/setup-helm@v4
+        uses: azure/setup-helm@9bc31f4ebc9c6b171d7bfbaa5d006ae7abdb4310 # v5
       - name: chart package
         if: github.event_name != 'pull_request'
         run: |
@@ -75,7 +75,7 @@ jobs:
           popd
       - name: publish release
         if: github.event_name != 'pull_request'
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
