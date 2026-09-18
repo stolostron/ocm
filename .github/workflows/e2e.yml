@@ -33,7 +33,7 @@ jobs:
       - name: Free disk space
         run: bash .github/scripts/free-disk-space.sh
       - name: Setup Go
-        uses: actions/setup-go@v6
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
         with:
           go-version-file: go.mod
       - name: Setup kind
@@ -62,7 +62,7 @@ jobs:
       - name: Free disk space
         run: bash .github/scripts/free-disk-space.sh
       - name: Setup Go
-        uses: actions/setup-go@v6
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
         with:
           go-version-file: go.mod
       - name: Setup kind
@@ -91,7 +91,7 @@ jobs:
       - name: Free disk space
         run: bash .github/scripts/free-disk-space.sh
       - name: Setup Go
-        uses: actions/setup-go@v6
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
         with:
           go-version-file: go.mod
       - name: Setup kind
@@ -120,7 +120,7 @@ jobs:
       - name: Free disk space
         run: bash .github/scripts/free-disk-space.sh
       - name: Setup Go
-        uses: actions/setup-go@v6
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
         with:
           go-version-file: go.mod
       - name: Setup kind
