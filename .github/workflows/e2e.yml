@@ -33,7 +33,7 @@ jobs:
         with:
           go-version-file: go.mod
       - name: Setup kind
-        uses: engineerd/setup-kind@v0.6.2
+        uses: engineerd/setup-kind@71e45b960fc8dd50b4aeabf6eb6ef2ca0920b4c1 # v0.6.2
         with:
           version: v0.22.0
           skipClusterCreation: ${{ env.USE_EXISTING_CLUSTER }}
@@ -71,7 +71,7 @@ jobs:
         with:
           go-version-file: go.mod
       - name: Setup kind
-        uses: engineerd/setup-kind@v0.6.2
+        uses: engineerd/setup-kind@71e45b960fc8dd50b4aeabf6eb6ef2ca0920b4c1 # v0.6.2
         with:
           version: v0.22.0
           skipClusterCreation: ${{ env.USE_EXISTING_CLUSTER }}
@@ -109,7 +109,7 @@ jobs:
         with:
           go-version-file: go.mod
       - name: Setup kind
-        uses: engineerd/setup-kind@v0.6.2
+        uses: engineerd/setup-kind@71e45b960fc8dd50b4aeabf6eb6ef2ca0920b4c1 # v0.6.2
         with:
           version: v0.22.0
           skipClusterCreation: ${{ env.USE_EXISTING_CLUSTER }}
