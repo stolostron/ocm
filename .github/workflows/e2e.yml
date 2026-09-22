@@ -29,7 +29,7 @@ jobs:
         run: sudo chown runner:docker /var/run/docker.sock
         if: ${{ env.ACT }} # this step only runs locally when using the https://github.com/nektos/act to debug the e2e
       - name: Checkout
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Free disk space
         run: bash .github/scripts/free-disk-space.sh
       - name: Setup Go
@@ -37,7 +37,7 @@ jobs:
         with:
           go-version-file: go.mod
       - name: Setup kind
-        uses: engineerd/setup-kind@v0.6.2
+        uses: engineerd/setup-kind@71e45b960fc8dd50b4aeabf6eb6ef2ca0920b4c1 # v0.6.2
         with:
           version: v0.22.0
           skipClusterCreation: ${{ env.USE_EXISTING_CLUSTER }}
@@ -58,7 +58,7 @@ jobs:
         run: sudo chown runner:docker /var/run/docker.sock
         if: ${{ env.ACT }} # this step only runs locally when using the https://github.com/nektos/act to debug the e2e
       - name: Checkout
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Free disk space
         run: bash .github/scripts/free-disk-space.sh
       - name: Setup Go
@@ -66,7 +66,7 @@ jobs:
         with:
           go-version-file: go.mod
       - name: Setup kind
-        uses: engineerd/setup-kind@v0.6.2
+        uses: engineerd/setup-kind@71e45b960fc8dd50b4aeabf6eb6ef2ca0920b4c1 # v0.6.2
         with:
           version: v0.22.0
           skipClusterCreation: ${{ env.USE_EXISTING_CLUSTER }}
@@ -87,7 +87,7 @@ jobs:
         run: sudo chown runner:docker /var/run/docker.sock
         if: ${{ env.ACT }} # this step only runs locally when using the https://github.com/nektos/act to debug the e2e
       - name: Checkout
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Free disk space
         run: bash .github/scripts/free-disk-space.sh
       - name: Setup Go
@@ -95,7 +95,7 @@ jobs:
         with:
           go-version-file: go.mod
       - name: Setup kind
-        uses: engineerd/setup-kind@v0.6.2
+        uses: engineerd/setup-kind@71e45b960fc8dd50b4aeabf6eb6ef2ca0920b4c1 # v0.6.2
         with:
           version: v0.22.0
           skipClusterCreation: ${{ env.USE_EXISTING_CLUSTER }}
@@ -116,7 +116,7 @@ jobs:
         run: sudo chown runner:docker /var/run/docker.sock
         if: ${{ env.ACT }} # this step only runs locally when using the https://github.com/nektos/act to debug the e2e
       - name: Checkout
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Free disk space
         run: bash .github/scripts/free-disk-space.sh
       - name: Setup Go
@@ -124,7 +124,7 @@ jobs:
         with:
           go-version-file: go.mod
       - name: Setup kind
-        uses: engineerd/setup-kind@v0.6.2
+        uses: engineerd/setup-kind@71e45b960fc8dd50b4aeabf6eb6ef2ca0920b4c1 # v0.6.2
         with:
           version: v0.22.0
           skipClusterCreation: ${{ env.USE_EXISTING_CLUSTER }}
