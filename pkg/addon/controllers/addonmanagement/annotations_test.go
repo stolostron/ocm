@@ -107,11 +107,11 @@ func TestAddonAnnotationsFromManagedCluster(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "cluster1",
 			Annotations: map[string]string{
-				AnnotationKlusterletDeployMode:                   "Hosted",
-				AnnotationKlusterletHostingClusterName:           "local-cluster",
-				AnnotationEnableHostedModeAddons:                 "true",
+				AnnotationKlusterletDeployMode:                    "Hosted",
+				AnnotationKlusterletHostingClusterName:            "local-cluster",
+				AnnotationEnableHostedModeAddons:                  "true",
 				addonv1alpha1.HostedManifestLocationAnnotationKey: "hosting",
-				"non-addon-annotation":                           "ignored",
+				"non-addon-annotation":                            "ignored",
 			},
 		},
 	}
@@ -146,9 +146,9 @@ func TestAddonAnnotationsFromManagedCluster_hostingClusterNamePrecedence(t *test
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "cluster1",
 					Annotations: map[string]string{
-						AnnotationKlusterletDeployMode:               "Hosted",
-						AnnotationKlusterletHostingClusterName:       "local-cluster",
-						AnnotationEnableHostedModeAddons:             "true",
+						AnnotationKlusterletDeployMode:                "Hosted",
+						AnnotationKlusterletHostingClusterName:        "local-cluster",
+						AnnotationEnableHostedModeAddons:              "true",
 						addonv1alpha1.HostingClusterNameAnnotationKey: "stale-addon-value",
 					},
 				},
