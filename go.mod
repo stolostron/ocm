@@ -24,19 +24,19 @@ require (
 	go.uber.org/zap v1.27.0
 	golang.org/x/exp v0.0.0-20260908205506-85c1c2202aba
 	gopkg.in/yaml.v2 v2.4.0
-	k8s.io/api v0.29.4
-	k8s.io/apiextensions-apiserver v0.29.3
-	k8s.io/apimachinery v0.29.4
-	k8s.io/apiserver v0.29.3
-	k8s.io/client-go v0.29.4
-	k8s.io/component-base v0.29.3
+	k8s.io/api v0.29.15
+	k8s.io/apiextensions-apiserver v0.29.15
+	k8s.io/apimachinery v0.29.15
+	k8s.io/apiserver v0.29.15
+	k8s.io/client-go v0.29.15
+	k8s.io/component-base v0.29.15
 	k8s.io/klog/v2 v2.120.1
-	k8s.io/kube-aggregator v0.29.3
+	k8s.io/kube-aggregator v0.29.15
 	k8s.io/utils v0.0.0-20241210054802-24370beab758
 	open-cluster-management.io/addon-framework v0.9.1-0.20240419070222-e703fc5a2556
 	open-cluster-management.io/api v0.13.1-0.20240605083248-f9e7f50520fc
 	open-cluster-management.io/sdk-go v0.13.1-0.20240605055850-874c2c7ac523
-	sigs.k8s.io/controller-runtime v0.17.3
+	sigs.k8s.io/controller-runtime v0.17.6
 	sigs.k8s.io/kube-storage-version-migrator v0.0.6-0.20230721195810-5c8923c5ff96
 )
 
@@ -145,10 +145,10 @@ require (
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	helm.sh/helm/v3 v3.14.2 // indirect
-	k8s.io/kms v0.29.3 // indirect
+	k8s.io/kms v0.29.15 // indirect
 	k8s.io/kube-openapi v0.0.0-20231010175941-2dd684a91f00 // indirect
-	sigs.k8s.io/apiserver-network-proxy/konnectivity-client v0.28.0 // indirect
+	sigs.k8s.io/apiserver-network-proxy/konnectivity-client v0.28.6 // indirect
 	sigs.k8s.io/json v0.0.0-20221116044647-bc3834ca7abd // indirect
-	sigs.k8s.io/structured-merge-diff/v4 v4.4.1 // indirect
+	sigs.k8s.io/structured-merge-diff/v4 v4.4.3 // indirect
 	sigs.k8s.io/yaml v1.4.0 // indirect
 )
