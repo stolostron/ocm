@@ -706,9 +706,9 @@ var _ = ginkgo.Describe("Create v1beta1 ClusterManagementAddOn", ginkgo.Label("a
 		_, err := hub.CreateClusterManagementAddOnV1Beta1(addonName, addon)
 		gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
-		ginkgo.By("Update v1beta1 ClusterManagementAddOn status using v1beta1 client")
+		ginkgo.By("Update v1beta1 ClusterManagementAddOn status and verify conversion")
 		gomega.Eventually(func() bool {
-			addon, err = hub.GetClusterManagementAddOnV1Beta1(addonName)
+			addon, err := hub.GetClusterManagementAddOnV1Beta1(addonName)
 			if err != nil {
 				return false
 			}
@@ -738,11 +738,7 @@ var _ = ginkgo.Describe("Create v1beta1 ClusterManagementAddOn", ginkgo.Label("a
 			if err != nil {
 				return false
 			}
-			return true
-		}).Should(gomega.BeTrue())
 
-		ginkgo.By("Get v1beta1 ClusterManagementAddOn using v1alpha1 client and verify conversion")
-		gomega.Eventually(func() bool {
 			v1alpha1Addon, err := hub.GetClusterManagementAddOnV1Alpha1(addonName)
 			if err != nil {
 				return false
