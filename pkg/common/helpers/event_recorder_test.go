@@ -1,7 +1,6 @@
 package helpers
 
 import (
-	"context"
 	"testing"
 	"time"
 
@@ -28,7 +27,7 @@ func TestNewEventRecorder(t *testing.T) {
 		{
 			name:   "test new event recorder, scheme not match ",
 			scheme: workscheme.Scheme,
-			wait:   100 * time.Millisecond,
+			wait:   1 * time.Second,
 			validateActions: func(t *testing.T, actions []clienttesting.Action) {
 				testingcommon.AssertNoActions(t, actions)
 			},
@@ -36,7 +35,7 @@ func TestNewEventRecorder(t *testing.T) {
 		{
 			name:   "test new event recorder, scheme match",
 			scheme: clusterscheme.Scheme,
-			wait:   100 * time.Millisecond,
+			wait:   1 * time.Second,
 			validateActions: func(t *testing.T, actions []clienttesting.Action) {
 				testingcommon.AssertActions(t, actions, "create")
 			},
@@ -53,9 +52,8 @@ func TestNewEventRecorder(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			ctx := context.TODO()
 			kubeClient := fakekube.NewClientset()
-			recorder, err := NewEventRecorder(ctx, tt.scheme, kubeClient.EventsV1(), "test")
+			recorder, err := NewEventRecorder(t.Context(), tt.scheme, kubeClient.EventsV1(), "test")
 			if err != nil {
 				t.Errorf("NewEventRecorder() error = %v", err)
 				return
