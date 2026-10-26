@@ -15,6 +15,7 @@
     - [Testing the changes in the kind cluster](#testing-the-changes-in-the-kind-cluster)
     - [Integration tests](#integration-tests)
     - [E2E tests](#e2e-tests)
+    - [Cluster Inventory conformance tests](#cluster-inventory-conformance-tests)
   - [Issue and pull request management](#issue-and-pull-request-management)
 - [References](#references)
 
@@ -67,7 +68,7 @@ AI tools are welcome in this project. We use them ourselves. What matters is the
 
 *This section was drafted with the assistance of AI, in keeping with the very guidance it describes.*
 
-*This project follows the Linux Foundation's policy on generative AI contributions — see [AI_POLICY.md](AI_POLICY.md) for details.*
+*This project follows the Linux Foundation's policy on generative AI contributions — see [AI_POLICY.md](AI_POLICY.md) for details — and the Kubernetes community's [AI Guidance for pull requests](https://www.kubernetes.dev/docs/guide/pull-requests/#ai-guidance).*
 
 **We continue reviewing legal requirements and always have alignment with the CNCF rules and guidelines; this is an evolving space and may change without notice.**
 
@@ -258,6 +259,14 @@ make test-<component>-integration # run the integration tests for a specific com
 The E2E tests are written in the [test/e2e](test/e2e) directory. You can run the E2E tests:
 - referring to the steps described in the [e2e workflow](.github/workflows/e2e.yml) file
 - or by the [act](https://github.com/nektos/act) command: `act -j e2e`
+
+### Cluster Inventory conformance tests
+
+The [test/conformance](test/conformance) directory runs the shared
+[Cluster Inventory API](https://github.com/kubernetes-sigs/cluster-inventory-api) producer conformance suite against
+the ClusterProfiles that OCM publishes. Run `make test-cluster-inventory-conformance-kind` to create three kind clusters
+with locally built images and run the suite, `make test-cluster-inventory-conformance` to run it again on the existing
+clusters, and `make clean-cluster-inventory-conformance-kind` to delete them.
 
 ## Issue and pull request management
 

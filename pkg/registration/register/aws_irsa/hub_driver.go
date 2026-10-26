@@ -3,8 +3,11 @@ package aws_irsa
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"html/template"
+	"net/url"
+	"reflect"
 	"regexp"
 	"strings"
 	"time"
@@ -72,7 +75,7 @@ func (c *AWSIRSAHubDriver) Cleanup(ctx context.Context, managedCluster *clusterv
 		return nil
 	}
 
-	roleName, roleArn, err := getRoleNameAndArn(ctx, managedCluster, c.cfg)
+	roleName, roleArn, err := getRoleNameAndArn(ctx, managedCluster, c.cfg, c.hubClusterArn)
 	if err != nil {
 		logger.V(4).Error(err, "Failed to getRoleNameAndArn")
 		return err
@@ -148,7 +151,7 @@ func createIAMRoleAndPolicy(ctx context.Context, hubClusterArn string, managedCl
 	hubAccountId, hubClusterName = commonhelpers.GetAwsAccountIdAndClusterName(hubClusterArn)
 	managedClusterAccountId, managedClusterName = commonhelpers.GetAwsAccountIdAndClusterName(managedClusterArn)
 
-	roleName, roleArn, err := getRoleNameAndArn(ctx, managedCluster, cfg)
+	roleName, roleArn, err := getRoleNameAndArn(ctx, managedCluster, cfg, hubClusterArn)
 	if err != nil {
 		logger.V(4).Error(err, "Failed to getRoleNameAndArn")
 		return hubClusterName, roleArn, err
@@ -166,6 +169,7 @@ func createIAMRoleAndPolicy(ctx context.Context, hubClusterArn string, managedCl
 		data := map[string]interface{}{
 			"hubClusterArn":               hubClusterArn,
 			"managedClusterAccountId":     managedClusterAccountId,
+			"managedClusterPartition":     commonhelpers.GetAwsPartition(managedClusterArn),
 			"managedClusterIamRoleSuffix": managedClusterIamRoleSuffix,
 			"hubAccountId":                hubAccountId,
 			"hubClusterName":              hubClusterName,
@@ -190,18 +194,81 @@ func createIAMRoleAndPolicy(ctx context.Context, hubClusterArn string, managedCl
 			Tags:                     parsedTags,
 		})
 		if err != nil {
-			// Ignore error when role already exists as we will always create the same role
 			if !(strings.Contains(err.Error(), errEntityAlreadyExists)) {
 				logger.V(4).Error(err, "Failed to create IAM role %s for ManagedCluster", "IAMRole", roleName, "ManagedCluster", managedClusterName)
 				return hubClusterName, roleArn, err
-			} else {
-				logger.V(4).Info("Ignore IAM role creation error for ManagedCluster as it already exists", "IAMRole", roleName, "ManagedCluster", managedClusterName)
+			}
+			// The role name is stable, but the trust stored on an existing role may not be: IAM resolves
+			// the principal to the role's unique ID, so a managed-cluster role that was deleted and
+			// recreated no longer matches it. Reconcile the trust policy instead of assuming it is right.
+			logger.V(4).Info("IAM role already exists for ManagedCluster, reconciling its trust policy", "IAMRole", roleName, "ManagedCluster", managedClusterName)
+			if err := reconcileTrustPolicy(ctx, iamClient, roleName, trustPolicy, managedClusterName); err != nil {
+				return hubClusterName, roleArn, err
 			}
 		} else {
 			logger.V(4).Info("Role created successfully for ManagedCluster", "IAMRole", *createRoleOutput.Role.Arn, "ManagedCluster", managedClusterName)
 		}
 	}
 	return hubClusterName, roleArn, nil
+}
+
+// reconcileTrustPolicy makes sure an existing hub role trusts the managed cluster role that
+// TrustPolicy.tmpl renders. Errors are returned rather than logged so the hub controller surfaces
+// them on the ManagedCluster's HubAccepted condition.
+func reconcileTrustPolicy(ctx context.Context, iamClient *iam.Client, roleName, desiredTrustPolicy, managedClusterName string) error {
+	logger := klog.FromContext(ctx)
+
+	getRoleOutput, err := iamClient.GetRole(ctx, &iam.GetRoleInput{RoleName: aws.String(roleName)})
+	if err != nil {
+		return fmt.Errorf("failed to get IAM role %s to verify its trust policy for ManagedCluster %s: %w", roleName, managedClusterName, err)
+	}
+
+	var currentTrustPolicy string
+	if getRoleOutput.Role != nil {
+		currentTrustPolicy = aws.ToString(getRoleOutput.Role.AssumeRolePolicyDocument)
+	}
+	matches, err := trustPolicyMatches(currentTrustPolicy, desiredTrustPolicy)
+	if err != nil {
+		return fmt.Errorf("failed to compare trust policy of IAM role %s for ManagedCluster %s: %w", roleName, managedClusterName, err)
+	}
+	if matches {
+		logger.V(4).Info("Trust policy of existing IAM role is up to date", "IAMRole", roleName, "ManagedCluster", managedClusterName)
+		return nil
+	}
+
+	logger.Info("Trust policy of existing IAM role does not match the expected trust policy, updating it",
+		"IAMRole", roleName, "ManagedCluster", managedClusterName)
+	_, err = iamClient.UpdateAssumeRolePolicy(ctx, &iam.UpdateAssumeRolePolicyInput{
+		RoleName:       aws.String(roleName),
+		PolicyDocument: aws.String(desiredTrustPolicy),
+	})
+	if err != nil {
+		return fmt.Errorf("failed to update trust policy of IAM role %s for ManagedCluster %s: %w", roleName, managedClusterName, err)
+	}
+	logger.Info("Trust policy of existing IAM role updated", "IAMRole", roleName, "ManagedCluster", managedClusterName)
+	return nil
+}
+
+// trustPolicyMatches compares the trust policy IAM stores on a role with the one the driver wants.
+// GetRole returns the document URL-encoded and IAM does not preserve formatting, so the comparison
+// is structural. A stored document that cannot be decoded counts as a mismatch: updating it is the
+// way back to a known state. The desired document is rendered by the driver, so failing to parse it
+// is a bug and is reported as an error.
+func trustPolicyMatches(current, desired string) (bool, error) {
+	var desiredDoc interface{}
+	if err := json.Unmarshal([]byte(desired), &desiredDoc); err != nil {
+		return false, fmt.Errorf("desired trust policy is not valid JSON: %w", err)
+	}
+
+	decoded, err := url.QueryUnescape(current)
+	if err != nil {
+		return false, nil
+	}
+	var currentDoc interface{}
+	if err := json.Unmarshal([]byte(decoded), &currentDoc); err != nil {
+		return false, nil
+	}
+	return reflect.DeepEqual(currentDoc, desiredDoc), nil
 }
 
 func renderTemplate(argTemplate string, data interface{}) (args string, err error) {
@@ -286,7 +353,10 @@ func deleteIAMRole(ctx context.Context, cfg aws.Config, roleName string) error {
 	return nil
 }
 
-func getRoleNameAndArn(ctx context.Context, managedCluster *v1.ManagedCluster, cfg aws.Config) (string, string, error) {
+// The IAM role lives in the hub cluster's account, so its ARN has to be built in the
+// same partition as hubClusterArn.
+func getRoleNameAndArn(ctx context.Context, managedCluster *v1.ManagedCluster, cfg aws.Config,
+	hubClusterArn string) (string, string, error) {
 	logger := klog.FromContext(ctx)
 
 	managedClusterIamRoleSuffix :=
@@ -300,7 +370,7 @@ func getRoleNameAndArn(ctx context.Context, managedCluster *v1.ManagedCluster, c
 		return "", "", err
 	}
 	awsAccountId := creds.AccountID
-	roleArn := fmt.Sprintf("arn:aws:iam::%s:role/%s", awsAccountId, roleName)
+	roleArn := commonhelpers.BuildIamRoleArn(commonhelpers.GetAwsPartition(hubClusterArn), awsAccountId, roleName)
 	return roleName, roleArn, err
 }
 
