@@ -31,7 +31,7 @@ jobs:
       - name: unit
         run: make test
       - name: report coverage
-        uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v6
+        uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7.1.1
         with:
           token: ${{ secrets.CODECOV_UPLOAD_TOKEN }}
           files: ./coverage.out
@@ -49,6 +49,11 @@ jobs:
     steps:
       - name: checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        # The image version comes from `git describe`, which needs the tags and the history
+        # back to the last release. A treeless clone has both and stays small.
+        with:
+          fetch-depth: 0
+          filter: tree:0
       - name: install Go
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
@@ -71,7 +76,7 @@ jobs:
           image_digest=$(docker inspect --format='{{index .RepoDigests 0}}' "quay.io/open-cluster-management/${{ matrix.image-name }}:latest-${{ matrix.arch }}" | cut -d'@' -f2)
           echo "IMAGE_DIGEST=${image_digest}" >> $GITHUB_ENV
       - name: Generate SBOM
-        uses: anchore/sbom-action@e22c389904149dbc22b58101806040fa8d37a610 # v0
+        uses: anchore/sbom-action@66cbf4bc1f1c0d2edc94016e65bc221b6bb0ad6c # v0.24.3
         with:
           image: quay.io/open-cluster-management/${{ matrix.image-name }}:latest-${{ matrix.arch }}
           format: 'spdx-json'
@@ -117,7 +122,7 @@ jobs:
           image_digest_latest=$(skopeo inspect docker://quay.io/open-cluster-management/${{ matrix.image-name }}:latest | jq -r '.Digest')
           echo "IMAGE_DIGEST_LATEST=${image_digest_latest}" >> $GITHUB_ENV
       - name: Generate SBOM
-        uses: anchore/sbom-action@e22c389904149dbc22b58101806040fa8d37a610 # v0
+        uses: anchore/sbom-action@66cbf4bc1f1c0d2edc94016e65bc221b6bb0ad6c # v0.24.3
         with:
           image: quay.io/open-cluster-management/${{ matrix.image-name }}:latest
           format: 'spdx-json'

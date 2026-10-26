@@ -60,6 +60,19 @@ func buildClusterAnnotationsString(annotations map[string]string) string {
 	return strings.Join(arr, ",")
 }
 
+// buildClusterLabelsString serializes labels into a deterministically sorted comma-separated key=value string.
+func buildClusterLabelsString(labels map[string]string) string {
+	if len(labels) == 0 {
+		return ""
+	}
+	arr := make([]string, 0, len(labels))
+	for k, v := range labels {
+		arr = append(arr, fmt.Sprintf("%s=%s", k, v))
+	}
+	sort.Strings(arr)
+	return strings.Join(arr, ",")
+}
+
 type klusterletController struct {
 	patcher                       patcher.Patcher[*operatorapiv1.Klusterlet, operatorapiv1.KlusterletSpec, operatorapiv1.KlusterletStatus]
 	klusterletLister              operatorlister.KlusterletLister
@@ -146,8 +159,10 @@ func (managedClusterIamRole *ManagedClusterIamRole) arn() string {
 	hubClusterAccountId, hubClusterName := commonhelpers.GetAwsAccountIdAndClusterName(managedClusterIamRole.AwsIrsa.HubClusterArn)
 	md5HashUniqueIdentifier := commonhelpers.Md5HashSuffix(hubClusterAccountId, hubClusterName, managedClusterAccountId, managedClusterName)
 
-	//arn:aws:iam::<managed-cluster-account-id>:role/ocm-managed-cluster-<md5-hash-unique-identifier>
-	return "arn:aws:iam::" + managedClusterAccountId + ":role/ocm-managed-cluster-" + md5HashUniqueIdentifier
+	//arn:<partition>:iam::<managed-cluster-account-id>:role/ocm-managed-cluster-<md5-hash-unique-identifier>
+	// The role is created in the managed cluster's account, so it inherits that cluster's partition.
+	partition := commonhelpers.GetAwsPartition(managedClusterIamRole.AwsIrsa.ManagedClusterArn)
+	return commonhelpers.BuildIamRoleArn(partition, managedClusterAccountId, "ocm-managed-cluster-"+md5HashUniqueIdentifier)
 }
 
 // klusterletConfig is used to render the template of hub manifests
@@ -172,6 +187,7 @@ type klusterletConfig struct {
 	RegistrationServiceAccount                  string
 	WorkServiceAccount                          string
 	ClusterName                                 string
+	HubClusterName                              string
 	ExternalServerURL                           string
 	HubKubeConfigSecret                         string
 	MultipleHubs                                bool
@@ -182,6 +198,7 @@ type klusterletConfig struct {
 	Replica                                     int32
 	ClientCertExpirationSeconds                 int32
 	ClusterAnnotationsString                    string
+	ClusterLabelsString                         string
 	RegistrationKubeAPIQPS                      float32
 	RegistrationKubeAPIBurst                    int32
 	WorkKubeAPIQPS                              float32
@@ -430,6 +447,7 @@ func (n *klusterletController) sync(ctx context.Context, controllerContext facto
 		}
 
 		config.ClusterAnnotationsString = buildClusterAnnotationsString(klusterlet.Spec.RegistrationConfiguration.ClusterAnnotations)
+		config.ClusterLabelsString = buildClusterLabelsString(klusterlet.Spec.RegistrationConfiguration.ClusterLabels)
 
 		// Set AddOnKubeClientRegistrationAuth from the Klusterlet spec
 		if klusterlet.Spec.RegistrationConfiguration.AddOnKubeClientRegistrationDriver != nil &&

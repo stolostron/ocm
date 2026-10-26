@@ -15,10 +15,10 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/klog/v2"
-	cpv1alpha1 "sigs.k8s.io/cluster-inventory-api/apis/v1alpha1"
+	cpv1alpha2 "sigs.k8s.io/cluster-inventory-api/apis/v1alpha2"
 	cpclientset "sigs.k8s.io/cluster-inventory-api/client/clientset/versioned"
-	cpinformerv1alpha1 "sigs.k8s.io/cluster-inventory-api/client/informers/externalversions/apis/v1alpha1"
-	cplisterv1alpha1 "sigs.k8s.io/cluster-inventory-api/client/listers/apis/v1alpha1"
+	cpinformerv1alpha2 "sigs.k8s.io/cluster-inventory-api/client/informers/externalversions/apis/v1alpha2"
+	cplisterv1alpha2 "sigs.k8s.io/cluster-inventory-api/client/listers/apis/v1alpha2"
 
 	informerv1 "open-cluster-management.io/api/client/cluster/informers/externalversions/cluster/v1"
 	clusterinformerv1beta2 "open-cluster-management.io/api/client/cluster/informers/externalversions/cluster/v1beta2"
@@ -52,7 +52,7 @@ type clusterProfileLifecycleController struct {
 	clusterSetBindingLister  clusterlisterv1beta2.ManagedClusterSetBindingLister
 	clusterSetBindingIndexer cache.Indexer
 	clusterProfileClient     cpclientset.Interface
-	clusterProfileLister     cplisterv1alpha1.ClusterProfileLister
+	clusterProfileLister     cplisterv1alpha2.ClusterProfileLister
 }
 
 // NewClusterProfileLifecycleController creates a controller that manages ClusterProfile lifecycle
@@ -62,7 +62,7 @@ func NewClusterProfileLifecycleController(
 	clusterSetInformer clusterinformerv1beta2.ManagedClusterSetInformer,
 	clusterSetBindingInformer clusterinformerv1beta2.ManagedClusterSetBindingInformer,
 	clusterProfileClient cpclientset.Interface,
-	clusterProfileInformer cpinformerv1alpha1.ClusterProfileInformer) factory.Controller {
+	clusterProfileInformer cpinformerv1alpha2.ClusterProfileInformer) factory.Controller {
 
 	// Note: ByClusterSetIndex indexer is already added by managedclustersetbinding controller,
 	// so we don't need to add it again here. Informers are shared across controllers.
@@ -138,14 +138,14 @@ func (c *clusterProfileLifecycleController) registerClusterEventHandler(
 // registerProfileEventHandler adds a custom event handler to profile informer that only processes
 // create and delete events, skipping updates to avoid noisy events.
 func (c *clusterProfileLifecycleController) registerProfileEventHandler(
-	clusterProfileInformer cpinformerv1alpha1.ClusterProfileInformer,
+	clusterProfileInformer cpinformerv1alpha2.ClusterProfileInformer,
 	controller factory.Controller) {
 
 	queue := controller.SyncContext().Queue()
 
 	_, err := clusterProfileInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
-			profile, ok := obj.(*cpv1alpha1.ClusterProfile)
+			profile, ok := obj.(*cpv1alpha2.ClusterProfile)
 			if !ok {
 				return
 			}
@@ -156,11 +156,11 @@ func (c *clusterProfileLifecycleController) registerProfileEventHandler(
 		},
 		// UpdateFunc intentionally omitted - we don't care about clusterprofile updates
 		DeleteFunc: func(obj interface{}) {
-			profile, ok := obj.(*cpv1alpha1.ClusterProfile)
+			profile, ok := obj.(*cpv1alpha2.ClusterProfile)
 			if !ok {
 				// Handle tombstone
 				if tombstone, ok := obj.(cache.DeletedFinalStateUnknown); ok {
-					profile, ok = tombstone.Obj.(*cpv1alpha1.ClusterProfile)
+					profile, ok = tombstone.Obj.(*cpv1alpha2.ClusterProfile)
 					if !ok {
 						return
 					}
@@ -263,7 +263,7 @@ func (c *clusterProfileLifecycleController) clusterToQueueKeys(obj runtime.Objec
 
 // profileToQueueKey maps a ClusterProfile to its namespace
 func (c *clusterProfileLifecycleController) profileToQueueKey(obj runtime.Object) []string {
-	profile, ok := obj.(*cpv1alpha1.ClusterProfile)
+	profile, ok := obj.(*cpv1alpha2.ClusterProfile)
 	if !ok {
 		return nil
 	}
@@ -305,7 +305,7 @@ func (c *clusterProfileLifecycleController) sync(ctx context.Context, syncCtx fa
 	logger.V(4).Info("Found bindings", "count", len(allBindings))
 
 	// 2. Build the desired state: which clusters should have profiles in this namespace
-	desiredClusters := sets.New[string]()
+	desiredClusters := map[string]*v1.ManagedCluster{}
 
 	for _, binding := range allBindings {
 		// Check if binding is bound
@@ -345,16 +345,16 @@ func (c *clusterProfileLifecycleController) sync(ctx context.Context, syncCtx fa
 			if !cluster.DeletionTimestamp.IsZero() {
 				continue
 			}
-			desiredClusters.Insert(cluster.Name)
+			desiredClusters[cluster.Name] = cluster
 		}
 	}
 
-	logger.V(4).Info("Calculated desired state", "desiredClusterCount", desiredClusters.Len())
+	logger.V(4).Info("Calculated desired state", "desiredClusterCount", len(desiredClusters))
 
 	// 3. Get all existing profiles in this namespace managed by us
 	existingProfiles, err := c.clusterProfileLister.ClusterProfiles(namespace).List(
 		labels.SelectorFromSet(labels.Set{
-			cpv1alpha1.LabelClusterManagerKey: ClusterProfileManagerName,
+			cpv1alpha2.LabelClusterManagerKey: ClusterProfileManagerName,
 		}))
 	if err != nil {
 		return err
@@ -370,15 +370,16 @@ func (c *clusterProfileLifecycleController) sync(ctx context.Context, syncCtx fa
 
 	// 4. Reconcile using set difference operations
 	// Clusters to create = desired - existing
-	clustersToCreate := desiredClusters.Difference(existingClusters)
+	desiredClusterNames := sets.KeySet(desiredClusters)
+	clustersToCreate := desiredClusterNames.Difference(existingClusters)
 	// Clusters to delete = existing - desired
-	clustersToDelete := existingClusters.Difference(desiredClusters)
+	clustersToDelete := existingClusters.Difference(desiredClusterNames)
 
 	var errs []error
 
 	// Create missing profiles
 	for clusterName := range clustersToCreate {
-		err := c.createClusterProfile(ctx, namespace, clusterName)
+		err := c.createClusterProfile(ctx, namespace, desiredClusters[clusterName])
 		if err != nil {
 			logger.Error(err, "Failed to create ClusterProfile", "cluster", clusterName)
 			errs = append(errs, fmt.Errorf("failed to create ClusterProfile %s/%s: %w", namespace, clusterName, err))
@@ -388,7 +389,7 @@ func (c *clusterProfileLifecycleController) sync(ctx context.Context, syncCtx fa
 	// Delete extra profiles
 	for clusterName := range clustersToDelete {
 		// ClusterProfile.Name equals clusterName, so we can delete directly
-		err := c.clusterProfileClient.ApisV1alpha1().ClusterProfiles(namespace).Delete(
+		err := c.clusterProfileClient.ApisV1alpha2().ClusterProfiles(namespace).Delete(
 			ctx, clusterName, metav1.DeleteOptions{})
 		if err != nil && !errors.IsNotFound(err) {
 			logger.Error(err, "Failed to delete ClusterProfile", "cluster", clusterName)
@@ -402,28 +403,30 @@ func (c *clusterProfileLifecycleController) sync(ctx context.Context, syncCtx fa
 }
 
 // createClusterProfile creates a new ClusterProfile in the specified namespace
-func (c *clusterProfileLifecycleController) createClusterProfile(ctx context.Context, namespace, clusterName string) error {
+func (c *clusterProfileLifecycleController) createClusterProfile(ctx context.Context, namespace string, cluster *v1.ManagedCluster) error {
 	logger := klog.FromContext(ctx)
+	clusterName := cluster.Name
 
-	clusterProfile := &cpv1alpha1.ClusterProfile{
+	clusterProfile := &cpv1alpha2.ClusterProfile{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      clusterName,
 			Namespace: namespace,
 			Labels: map[string]string{
-				cpv1alpha1.LabelClusterManagerKey: ClusterProfileManagerName,
-				v1.ClusterNameLabelKey:            clusterName,
+				cpv1alpha2.LabelClusterManagerKey:    ClusterProfileManagerName,
+				v1.ClusterNameLabelKey:               clusterName,
+				cpv1alpha2.LabelInventoryMemberIDKey: inventoryMemberID(cluster),
 			},
 		},
-		Spec: cpv1alpha1.ClusterProfileSpec{
+		Spec: cpv1alpha2.ClusterProfileSpec{
 			DisplayName: clusterName,
-			ClusterManager: cpv1alpha1.ClusterManager{
+			ClusterManager: cpv1alpha2.ClusterManager{
 				Name: ClusterProfileManagerName,
 			},
 		},
 		// Note: ClusterProfile Status will be handled by the status controller
 	}
 
-	_, err := c.clusterProfileClient.ApisV1alpha1().ClusterProfiles(namespace).Create(ctx, clusterProfile, metav1.CreateOptions{})
+	_, err := c.clusterProfileClient.ApisV1alpha2().ClusterProfiles(namespace).Create(ctx, clusterProfile, metav1.CreateOptions{})
 	if err != nil {
 		return err
 	}
