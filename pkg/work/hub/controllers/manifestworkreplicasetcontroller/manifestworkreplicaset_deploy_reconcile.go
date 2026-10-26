@@ -3,14 +3,12 @@ package manifestworkreplicasetcontroller
 import (
 	"context"
 	"fmt"
-	"strings"
 
 	"k8s.io/apimachinery/pkg/api/errors"
 	apimeta "k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/apimachinery/pkg/util/sets"
-	"k8s.io/apimachinery/pkg/util/validation"
 
 	clusterlister "open-cluster-management.io/api/client/cluster/listers/cluster/v1beta1"
 	worklisterv1 "open-cluster-management.io/api/client/work/listers/work/v1"
@@ -22,9 +20,6 @@ import (
 	"open-cluster-management.io/ocm/pkg/common/helpers"
 	"open-cluster-management.io/ocm/pkg/work/helper"
 )
-
-// ReasonInvalidManifestWorkName indicates an invalid ManifestWork owner label.
-const ReasonInvalidManifestWorkName = "InvalidManifestWorkName"
 
 // deployReconciler is to manage ManifestWork based on the placement.
 type deployReconciler struct {
@@ -41,18 +36,6 @@ func (d *deployReconciler) reconcile(
 	var plcsSummary []workapiv1alpha1.PlacementSummary
 	minRequeue := maxRequeueTime
 	count, total, succeededCount := 0, 0, 0
-
-	// Report invalid ManifestWork owner labels in status.
-	// TODO: remove this once the owner label uses a hash value instead of
-	// namespace.name (#1596); the 63-char label limit no longer applies then.
-	ownerValue := manifestWorkReplicaSetKey(mwrSet)
-	if verrs := validation.IsValidLabelValue(ownerValue); len(verrs) > 0 {
-		message := fmt.Sprintf("ManifestWork owner reference %q (namespace.name) is not a valid label value: %s; "+
-			"recreate the ManifestWorkReplicaSet with a shorter namespace and/or name so the combined length is at most 63 characters",
-			ownerValue, strings.Join(verrs, "; "))
-		apimeta.SetStatusCondition(&mwrSet.Status.Conditions, getManifestworkApplied(ReasonInvalidManifestWorkName, message))
-		return mwrSet, reconcileStop, nil
-	}
 
 	// Clean up ManifestWorks from placements no longer in the spec
 	currentPlacementNames := sets.New[string]()
@@ -85,7 +68,7 @@ func (d *deployReconciler) reconcile(
 		placement, err := d.placementLister.Placements(mwrSet.Namespace).Get(placementRef.Name)
 
 		if errors.IsNotFound(err) {
-			apimeta.SetStatusCondition(&mwrSet.Status.Conditions, getPlacementDecisionVerified(workapiv1alpha1.ReasonPlacementDecisionNotFound, ""))
+			apimeta.SetStatusCondition(&mwrSet.Status.Conditions, getPlacementDecisionVerified(mwrSet.Generation, workapiv1alpha1.ReasonPlacementDecisionNotFound, ""))
 			return mwrSet, reconcileStop, nil
 		}
 
@@ -123,7 +106,7 @@ func (d *deployReconciler) reconcile(
 		placeTracker := helper.GetPlacementTracker(d.placeDecisionLister, placement, existingClusterNames)
 		rolloutHandler, err := clustersdkv1alpha1.NewRolloutHandler(placeTracker, d.clusterRolloutStatusFunc)
 		if err != nil {
-			apimeta.SetStatusCondition(&mwrSet.Status.Conditions, getPlacementDecisionVerified(workapiv1alpha1.ReasonNotAsExpected, ""))
+			apimeta.SetStatusCondition(&mwrSet.Status.Conditions, getPlacementDecisionVerified(mwrSet.Generation, workapiv1alpha1.ReasonNotAsExpected, ""))
 
 			return mwrSet, reconcileContinue, utilerrors.NewAggregate(errs)
 		}
@@ -138,7 +121,7 @@ func (d *deployReconciler) reconcile(
 
 		if err != nil {
 			errs = append(errs, err)
-			apimeta.SetStatusCondition(&mwrSet.Status.Conditions, getPlacementDecisionVerified(workapiv1alpha1.ReasonNotAsExpected, ""))
+			apimeta.SetStatusCondition(&mwrSet.Status.Conditions, getPlacementDecisionVerified(mwrSet.Generation, workapiv1alpha1.ReasonNotAsExpected, ""))
 
 			continue
 		}
@@ -211,15 +194,24 @@ func (d *deployReconciler) reconcile(
 		mwrSet.Status.Summary.Available = 0
 		mwrSet.Status.Summary.Degraded = 0
 		mwrSet.Status.Summary.Progressing = 0
-		apimeta.SetStatusCondition(&mwrSet.Status.Conditions, getPlacementDecisionVerified(workapiv1alpha1.ReasonPlacementDecisionEmpty, ""))
-	} else {
-		apimeta.SetStatusCondition(&mwrSet.Status.Conditions, getPlacementDecisionVerified(workapiv1alpha1.ReasonAsExpected, ""))
+	}
+	switch {
+	case len(errs) > 0:
+		// Check errors first: an apply or rollout failure on some clusters must be reported even
+		// when others succeeded (count > 0), and when every apply failed (count == 0) it must not
+		// be reported as a misleading PlacementDecisionEmpty.
+		apimeta.SetStatusCondition(&mwrSet.Status.Conditions,
+			getPlacementDecisionVerified(mwrSet.Generation, workapiv1alpha1.ReasonNotAsExpected, aggregatedErrorMessage(errs)))
+	case count > 0:
+		apimeta.SetStatusCondition(&mwrSet.Status.Conditions, getPlacementDecisionVerified(mwrSet.Generation, workapiv1alpha1.ReasonAsExpected, ""))
+	default:
+		apimeta.SetStatusCondition(&mwrSet.Status.Conditions, getPlacementDecisionVerified(mwrSet.Generation, workapiv1alpha1.ReasonPlacementDecisionEmpty, ""))
 	}
 
 	if total == succeededCount {
-		apimeta.SetStatusCondition(&mwrSet.Status.Conditions, getPlacementRollOut(workapiv1alpha1.ReasonComplete, ""))
+		apimeta.SetStatusCondition(&mwrSet.Status.Conditions, getPlacementRollOut(mwrSet.Generation, workapiv1alpha1.ReasonComplete, ""))
 	} else {
-		apimeta.SetStatusCondition(&mwrSet.Status.Conditions, getPlacementRollOut(workapiv1alpha1.ReasonProgressing, ""))
+		apimeta.SetStatusCondition(&mwrSet.Status.Conditions, getPlacementRollOut(mwrSet.Generation, workapiv1alpha1.ReasonProgressing, ""))
 	}
 
 	if len(errs) > 0 {
@@ -337,39 +329,60 @@ func isConditionReady(cond *metav1.Condition, generation int64, requireTrue bool
 }
 
 // getManifestworkApplied return only True status if there all clusters have manifests applied as expected
-func getManifestworkApplied(reason string, message string) metav1.Condition {
+func getManifestworkApplied(generation int64, reason string, message string) metav1.Condition {
 	if reason == workapiv1alpha1.ReasonAsExpected {
-		return getCondition(workapiv1alpha1.ManifestWorkReplicaSetConditionManifestworkApplied, reason, message, metav1.ConditionTrue)
+		return getCondition(workapiv1alpha1.ManifestWorkReplicaSetConditionManifestworkApplied, reason, message, metav1.ConditionTrue, generation)
 	}
 
-	return getCondition(workapiv1alpha1.ManifestWorkReplicaSetConditionManifestworkApplied, reason, message, metav1.ConditionFalse)
+	return getCondition(workapiv1alpha1.ManifestWorkReplicaSetConditionManifestworkApplied, reason, message, metav1.ConditionFalse, generation)
 
 }
 
 // getPlacementDecisionVerified return only True status if there are clusters selected
-func getPlacementDecisionVerified(reason string, message string) metav1.Condition {
+func getPlacementDecisionVerified(generation int64, reason string, message string) metav1.Condition {
 	if reason == workapiv1alpha1.ReasonAsExpected {
-		return getCondition(workapiv1alpha1.ManifestWorkReplicaSetConditionPlacementVerified, reason, message, metav1.ConditionTrue)
+		return getCondition(workapiv1alpha1.ManifestWorkReplicaSetConditionPlacementVerified, reason, message, metav1.ConditionTrue, generation)
 	}
 
-	return getCondition(workapiv1alpha1.ManifestWorkReplicaSetConditionPlacementVerified, reason, message, metav1.ConditionFalse)
+	return getCondition(workapiv1alpha1.ManifestWorkReplicaSetConditionPlacementVerified, reason, message, metav1.ConditionFalse, generation)
 }
 
 // getPlacementRollOut return only True status if all the clusters selected by the placement have succeeded
-func getPlacementRollOut(reason string, message string) metav1.Condition {
+func getPlacementRollOut(generation int64, reason string, message string) metav1.Condition {
 	if reason == workapiv1alpha1.ReasonComplete {
-		return getCondition(workapiv1alpha1.ManifestWorkReplicaSetConditionPlacementRolledOut, reason, message, metav1.ConditionTrue)
+		return getCondition(workapiv1alpha1.ManifestWorkReplicaSetConditionPlacementRolledOut, reason, message, metav1.ConditionTrue, generation)
 	}
 
-	return getCondition(workapiv1alpha1.ManifestWorkReplicaSetConditionPlacementRolledOut, reason, message, metav1.ConditionFalse)
+	return getCondition(workapiv1alpha1.ManifestWorkReplicaSetConditionPlacementRolledOut, reason, message, metav1.ConditionFalse, generation)
 }
 
-func getCondition(conditionType string, reason string, message string, status metav1.ConditionStatus) metav1.Condition {
+// maxAggregatedErrorMessageLen caps how much of the aggregated apply/rollout error text is
+// copied into a status condition message, so one reconcile touching many clusters can't blow
+// up the ManifestWorkReplicaSet's status with an unbounded amount of text.
+const maxAggregatedErrorMessageLen = 2048
+
+// aggregatedErrorMessage joins errs the same way utilerrors.NewAggregate does, but truncates
+// the result so a failure affecting many clusters at once still produces a readable condition
+// message instead of one arbitrarily long string.
+func aggregatedErrorMessage(errs []error) string {
+	if len(errs) == 0 {
+		return ""
+	}
+	msg := utilerrors.NewAggregate(errs).Error()
+	if len(msg) <= maxAggregatedErrorMessageLen {
+		return msg
+	}
+	suffix := fmt.Sprintf("... (truncated; %d errors total)", len(errs))
+	return msg[:maxAggregatedErrorMessageLen-len(suffix)] + suffix
+}
+
+func getCondition(conditionType string, reason string, message string, status metav1.ConditionStatus, generation int64) metav1.Condition {
 	return metav1.Condition{
 		Type:               conditionType,
 		Reason:             reason,
 		Message:            message,
 		Status:             status,
+		ObservedGeneration: generation,
 		LastTransitionTime: metav1.Now(),
 	}
 }
@@ -380,22 +393,36 @@ func buildManifestWork(
 	clusterNS string,
 	placementRefName string,
 ) *workv1.ManifestWork {
-	// Get ManifestWorkReplicaSet labels
-	labels := mwrSet.Labels
-
 	// Merge mwrSet.Labels with the required labels
 	mergedLabels := make(map[string]string)
-	for k, v := range labels {
+	for k, v := range mwrSet.Labels {
 		mergedLabels[k] = v
 	}
 
-	mergedLabels[workapiv1alpha1.ManifestWorkReplicaSetControllerNameLabelKey] = manifestWorkReplicaSetKey(mwrSet)
+	mergedLabels[helper.ManifestWorkReplicaSetOwnerKeyHashLabelKey] = ownerKeyHash(mwrSet.Namespace, mwrSet.Name)
 	mergedLabels[workapiv1alpha1.ManifestWorkReplicaSetPlacementNameLabelKey] = placementRefName
+
+	// Deprecated: still set the old label when the value fits the 63-char limit,
+	// for backward compatibility with older controllers that select by this label.
+	oldValue := manifestWorkReplicaSetKey(mwrSet)
+	if len(oldValue) <= helper.LabelValueMaxLength {
+		mergedLabels[workapiv1alpha1.ManifestWorkReplicaSetControllerNameLabelKey] = oldValue
+	} else {
+		// Strip the deprecated label even if it was copied from user-supplied
+		// MWRS labels, to prevent a short-name MWRS from claiming ownership
+		// of these ManifestWorks through the deprecated-label fallback.
+		delete(mergedLabels, workapiv1alpha1.ManifestWorkReplicaSetControllerNameLabelKey)
+	}
+
+	annotations := map[string]string{
+		helper.ManifestWorkReplicaSetOwnerAnnotationKey: manifestWorkReplicaSetOwnerValue(mwrSet),
+	}
 
 	mw := &workv1.ManifestWork{
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace: clusterNS,
-			Labels:    mergedLabels,
+			Namespace:   clusterNS,
+			Labels:      mergedLabels,
+			Annotations: annotations,
 		},
 		Spec: mwrSet.Spec.ManifestWorkTemplate,
 	}
