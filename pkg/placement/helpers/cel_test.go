@@ -119,7 +119,7 @@ func TestCELSelector(t *testing.T) {
 			cluster:            nil,
 			expectedMatch:      false,
 			expectCompileError: false,
-			expectedCost:       3,
+			expectedCost:       2,
 		},
 		{
 			name:               "empty expressions",
