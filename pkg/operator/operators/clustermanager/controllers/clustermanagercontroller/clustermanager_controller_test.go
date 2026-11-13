@@ -40,7 +40,6 @@ import (
 )
 
 var (
-	ctx        = context.Background()
 	createVerb = "create"
 )
 
@@ -411,6 +410,7 @@ func ensureObject(t *testing.T, object runtime.Object, hubCore *operatorapiv1.Cl
 }
 
 func assertDeployments(t *testing.T, clusterManager *operatorapiv1.ClusterManager, expectedCreatedKubeObjects, expectedCreatedCRDs int) {
+	ctx := t.Context()
 	tc := newTestController(t, clusterManager)
 	clusterManagerNamespace := helpers.ClusterManagerNamespace(clusterManager.Name, clusterManager.Spec.DeployOption.Mode)
 	cd := setDeployment(clusterManager.Name, clusterManagerNamespace)
@@ -452,6 +452,7 @@ func assertDeployments(t *testing.T, clusterManager *operatorapiv1.ClusterManage
 }
 
 func assertDeletion(t *testing.T, clusterManager *operatorapiv1.ClusterManager, expectedDeleteActions, expectedDeleteCRDs int) {
+	ctx := t.Context()
 	tc := newTestController(t, clusterManager)
 	setup(t, tc, nil)
 
@@ -493,6 +494,7 @@ func assertDeletion(t *testing.T, clusterManager *operatorapiv1.ClusterManager, 
 }
 
 func TestSyncSecret(t *testing.T) {
+	ctx := t.Context()
 	operatorNamespace := helpers.DefaultComponentNamespace
 	tests := []struct {
 		name                                    string
@@ -659,6 +661,7 @@ func TestSyncDeployWithGRPCAuthEnabled(t *testing.T) {
 }
 
 func TestSyncDeployNoWebhook(t *testing.T) {
+	ctx := t.Context()
 	clusterManager := newClusterManager("testhub")
 	tc := newTestController(t, clusterManager)
 	setup(t, tc, nil)
@@ -703,6 +706,7 @@ func TestSyncDeployNoWebhook(t *testing.T) {
 // the ConfigMap before proceeding, preventing CRDs from being created with invalid "placeholder"
 // CA bundles that would cause webhook conversion to fail.
 func TestSyncDeployWithoutCaBundle(t *testing.T) {
+	ctx := t.Context()
 	clusterManager := newClusterManager("testhub")
 	tc := newTestControllerWithoutCaBundle(t, clusterManager)
 	clusterManagerNamespace := helpers.ClusterManagerNamespace(clusterManager.Name, clusterManager.Spec.DeployOption.Mode)
@@ -726,7 +730,7 @@ func TestSyncDeployWithoutCaBundle(t *testing.T) {
 func TestSyncDelete(t *testing.T) {
 	clusterManager := newClusterManager("testhub")
 	now := metav1.Now()
-	clusterManager.ObjectMeta.SetDeletionTimestamp(&now)
+	clusterManager.SetDeletionTimestamp(&now)
 
 	assertDeletion(t, clusterManager, 32, 16)
 }
@@ -744,15 +748,16 @@ func TestSyncDeleteWithGRPCAuthEnabled(t *testing.T) {
 		},
 	}
 	now := metav1.Now()
-	clusterManager.ObjectMeta.SetDeletionTimestamp(&now)
+	clusterManager.SetDeletionTimestamp(&now)
 	assertDeletion(t, clusterManager, 36, 16)
 }
 
 // TestDeleteCRD test delete crds
 func TestDeleteCRD(t *testing.T) {
+	ctx := t.Context()
 	clusterManager := newClusterManager("testhub")
 	now := metav1.Now()
-	clusterManager.ObjectMeta.SetDeletionTimestamp(&now)
+	clusterManager.SetDeletionTimestamp(&now)
 	crd := &apiextensionsv1.CustomResourceDefinition{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "clustermanagementaddons.addon.open-cluster-management.io",
@@ -889,7 +894,7 @@ func newFakeHubConfigWithResourceRequirement(t *testing.T, r *operatorapiv1.Reso
 		},
 	}
 
-	resourceRequirements, err := helpers.ResourceRequirements(context.Background(), clusterManager)
+	resourceRequirements, err := helpers.ResourceRequirements(t.Context(), clusterManager)
 	if err != nil {
 		t.Errorf("Failed to parse resource requirements: %v", err)
 	}
@@ -939,6 +944,7 @@ func newSecret(name, namespace string) *corev1.Secret {
 
 // TestGRPCServiceLoadBalancerType tests that the GRPC service is of LoadBalancer type when configured
 func TestGRPCServiceLoadBalancerType(t *testing.T) {
+	ctx := t.Context()
 	tests := []struct {
 		name                string
 		clusterManager      *operatorapiv1.ClusterManager
@@ -1073,6 +1079,7 @@ func TestGRPCServiceLoadBalancerType(t *testing.T) {
 }
 
 func TestImagePullSecretNameOnHubResources(t *testing.T) {
+	ctx := t.Context()
 	clusterManager := newClusterManager("testhub")
 	clusterManager.Spec.RegistrationConfiguration = &operatorapiv1.RegistrationHubConfiguration{
 		FeatureGates: []operatorapiv1.FeatureGate{
@@ -1144,6 +1151,7 @@ func TestImagePullSecretNameOnHubResources(t *testing.T) {
 
 // TestImporterRenderersConfiguration tests that importer renderers are correctly rendered in the registration deployment
 func TestImporterRenderersConfiguration(t *testing.T) {
+	ctx := t.Context()
 	tests := []struct {
 		name              string
 		clusterManager    *operatorapiv1.ClusterManager
@@ -1294,6 +1302,7 @@ func TestImporterRenderersConfiguration(t *testing.T) {
 
 // TestWorkControllerEnabledByFeatureGates tests that work controller is enabled when specific feature gates are enabled
 func TestWorkControllerEnabledByFeatureGates(t *testing.T) {
+	ctx := t.Context()
 	tests := []struct {
 		name                   string
 		featureGates           []operatorapiv1.FeatureGate
@@ -1353,18 +1362,26 @@ func TestWorkControllerEnabledByFeatureGates(t *testing.T) {
 			description:            "Work controller should be disabled when both feature gates are disabled",
 		},
 		{
+			name: "ManifestWorkReplicaSet disabled only",
+			featureGates: []operatorapiv1.FeatureGate{
+				{Feature: string(ocmfeature.ManifestWorkReplicaSet), Mode: operatorapiv1.FeatureGateModeTypeDisable},
+			},
+			expectedWorkController: false,
+			description:            "Work controller should be disabled when ManifestWorkReplicaSet is explicitly disabled and CleanUpCompletedManifestWork is off by default",
+		},
+		{
 			name: "Only other feature gates enabled",
 			featureGates: []operatorapiv1.FeatureGate{
 				{Feature: string(ocmfeature.CloudEventsDrivers), Mode: operatorapiv1.FeatureGateModeTypeEnable},
 			},
-			expectedWorkController: false,
-			description:            "Work controller should be disabled when only unrelated feature gates are enabled",
+			expectedWorkController: true,
+			description:            "Work controller should be enabled because ManifestWorkReplicaSet is enabled by default",
 		},
 		{
 			name:                   "No work feature gates specified",
 			featureGates:           []operatorapiv1.FeatureGate{},
-			expectedWorkController: false,
-			description:            "Work controller should be disabled when no work feature gates are specified",
+			expectedWorkController: true,
+			description:            "Work controller should be enabled because ManifestWorkReplicaSet is enabled by default",
 		},
 		{
 			name: "ManifestWorkReplicaSet enabled with other feature gates",
@@ -1449,6 +1466,7 @@ func TestWorkControllerEnabledByFeatureGates(t *testing.T) {
 // configured on the controller, the --tls-min-version and --tls-cipher-suites flags
 // are injected into the args of every managed hub deployment.
 func TestSyncDeployWithTLSConfig(t *testing.T) {
+	ctx := t.Context()
 	cases := []struct {
 		name            string
 		tlsMinVersion   string
@@ -1550,6 +1568,7 @@ func TestSyncDeployWithTLSConfig(t *testing.T) {
 }
 
 func TestPlacementFeatureGate(t *testing.T) {
+	ctx := t.Context()
 	tests := []struct {
 		name                   string
 		placementConfiguration *operatorapiv1.PlacementConfiguration
@@ -1649,6 +1668,7 @@ func TestPlacementFeatureGate(t *testing.T) {
 // TestSyncDeployWithTLSConfigGRPC verifies that TLS flags are injected into the
 // gRPC server deployment when gRPC auth is enabled and TLS config is set.
 func TestSyncDeployWithTLSConfigGRPC(t *testing.T) {
+	ctx := t.Context()
 	clusterManager := newClusterManager("testhub")
 	clusterManager.Spec.RegistrationConfiguration = &operatorapiv1.RegistrationHubConfiguration{
 		RegistrationDrivers: []operatorapiv1.RegistrationDriverHub{
@@ -1711,6 +1731,7 @@ func containsArg(args []string, prefix string) bool {
 }
 
 func TestNetworkPolicyFeatureGate(t *testing.T) {
+	ctx := t.Context()
 	cases := []struct {
 		name               string
 		featureGates       []operatorapiv1.FeatureGate
@@ -1786,9 +1807,10 @@ func TestNetworkPolicyFeatureGate(t *testing.T) {
 
 func TestGetIdentityCreatorRoleAndTags(t *testing.T) {
 	cases := []struct {
-		name          string
-		hubClusterArn string
-		expected      string
+		name             string
+		hubClusterArn    string
+		credentialSource operatorapiv1.AwsCredentialSource
+		expected         string
 	}{
 		{
 			name:          "commercial partition",
@@ -1805,6 +1827,18 @@ func TestGetIdentityCreatorRoleAndTags(t *testing.T) {
 			hubClusterArn: "arn:aws-iso:eks:us-iso-east-1:123456789012:cluster/hub-cluster",
 			expected:      "arn:aws-iso:iam::123456789012:role/hub-cluster_managed-cluster-identity-creator",
 		},
+		{
+			name:             "explicit IRSA credential source",
+			hubClusterArn:    "arn:aws:eks:us-west-2:123456789012:cluster/hub-cluster",
+			credentialSource: operatorapiv1.AwsCredentialSourceIRSA,
+			expected:         "arn:aws:iam::123456789012:role/hub-cluster_managed-cluster-identity-creator",
+		},
+		{
+			name:             "PodIdentity credential source skips the annotation",
+			hubClusterArn:    "arn:aws:eks:us-west-2:123456789012:cluster/hub-cluster",
+			credentialSource: operatorapiv1.AwsCredentialSourcePodIdentity,
+			expected:         "",
+		},
 	}
 
 	for _, c := range cases {
@@ -1816,7 +1850,8 @@ func TestGetIdentityCreatorRoleAndTags(t *testing.T) {
 							{
 								AuthType: operatorapiv1.AwsIrsaAuthType,
 								AwsIrsa: &operatorapiv1.AwsIrsaConfig{
-									HubClusterArn: c.hubClusterArn,
+									HubClusterArn:    c.hubClusterArn,
+									CredentialSource: c.credentialSource,
 								},
 							},
 						},

@@ -1,13 +1,12 @@
 package integration
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"time"
 
-	"github.com/onsi/ginkgo/v2"
-	"github.com/onsi/gomega"
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	apiequality "k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -64,11 +63,11 @@ const (
 	}`
 )
 
-var _ = ginkgo.Describe("Agent deploy Beta", func() {
+var _ = Describe("Agent deploy Beta", func() {
 	var managedClusterName string
 	var err error
 	var manifestWorkName string
-	ginkgo.BeforeEach(func() {
+	BeforeEach(func(ctx SpecContext) {
 		suffix := rand.String(5)
 		managedClusterName = fmt.Sprintf("managedcluster-%s", suffix)
 		manifestWorkName = fmt.Sprintf("%s-0", constants.DeployWorkNamePrefix(testAddonImpl.name))
@@ -81,35 +80,35 @@ var _ = ginkgo.Describe("Agent deploy Beta", func() {
 				HubAcceptsClient: true,
 			},
 		}
-		_, err = hubClusterClient.ClusterV1().ManagedClusters().Create(context.Background(), managedCluster, metav1.CreateOptions{})
-		gomega.Expect(err).ToNot(gomega.HaveOccurred())
+		_, err = hubClusterClient.ClusterV1().ManagedClusters().Create(ctx, managedCluster, metav1.CreateOptions{})
+		Expect(err).ToNot(HaveOccurred())
 
 		ns := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: managedClusterName}}
-		_, err = hubKubeClient.CoreV1().Namespaces().Create(context.Background(), ns, metav1.CreateOptions{})
-		gomega.Expect(err).ToNot(gomega.HaveOccurred())
+		_, err = hubKubeClient.CoreV1().Namespaces().Create(ctx, ns, metav1.CreateOptions{})
+		Expect(err).ToNot(HaveOccurred())
 
 		cma := newClusterManagementAddonBeta(testAddonImpl.name)
-		_, err = hubAddonClient.AddonV1beta1().ClusterManagementAddOns().Create(context.Background(),
+		_, err = hubAddonClient.AddonV1beta1().ClusterManagementAddOns().Create(ctx,
 			cma, metav1.CreateOptions{})
-		gomega.Expect(err).ToNot(gomega.HaveOccurred())
+		Expect(err).ToNot(HaveOccurred())
 
-		assertClusterManagementAddOnAnnotationsBeta(testAddonImpl.name)
+		assertClusterManagementAddOnAnnotationsBeta(ctx, testAddonImpl.name)
 	})
 
-	ginkgo.AfterEach(func() {
-		err = hubKubeClient.CoreV1().Namespaces().Delete(context.Background(), managedClusterName, metav1.DeleteOptions{})
-		gomega.Expect(err).ToNot(gomega.HaveOccurred())
-		err = hubClusterClient.ClusterV1().ManagedClusters().Delete(context.Background(), managedClusterName, metav1.DeleteOptions{})
-		gomega.Expect(err).ToNot(gomega.HaveOccurred())
-		err = hubAddonClient.AddonV1beta1().ClusterManagementAddOns().Delete(context.Background(),
+	AfterEach(func(ctx SpecContext) {
+		err = hubKubeClient.CoreV1().Namespaces().Delete(ctx, managedClusterName, metav1.DeleteOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		err = hubClusterClient.ClusterV1().ManagedClusters().Delete(ctx, managedClusterName, metav1.DeleteOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		err = hubAddonClient.AddonV1beta1().ClusterManagementAddOns().Delete(ctx,
 			testAddonImpl.name, metav1.DeleteOptions{})
-		gomega.Expect(err).ToNot(gomega.HaveOccurred())
+		Expect(err).ToNot(HaveOccurred())
 	})
 
-	ginkgo.It("Should deploy agent when cma is managed by addon-manager successfully", func() {
+	It("Should deploy agent when cma is managed by addon-manager successfully", func(ctx SpecContext) {
 		obj := &unstructured.Unstructured{}
 		err := obj.UnmarshalJSON([]byte(deploymentJsonBeta))
-		gomega.Expect(err).ToNot(gomega.HaveOccurred())
+		Expect(err).ToNot(HaveOccurred())
 		testAddonImpl.manifests[managedClusterName] = []runtime.Object{obj}
 		testAddonImpl.prober = &agent.HealthProber{
 			Type: agent.HealthProberTypeWork,
@@ -122,11 +121,11 @@ var _ = ginkgo.Describe("Agent deploy Beta", func() {
 			},
 			Spec: addonapiv1beta1.ManagedClusterAddOnSpec{},
 		}
-		_, err = hubAddonClient.AddonV1beta1().ManagedClusterAddOns(managedClusterName).Create(context.Background(), addon, metav1.CreateOptions{})
-		gomega.Expect(err).ToNot(gomega.HaveOccurred())
+		_, err = hubAddonClient.AddonV1beta1().ManagedClusterAddOns(managedClusterName).Create(ctx, addon, metav1.CreateOptions{})
+		Expect(err).ToNot(HaveOccurred())
 
-		gomega.Eventually(func() error {
-			work, err := hubWorkClient.WorkV1().ManifestWorks(managedClusterName).Get(context.Background(), manifestWorkName, metav1.GetOptions{})
+		Eventually(func() error {
+			work, err := hubWorkClient.WorkV1().ManifestWorks(managedClusterName).Get(ctx, manifestWorkName, metav1.GetOptions{})
 			if err != nil {
 				return err
 			}
@@ -147,19 +146,19 @@ var _ = ginkgo.Describe("Agent deploy Beta", func() {
 				return fmt.Errorf("expected manifest does not match actual, got %v", string(work.Spec.Workload.Manifests[0].Raw))
 			}
 			return nil
-		}, eventuallyTimeout, eventuallyInterval).ShouldNot(gomega.HaveOccurred())
+		}, eventuallyTimeout, eventuallyInterval).ShouldNot(HaveOccurred())
 
 		// Update work status to trigger addon status
-		work, err := hubWorkClient.WorkV1().ManifestWorks(managedClusterName).Get(context.Background(), manifestWorkName, metav1.GetOptions{})
-		gomega.Expect(err).ToNot(gomega.HaveOccurred())
+		work, err := hubWorkClient.WorkV1().ManifestWorks(managedClusterName).Get(ctx, manifestWorkName, metav1.GetOptions{})
+		Expect(err).ToNot(HaveOccurred())
 		meta.SetStatusCondition(
 			&work.Status.Conditions,
 			metav1.Condition{Type: workapiv1.WorkApplied, Status: metav1.ConditionTrue, Reason: "WorkApplied", ObservedGeneration: work.Generation})
-		_, err = hubWorkClient.WorkV1().ManifestWorks(managedClusterName).UpdateStatus(context.Background(), work, metav1.UpdateOptions{})
-		gomega.Expect(err).ToNot(gomega.HaveOccurred())
+		_, err = hubWorkClient.WorkV1().ManifestWorks(managedClusterName).UpdateStatus(ctx, work, metav1.UpdateOptions{})
+		Expect(err).ToNot(HaveOccurred())
 
-		gomega.Eventually(func() error {
-			addon, err := hubAddonClient.AddonV1beta1().ManagedClusterAddOns(managedClusterName).Get(context.Background(), testAddonImpl.name, metav1.GetOptions{})
+		Eventually(func() error {
+			addon, err := hubAddonClient.AddonV1beta1().ManagedClusterAddOns(managedClusterName).Get(ctx, testAddonImpl.name, metav1.GetOptions{})
 			if err != nil {
 				return err
 			}
@@ -171,19 +170,19 @@ var _ = ginkgo.Describe("Agent deploy Beta", func() {
 				return fmt.Errorf("unexpected addon progressing condition, %v", addon.Status.Conditions)
 			}
 			return nil
-		}, eventuallyTimeout, eventuallyInterval).ShouldNot(gomega.HaveOccurred())
+		}, eventuallyTimeout, eventuallyInterval).ShouldNot(HaveOccurred())
 
 		// update work to available so addon becomes available
-		work, err = hubWorkClient.WorkV1().ManifestWorks(managedClusterName).Get(context.Background(), manifestWorkName, metav1.GetOptions{})
-		gomega.Expect(err).ToNot(gomega.HaveOccurred())
+		work, err = hubWorkClient.WorkV1().ManifestWorks(managedClusterName).Get(ctx, manifestWorkName, metav1.GetOptions{})
+		Expect(err).ToNot(HaveOccurred())
 		meta.SetStatusCondition(
 			&work.Status.Conditions,
 			metav1.Condition{Type: workapiv1.WorkAvailable, Status: metav1.ConditionTrue, Reason: "WorkAvailable", ObservedGeneration: work.Generation})
-		_, err = hubWorkClient.WorkV1().ManifestWorks(managedClusterName).UpdateStatus(context.Background(), work, metav1.UpdateOptions{})
-		gomega.Expect(err).ToNot(gomega.HaveOccurred())
+		_, err = hubWorkClient.WorkV1().ManifestWorks(managedClusterName).UpdateStatus(ctx, work, metav1.UpdateOptions{})
+		Expect(err).ToNot(HaveOccurred())
 
-		gomega.Eventually(func() error {
-			addon, err := hubAddonClient.AddonV1beta1().ManagedClusterAddOns(managedClusterName).Get(context.Background(), testAddonImpl.name, metav1.GetOptions{})
+		Eventually(func() error {
+			addon, err := hubAddonClient.AddonV1beta1().ManagedClusterAddOns(managedClusterName).Get(ctx, testAddonImpl.name, metav1.GetOptions{})
 			if err != nil {
 				return err
 			}
@@ -195,22 +194,22 @@ var _ = ginkgo.Describe("Agent deploy Beta", func() {
 				return fmt.Errorf("unexpected addon progressing condition, %v", addon.Status.Conditions)
 			}
 			return nil
-		}, eventuallyTimeout, eventuallyInterval).ShouldNot(gomega.HaveOccurred())
+		}, eventuallyTimeout, eventuallyInterval).ShouldNot(HaveOccurred())
 
 		// do nothing if cluster is deleting and addon is not deleted
-		cluster, err := hubClusterClient.ClusterV1().ManagedClusters().Get(context.Background(), managedClusterName, metav1.GetOptions{})
-		gomega.Expect(err).ToNot(gomega.HaveOccurred())
+		cluster, err := hubClusterClient.ClusterV1().ManagedClusters().Get(ctx, managedClusterName, metav1.GetOptions{})
+		Expect(err).ToNot(HaveOccurred())
 		cluster.SetFinalizers([]string{clusterv1.ManagedClusterFinalizer})
-		_, err = hubClusterClient.ClusterV1().ManagedClusters().Update(context.Background(), cluster, metav1.UpdateOptions{})
-		gomega.Expect(err).ToNot(gomega.HaveOccurred())
-		err = hubClusterClient.ClusterV1().ManagedClusters().Delete(context.Background(), managedClusterName, metav1.DeleteOptions{})
-		gomega.Expect(err).ToNot(gomega.HaveOccurred())
+		_, err = hubClusterClient.ClusterV1().ManagedClusters().Update(ctx, cluster, metav1.UpdateOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		err = hubClusterClient.ClusterV1().ManagedClusters().Delete(ctx, managedClusterName, metav1.DeleteOptions{})
+		Expect(err).ToNot(HaveOccurred())
 
 		time.Sleep(5 * time.Second) // wait 5 seconds to sync
-		gomega.Eventually(func() error {
-			_, err = hubWorkClient.WorkV1().ManifestWorks(managedClusterName).Get(context.Background(), manifestWorkName, metav1.GetOptions{})
+		Eventually(func() error {
+			_, err = hubWorkClient.WorkV1().ManifestWorks(managedClusterName).Get(ctx, manifestWorkName, metav1.GetOptions{})
 			return err
-		}, eventuallyTimeout, eventuallyInterval).ShouldNot(gomega.HaveOccurred())
+		}, eventuallyTimeout, eventuallyInterval).ShouldNot(HaveOccurred())
 	})
 
 })

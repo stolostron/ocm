@@ -572,7 +572,7 @@ func TestSchedulingController_sync(t *testing.T) {
 
 			key := c.placement.Namespace + "/" + c.placement.Name
 			sysCtx := testingcommon.NewFakeSyncContext(t, key)
-			syncErr := ctrl.sync(context.TODO(), sysCtx, key)
+			syncErr := ctrl.sync(t.Context(), sysCtx, key)
 			if syncErr != nil {
 				t.Errorf("unexpected err: %v", syncErr)
 			}
@@ -962,6 +962,7 @@ func TestBind(t *testing.T) {
 		initObjs        []runtime.Object
 		placement       *clusterapiv1beta1.Placement
 		clusters        []*clusterapiv1.ManagedCluster
+		expectedErr     string
 		validateActions func(t *testing.T, actions []clienttesting.Action)
 	}{
 		{
@@ -1348,6 +1349,16 @@ func TestBind(t *testing.T) {
 				}
 			},
 		},
+		{
+			// Create/update errors must be returned so the Placement is requeued before its status is updated.
+			name:        "return placementdecision create error",
+			placement:   testinghelpers.NewPlacement(placementNamespace, placementName).Build(),
+			clusters:    newClusters(1),
+			expectedErr: "inject create error",
+			validateActions: func(t *testing.T, actions []clienttesting.Action) {
+				testingcommon.AssertActions(t, actions, "create")
+			},
+		},
 	}
 
 	for _, c := range cases {
@@ -1365,6 +1376,15 @@ func TestBind(t *testing.T) {
 					return false, pd, nil
 				},
 			)
+			if c.expectedErr != "" {
+				clusterClient.PrependReactor(
+					"create",
+					"placementdecisions",
+					func(action clienttesting.Action) (handled bool, ret runtime.Object, err error) {
+						return true, nil, fmt.Errorf("%s", c.expectedErr)
+					},
+				)
+			}
 
 			clusterInformerFactory := newClusterInformerFactory(t, clusterClient, c.initObjs...)
 
@@ -1384,13 +1404,16 @@ func TestBind(t *testing.T) {
 
 			decisions, _, _ := ctrl.generatePlacementDecisionsAndStatus(c.placement, c.clusters)
 			err := ctrl.bind(
-				context.TODO(),
+				t.Context(),
 				c.placement,
 				decisions,
 				nil,
 				nil,
 			)
-			if err != nil {
+			switch {
+			case c.expectedErr != "" && (err == nil || !strings.Contains(err.Error(), c.expectedErr)):
+				t.Errorf("expected err containing %q, but got %v", c.expectedErr, err)
+			case c.expectedErr == "" && err != nil:
 				t.Errorf("unexpected err: %v", err)
 			}
 			c.validateActions(t, clusterClient.Actions())

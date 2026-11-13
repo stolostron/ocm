@@ -7,8 +7,8 @@ import (
 	"path"
 	"time"
 
-	"github.com/onsi/ginkgo/v2"
-	"github.com/onsi/gomega"
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -24,7 +24,7 @@ import (
 	"open-cluster-management.io/ocm/test/integration/util"
 )
 
-var _ = ginkgo.Describe("Unmanaged ApplieManifestWork", func() {
+var _ = Describe("Unmanaged ApplieManifestWork", func() {
 	var cancel context.CancelFunc
 	var work *workapiv1.ManifestWork
 	var clusterName string
@@ -44,40 +44,40 @@ var _ = ginkgo.Describe("Unmanaged ApplieManifestWork", func() {
 		}
 	}
 
-	ginkgo.BeforeEach(func() {
+	BeforeEach(func(ctx SpecContext) {
 		clusterName = utilrand.String(5)
 		agentID = utilrand.String(5)
 
 		ns = &corev1.Namespace{
 			ObjectMeta: metav1.ObjectMeta{Name: clusterName},
 		}
-		_, err := spokeKubeClient.CoreV1().Namespaces().Create(context.Background(), ns, metav1.CreateOptions{})
-		gomega.Expect(err).ToNot(gomega.HaveOccurred())
+		_, err := spokeKubeClient.CoreV1().Namespaces().Create(ctx, ns, metav1.CreateOptions{})
+		Expect(err).ToNot(HaveOccurred())
 
-		var ctx context.Context
-		ctx, cancel = context.WithCancel(context.Background())
-		go startWorkAgent(ctx, clusterName, optionDecorator(agentID, sourceConfigFileName, 10*time.Second))
+		var runCtx context.Context
+		runCtx, cancel = context.WithCancel(context.Background())
+		go startWorkAgent(runCtx, clusterName, optionDecorator(agentID, sourceConfigFileName, 10*time.Second))
 
 		manifests = []workapiv1.Manifest{
 			util.ToManifest(util.NewConfigmap(clusterName, cm1, map[string]string{"a": "b"}, nil)),
 		}
 
 		work = util.NewManifestWork(clusterName, "unmanaged-appliedwork", manifests)
-		_, err = hubWorkClient.WorkV1().ManifestWorks(clusterName).Create(context.Background(), work, metav1.CreateOptions{})
-		gomega.Expect(err).ToNot(gomega.HaveOccurred())
+		_, err = hubWorkClient.WorkV1().ManifestWorks(clusterName).Create(ctx, work, metav1.CreateOptions{})
+		Expect(err).ToNot(HaveOccurred())
 
 		appliedManifestWorkName = fmt.Sprintf("%s-%s", hubHash, work.Name)
 	})
 
-	ginkgo.AfterEach(func() {
+	AfterEach(func(ctx SpecContext) {
 		if cancel != nil {
 			cancel()
 		}
-		err := spokeKubeClient.CoreV1().Namespaces().Delete(context.Background(), clusterName, metav1.DeleteOptions{})
-		gomega.Expect(err).ToNot(gomega.HaveOccurred())
+		err := spokeKubeClient.CoreV1().Namespaces().Delete(ctx, clusterName, metav1.DeleteOptions{})
+		Expect(err).ToNot(HaveOccurred())
 	})
 
-	ginkgo.Context("Should delete unmanaged applied work when hub changed", func() {
+	Context("Should delete unmanaged applied work when hub changed", func() {
 		var newSourceConfigFile string
 		var newKubeClient kubernetes.Interface
 		var newWorkClient workclientset.Interface
@@ -87,7 +87,7 @@ var _ = ginkgo.Describe("Unmanaged ApplieManifestWork", func() {
 		var grpcCtx context.Context
 		var grpcCancel context.CancelFunc
 
-		ginkgo.BeforeEach(func() {
+		BeforeEach(func(ctx SpecContext) {
 			// start another hub
 			newHub = &envtest.Environment{
 				ErrorIfCRDPathMissing: true,
@@ -97,46 +97,47 @@ var _ = ginkgo.Describe("Unmanaged ApplieManifestWork", func() {
 			newAgentID = utilrand.String(5)
 
 			newCfg, err := newHub.Start()
-			gomega.Expect(err).ToNot(gomega.HaveOccurred())
+			Expect(err).ToNot(HaveOccurred())
 
 			newHubTempDir, err = os.MkdirTemp("", "unmanaged_work_test")
-			gomega.Expect(err).ToNot(gomega.HaveOccurred())
+			Expect(err).ToNot(HaveOccurred())
 
-			gomega.Expect(sourceDriver).Should(gomega.Or(gomega.Equal("grpc"), gomega.Equal("kube")))
+			Expect(sourceDriver).Should(Or(Equal("grpc"), Equal("kube")))
 
 			grpcCtx, grpcCancel = context.WithCancel(context.Background())
-			if sourceDriver == "grpc" {
+			switch sourceDriver {
+			case "grpc":
 				newSourceConfigFile, _ = startGRPCServer(grpcCtx, newHubTempDir, newCfg)
-			} else if sourceDriver == "kube" {
+			case "kube":
 				newSourceConfigFile = path.Join(newHubTempDir, "kubeconfig")
 				err = util.CreateKubeconfigFile(newCfg, newSourceConfigFile)
-				gomega.Expect(err).ToNot(gomega.HaveOccurred())
+				Expect(err).ToNot(HaveOccurred())
 			}
 
 			newKubeClient, err = kubernetes.NewForConfig(newCfg)
-			gomega.Expect(err).ToNot(gomega.HaveOccurred())
+			Expect(err).ToNot(HaveOccurred())
 
 			newWorkClient, err = workclientset.NewForConfig(newCfg)
-			gomega.Expect(err).ToNot(gomega.HaveOccurred())
+			Expect(err).ToNot(HaveOccurred())
 
-			_, err = newKubeClient.CoreV1().Namespaces().Create(context.Background(), ns, metav1.CreateOptions{})
-			gomega.Expect(err).ToNot(gomega.HaveOccurred())
+			_, err = newKubeClient.CoreV1().Namespaces().Create(ctx, ns, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
 		})
 
-		ginkgo.AfterEach(func() {
+		AfterEach(func() {
 			grpcCancel()
 			if cancel != nil {
 				cancel()
 			}
 			err := newHub.Stop()
-			gomega.Expect(err).ToNot(gomega.HaveOccurred())
+			Expect(err).ToNot(HaveOccurred())
 			if newHubTempDir != "" {
 				err := os.RemoveAll(newHubTempDir)
-				gomega.Expect(err).ToNot(gomega.HaveOccurred())
+				Expect(err).ToNot(HaveOccurred())
 			}
 		})
 
-		ginkgo.It("should keep old appliemanifestwork with different agent id", func() {
+		It("should keep old appliemanifestwork with different agent id", func(ctx SpecContext) {
 			util.AssertExistenceOfConfigMaps(manifests, spokeKubeClient, eventuallyTimeout, eventuallyInterval)
 
 			util.AssertWorkCondition(work.Namespace, work.Name, hubWorkClient, workapiv1.WorkApplied, metav1.ConditionTrue,
@@ -149,13 +150,13 @@ var _ = ginkgo.Describe("Unmanaged ApplieManifestWork", func() {
 				cancel()
 			}
 
-			var ctx context.Context
-			ctx, cancel = context.WithCancel(context.Background())
-			go startWorkAgent(ctx, clusterName, optionDecorator(newAgentID, newSourceConfigFile, 5*time.Second))
+			var runCtx context.Context
+			runCtx, cancel = context.WithCancel(context.Background())
+			go startWorkAgent(runCtx, clusterName, optionDecorator(newAgentID, newSourceConfigFile, 5*time.Second))
 
 			// Create the same manifestwork with the same name on new hub.
-			work, err = newWorkClient.WorkV1().ManifestWorks(clusterName).Create(context.Background(), work, metav1.CreateOptions{})
-			gomega.Expect(err).ToNot(gomega.HaveOccurred())
+			work, err = newWorkClient.WorkV1().ManifestWorks(clusterName).Create(ctx, work, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
 
 			util.AssertWorkCondition(work.Namespace, work.Name, newWorkClient, workapiv1.WorkApplied, metav1.ConditionTrue,
 				[]metav1.ConditionStatus{metav1.ConditionTrue}, eventuallyTimeout, eventuallyInterval)
@@ -163,8 +164,8 @@ var _ = ginkgo.Describe("Unmanaged ApplieManifestWork", func() {
 				[]metav1.ConditionStatus{metav1.ConditionTrue}, eventuallyTimeout, eventuallyInterval)
 
 			// ensure the resource has two ownerrefs
-			gomega.Eventually(func() error {
-				cm, err := spokeKubeClient.CoreV1().ConfigMaps(clusterName).Get(context.TODO(), cm1, metav1.GetOptions{})
+			Eventually(func() error {
+				cm, err := spokeKubeClient.CoreV1().ConfigMaps(clusterName).Get(ctx, cm1, metav1.GetOptions{})
 				if err != nil {
 					return err
 				}
@@ -172,10 +173,10 @@ var _ = ginkgo.Describe("Unmanaged ApplieManifestWork", func() {
 					return fmt.Errorf("should have two owners, but got %v", cm.OwnerReferences)
 				}
 				return nil
-			}, eventuallyTimeout, eventuallyInterval).ShouldNot(gomega.HaveOccurred())
+			}, eventuallyTimeout, eventuallyInterval).ShouldNot(HaveOccurred())
 		})
 
-		ginkgo.It("should remove old appliemanifestwork if applied again on new hub", func() {
+		It("should remove old appliemanifestwork if applied again on new hub", func(ctx SpecContext) {
 			util.AssertExistenceOfConfigMaps(manifests, spokeKubeClient, eventuallyTimeout, eventuallyInterval)
 
 			util.AssertWorkCondition(work.Namespace, work.Name, hubWorkClient, workapiv1.WorkApplied, metav1.ConditionTrue,
@@ -197,13 +198,13 @@ var _ = ginkgo.Describe("Unmanaged ApplieManifestWork", func() {
 				return opt, commonOpt
 			}
 
-			var ctx context.Context
-			ctx, cancel = context.WithCancel(context.Background())
-			go startWorkAgent(ctx, clusterName, newOptDecorator)
+			var runCtx context.Context
+			runCtx, cancel = context.WithCancel(context.Background())
+			go startWorkAgent(runCtx, clusterName, newOptDecorator)
 
 			// Create the same manifestwork with the same name.
-			work, err = newWorkClient.WorkV1().ManifestWorks(clusterName).Create(context.Background(), work, metav1.CreateOptions{})
-			gomega.Expect(err).ToNot(gomega.HaveOccurred())
+			work, err = newWorkClient.WorkV1().ManifestWorks(clusterName).Create(ctx, work, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
 
 			util.AssertWorkCondition(work.Namespace, work.Name, newWorkClient, workapiv1.WorkApplied, metav1.ConditionTrue,
 				[]metav1.ConditionStatus{metav1.ConditionTrue}, eventuallyTimeout, eventuallyInterval)
@@ -211,8 +212,8 @@ var _ = ginkgo.Describe("Unmanaged ApplieManifestWork", func() {
 				[]metav1.ConditionStatus{metav1.ConditionTrue}, eventuallyTimeout, eventuallyInterval)
 
 			// ensure the old manifestwork is removed.
-			gomega.Eventually(func() error {
-				_, err := spokeWorkClient.WorkV1().AppliedManifestWorks().Get(context.TODO(), appliedManifestWorkName, metav1.GetOptions{})
+			Eventually(func() error {
+				_, err := spokeWorkClient.WorkV1().AppliedManifestWorks().Get(ctx, appliedManifestWorkName, metav1.GetOptions{})
 				if errors.IsNotFound(err) {
 					return nil
 				}
@@ -220,11 +221,11 @@ var _ = ginkgo.Describe("Unmanaged ApplieManifestWork", func() {
 					return err
 				}
 				return fmt.Errorf("appliedmanifestwork %s still exists", appliedManifestWorkName)
-			}, eventuallyTimeout, eventuallyInterval).ShouldNot(gomega.HaveOccurred())
+			}, eventuallyTimeout, eventuallyInterval).ShouldNot(HaveOccurred())
 
 			// ensure the resource has only one ownerref
-			gomega.Eventually(func() error {
-				cm, err := spokeKubeClient.CoreV1().ConfigMaps(clusterName).Get(context.TODO(), cm1, metav1.GetOptions{})
+			Eventually(func() error {
+				cm, err := spokeKubeClient.CoreV1().ConfigMaps(clusterName).Get(ctx, cm1, metav1.GetOptions{})
 				if err != nil {
 					return err
 				}
@@ -235,12 +236,12 @@ var _ = ginkgo.Describe("Unmanaged ApplieManifestWork", func() {
 					return fmt.Errorf("ownerref name is not correct")
 				}
 				return nil
-			}, eventuallyTimeout, eventuallyInterval).ShouldNot(gomega.HaveOccurred())
+			}, eventuallyTimeout, eventuallyInterval).ShouldNot(HaveOccurred())
 		})
 	})
 
-	ginkgo.Context("Should evict applied work when its manifestwork is missing on the hub", func() {
-		ginkgo.BeforeEach(func() {
+	Context("Should evict applied work when its manifestwork is missing on the hub", func() {
+		BeforeEach(func(ctx SpecContext) {
 			util.AssertExistenceOfConfigMaps(manifests, spokeKubeClient, eventuallyTimeout, eventuallyInterval)
 			util.AssertWorkCondition(work.Namespace, work.Name, hubWorkClient, workapiv1.WorkApplied, metav1.ConditionTrue,
 				[]metav1.ConditionStatus{metav1.ConditionTrue}, eventuallyTimeout, eventuallyInterval)
@@ -253,19 +254,19 @@ var _ = ginkgo.Describe("Unmanaged ApplieManifestWork", func() {
 			}
 
 			// force delete the work from hub
-			err := forceDeleteManifestWork(context.TODO(), work)
-			gomega.Expect(err).ToNot(gomega.HaveOccurred())
+			err := forceDeleteManifestWork(ctx, work)
+			Expect(err).ToNot(HaveOccurred())
 		})
 
-		ginkgo.It("should evict appliemanifestwork after the work agent reconnected to the hub", func() {
+		It("should evict appliemanifestwork after the work agent reconnected to the hub", func(ctx SpecContext) {
 			// restart the work agent
-			var ctx context.Context
-			ctx, cancel = context.WithCancel(context.Background())
-			go startWorkAgent(ctx, clusterName, optionDecorator(agentID, sourceConfigFileName, 10*time.Second))
+			var runCtx context.Context
+			runCtx, cancel = context.WithCancel(context.Background())
+			go startWorkAgent(runCtx, clusterName, optionDecorator(agentID, sourceConfigFileName, 10*time.Second))
 
 			// ensure the manifestwork is removed.
-			gomega.Eventually(func() error {
-				_, err := spokeWorkClient.WorkV1().AppliedManifestWorks().Get(context.TODO(), appliedManifestWorkName, metav1.GetOptions{})
+			Eventually(func() error {
+				_, err := spokeWorkClient.WorkV1().AppliedManifestWorks().Get(ctx, appliedManifestWorkName, metav1.GetOptions{})
 				if errors.IsNotFound(err) {
 					return nil
 				}
@@ -273,22 +274,22 @@ var _ = ginkgo.Describe("Unmanaged ApplieManifestWork", func() {
 					return err
 				}
 				return fmt.Errorf("appliedmanifestwork %s still exists", appliedManifestWorkName)
-			}, eventuallyTimeout, eventuallyInterval).ShouldNot(gomega.HaveOccurred())
+			}, eventuallyTimeout, eventuallyInterval).ShouldNot(HaveOccurred())
 		})
 
-		ginkgo.It("should keep appliemanifestwork if its manifestwork is recreated on new hub", func() {
+		It("should keep appliemanifestwork if its manifestwork is recreated on new hub", func(ctx SpecContext) {
 			// restart the work agent
-			var ctx context.Context
-			ctx, cancel = context.WithCancel(context.Background())
-			go startWorkAgent(ctx, clusterName, optionDecorator(agentID, sourceConfigFileName, 10*time.Second))
+			var runCtx context.Context
+			runCtx, cancel = context.WithCancel(context.Background())
+			go startWorkAgent(runCtx, clusterName, optionDecorator(agentID, sourceConfigFileName, 10*time.Second))
 
 			// recreate the work on the hub
-			_, err = hubWorkClient.WorkV1().ManifestWorks(clusterName).Create(context.Background(), work, metav1.CreateOptions{})
-			gomega.Expect(err).ToNot(gomega.HaveOccurred())
+			_, err = hubWorkClient.WorkV1().ManifestWorks(clusterName).Create(ctx, work, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
 
 			// ensure the appliemanifestwork eviction is stopped
-			gomega.Eventually(func() error {
-				appliedWork, err := spokeWorkClient.WorkV1().AppliedManifestWorks().Get(context.TODO(), appliedManifestWorkName, metav1.GetOptions{})
+			Eventually(func() error {
+				appliedWork, err := spokeWorkClient.WorkV1().AppliedManifestWorks().Get(ctx, appliedManifestWorkName, metav1.GetOptions{})
 				if err != nil {
 					return err
 				}
@@ -297,13 +298,13 @@ var _ = ginkgo.Describe("Unmanaged ApplieManifestWork", func() {
 					return fmt.Errorf("the appliedmanifestwork %s evication is not stopped", appliedManifestWorkName)
 				}
 				return nil
-			}, eventuallyTimeout, eventuallyInterval).ShouldNot(gomega.HaveOccurred())
+			}, eventuallyTimeout, eventuallyInterval).ShouldNot(HaveOccurred())
 
 		})
 	})
 
-	ginkgo.Context("Should disable the eviction if the grace period is really large", func() {
-		ginkgo.BeforeEach(func() {
+	Context("Should disable the eviction if the grace period is really large", func() {
+		BeforeEach(func(ctx SpecContext) {
 			util.AssertExistenceOfConfigMaps(manifests, spokeKubeClient, eventuallyTimeout, eventuallyInterval)
 			util.AssertWorkCondition(work.Namespace, work.Name, hubWorkClient, workapiv1.WorkApplied, metav1.ConditionTrue,
 				[]metav1.ConditionStatus{metav1.ConditionTrue}, eventuallyTimeout, eventuallyInterval)
@@ -316,19 +317,19 @@ var _ = ginkgo.Describe("Unmanaged ApplieManifestWork", func() {
 			}
 
 			// fore delete the work from hub
-			err := forceDeleteManifestWork(context.TODO(), work)
-			gomega.Expect(err).ToNot(gomega.HaveOccurred())
+			err := forceDeleteManifestWork(ctx, work)
+			Expect(err).ToNot(HaveOccurred())
 		})
 
-		ginkgo.It("should stop eviction of the appliemanifestwork after the work agent reconnected to the hub", func() {
+		It("should stop eviction of the appliemanifestwork after the work agent reconnected to the hub", func(ctx SpecContext) {
 			// restart the work agent
-			var ctx context.Context
-			ctx, cancel = context.WithCancel(context.Background())
-			go startWorkAgent(ctx, clusterName, optionDecorator(agentID, sourceConfigFileName, 5*time.Second))
+			var runCtx context.Context
+			runCtx, cancel = context.WithCancel(context.Background())
+			go startWorkAgent(runCtx, clusterName, optionDecorator(agentID, sourceConfigFileName, 5*time.Second))
 
 			// ensure the eviction of the applied manifestwork starts
-			gomega.Eventually(func() error {
-				appliedManifestWork, err := spokeWorkClient.WorkV1().AppliedManifestWorks().Get(context.TODO(), appliedManifestWorkName, metav1.GetOptions{})
+			Eventually(func() error {
+				appliedManifestWork, err := spokeWorkClient.WorkV1().AppliedManifestWorks().Get(ctx, appliedManifestWorkName, metav1.GetOptions{})
 				if errors.IsNotFound(err) {
 					return nil
 				}
@@ -340,18 +341,18 @@ var _ = ginkgo.Describe("Unmanaged ApplieManifestWork", func() {
 					return fmt.Errorf("eviction of the appliedmanifestwork %s does not start", appliedManifestWorkName)
 				}
 				return nil
-			}, eventuallyTimeout, eventuallyInterval).ShouldNot(gomega.HaveOccurred())
+			}, eventuallyTimeout, eventuallyInterval).ShouldNot(HaveOccurred())
 
 			// stop the agent
 			cancel()
 
 			// restart the work agent with a really large eviction grace period
-			ctx, cancel = context.WithCancel(context.Background())
-			go startWorkAgent(ctx, clusterName, optionDecorator(agentID, sourceConfigFileName, 100*365*24*time.Hour))
+			runCtx, cancel = context.WithCancel(context.Background())
+			go startWorkAgent(runCtx, clusterName, optionDecorator(agentID, sourceConfigFileName, 100*365*24*time.Hour))
 
 			// ensure the eviction of the applied manifestwork stops
-			gomega.Eventually(func() error {
-				appliedManifestWork, err := spokeWorkClient.WorkV1().AppliedManifestWorks().Get(context.TODO(), appliedManifestWorkName, metav1.GetOptions{})
+			Eventually(func() error {
+				appliedManifestWork, err := spokeWorkClient.WorkV1().AppliedManifestWorks().Get(ctx, appliedManifestWorkName, metav1.GetOptions{})
 				if errors.IsNotFound(err) {
 					return nil
 				}
@@ -363,7 +364,7 @@ var _ = ginkgo.Describe("Unmanaged ApplieManifestWork", func() {
 					return fmt.Errorf("eviction of the appliedmanifestwork %s does not stop", appliedManifestWorkName)
 				}
 				return nil
-			}, eventuallyTimeout, eventuallyInterval).ShouldNot(gomega.HaveOccurred())
+			}, eventuallyTimeout, eventuallyInterval).ShouldNot(HaveOccurred())
 		})
 	})
 })

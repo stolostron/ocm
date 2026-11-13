@@ -1,7 +1,6 @@
 package finalizercontroller
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"testing"
@@ -201,11 +200,11 @@ func TestSyncManifestWorkController(t *testing.T) {
 				appliedManifestWorkClient: fakeClient.WorkV1().AppliedManifestWorks(),
 				appliedManifestWorkLister: informerFactory.Work().V1().AppliedManifestWorks().Lister(),
 				hubHash:                   hubHash,
-				rateLimiter:               workqueue.NewItemExponentialFailureRateLimiter(0, 1*time.Second),
+				rateLimiter:               workqueue.NewTypedItemExponentialFailureRateLimiter[string](0, 1*time.Second),
 			}
 
 			controllerContext := testingcommon.NewFakeSyncContext(t, c.workName)
-			err := controller.sync(context.TODO(), controllerContext, c.workName)
+			err := controller.sync(t.Context(), controllerContext, c.workName)
 			if err != nil {
 				t.Errorf("Expect no sync error, but got %v", err)
 			}

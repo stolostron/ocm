@@ -1,7 +1,6 @@
 package csr
 
 import (
-	"context"
 	"fmt"
 	"testing"
 	"time"
@@ -221,7 +220,7 @@ func TestSync(t *testing.T) {
 					),
 				},
 			}
-			syncErr := ctrl.sync(context.TODO(), testingcommon.NewFakeSyncContext(t, validCSR.Name), validCSR.Name)
+			syncErr := ctrl.sync(t.Context(), testingcommon.NewFakeSyncContext(t, validCSR.Name), validCSR.Name)
 			if syncErr != nil {
 				t.Errorf("unexpected err: %v", syncErr)
 			}
@@ -417,7 +416,9 @@ func TestNewApprover(t *testing.T) {
 		t.Error(err)
 	}
 
-	features.HubMutableFeatureGate.Set(fmt.Sprintf("%s=true", ocmfeature.ManagedClusterAutoApproval))
+	if err := features.HubMutableFeatureGate.Set(fmt.Sprintf("%s=true", ocmfeature.ManagedClusterAutoApproval)); err != nil {
+		t.Fatal(err)
+	}
 	_, err = NewCSRHubDriver(kubeClient, informerFactory, []string{})
 	if err != nil {
 		t.Error(err)

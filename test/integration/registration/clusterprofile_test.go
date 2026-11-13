@@ -1,11 +1,10 @@
 package registration_test
 
 import (
-	"context"
 	"fmt"
 
-	"github.com/onsi/ginkgo/v2"
-	"github.com/onsi/gomega"
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -23,50 +22,50 @@ import (
 	"open-cluster-management.io/ocm/pkg/registration/hub/clusterprofile"
 )
 
-var _ = ginkgo.Describe("ClusterProfile", func() {
+var _ = Describe("ClusterProfile", func() {
 	var clusterProfileClient cpclientset.Interface
 	var testNamespaces []string
 
-	ginkgo.BeforeEach(func() {
+	BeforeEach(func() {
 		// Enable ClusterProfile feature gate
 		err := features.HubMutableFeatureGate.Set(fmt.Sprintf("%s=true", ocmfeature.ClusterProfile))
-		gomega.Expect(err).NotTo(gomega.HaveOccurred())
+		Expect(err).NotTo(HaveOccurred())
 
 		// Create ClusterProfile client
 		clusterProfileClient, err = cpclientset.NewForConfig(hubCfg)
-		gomega.Expect(err).NotTo(gomega.HaveOccurred())
+		Expect(err).NotTo(HaveOccurred())
 
 		// Clean up test namespaces
 		testNamespaces = []string{}
 	})
 
-	ginkgo.AfterEach(func() {
+	AfterEach(func(ctx SpecContext) {
 		// Clean up test namespaces
 		for _, ns := range testNamespaces {
-			err := kubeClient.CoreV1().Namespaces().Delete(context.Background(), ns, metav1.DeleteOptions{})
+			err := kubeClient.CoreV1().Namespaces().Delete(ctx, ns, metav1.DeleteOptions{})
 			if err != nil && !errors.IsNotFound(err) {
 				fmt.Printf("Failed to delete namespace %s: %v\n", ns, err)
 			}
 		}
 	})
 
-	ginkgo.It("should create ClusterProfile when ManagedClusterSetBinding is created", func() {
+	It("should create ClusterProfile when ManagedClusterSetBinding is created", func(ctx SpecContext) {
 		suffix := rand.String(6)
 		clusterName := fmt.Sprintf("cluster-%s", suffix)
 		clusterSetName := fmt.Sprintf("clusterset-%s", suffix)
 		namespace := fmt.Sprintf("test-ns-%s", suffix)
 		testNamespaces = append(testNamespaces, namespace)
 
-		ginkgo.By("Create test namespace")
+		By("Create test namespace")
 		ns := &corev1.Namespace{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: namespace,
 			},
 		}
-		_, err := kubeClient.CoreV1().Namespaces().Create(context.Background(), ns, metav1.CreateOptions{})
-		gomega.Expect(err).NotTo(gomega.HaveOccurred())
+		_, err := kubeClient.CoreV1().Namespaces().Create(ctx, ns, metav1.CreateOptions{})
+		Expect(err).NotTo(HaveOccurred())
 
-		ginkgo.By("Create ManagedClusterSet")
+		By("Create ManagedClusterSet")
 		clusterSet := &clusterv1beta2.ManagedClusterSet{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: clusterSetName,
@@ -77,10 +76,10 @@ var _ = ginkgo.Describe("ClusterProfile", func() {
 				},
 			},
 		}
-		_, err = clusterClient.ClusterV1beta2().ManagedClusterSets().Create(context.Background(), clusterSet, metav1.CreateOptions{})
-		gomega.Expect(err).NotTo(gomega.HaveOccurred())
+		_, err = clusterClient.ClusterV1beta2().ManagedClusterSets().Create(ctx, clusterSet, metav1.CreateOptions{})
+		Expect(err).NotTo(HaveOccurred())
 
-		ginkgo.By("Create ManagedCluster")
+		By("Create ManagedCluster")
 		cluster := &clusterv1.ManagedCluster{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: clusterName,
@@ -107,21 +106,21 @@ var _ = ginkgo.Describe("ClusterProfile", func() {
 				},
 			},
 		}
-		cluster, err = clusterClient.ClusterV1().ManagedClusters().Create(context.Background(), cluster, metav1.CreateOptions{})
-		gomega.Expect(err).NotTo(gomega.HaveOccurred())
+		_, err = clusterClient.ClusterV1().ManagedClusters().Create(ctx, cluster, metav1.CreateOptions{})
+		Expect(err).NotTo(HaveOccurred())
 
 		// Update cluster status - get latest version first to avoid conflicts with other controllers
-		gomega.Eventually(func() error {
-			latest, err := clusterClient.ClusterV1().ManagedClusters().Get(context.Background(), clusterName, metav1.GetOptions{})
+		Eventually(func() error {
+			latest, err := clusterClient.ClusterV1().ManagedClusters().Get(ctx, clusterName, metav1.GetOptions{})
 			if err != nil {
 				return err
 			}
 			latest.Status.Version.Kubernetes = "v1.25.0"
-			_, err = clusterClient.ClusterV1().ManagedClusters().UpdateStatus(context.Background(), latest, metav1.UpdateOptions{})
+			_, err = clusterClient.ClusterV1().ManagedClusters().UpdateStatus(ctx, latest, metav1.UpdateOptions{})
 			return err
-		}, eventuallyTimeout, eventuallyInterval).Should(gomega.Succeed())
+		}, eventuallyTimeout, eventuallyInterval).Should(Succeed())
 
-		ginkgo.By("Create ManagedClusterSetBinding")
+		By("Create ManagedClusterSetBinding")
 		binding := &clusterv1beta2.ManagedClusterSetBinding{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      clusterSetName,
@@ -131,21 +130,21 @@ var _ = ginkgo.Describe("ClusterProfile", func() {
 				ClusterSet: clusterSetName,
 			},
 		}
-		_, err = clusterClient.ClusterV1beta2().ManagedClusterSetBindings(namespace).Create(context.Background(), binding, metav1.CreateOptions{})
-		gomega.Expect(err).NotTo(gomega.HaveOccurred())
+		_, err = clusterClient.ClusterV1beta2().ManagedClusterSetBindings(namespace).Create(ctx, binding, metav1.CreateOptions{})
+		Expect(err).NotTo(HaveOccurred())
 
-		ginkgo.By("Wait for binding to become bound")
-		gomega.Eventually(func() bool {
-			binding, err = clusterClient.ClusterV1beta2().ManagedClusterSetBindings(namespace).Get(context.Background(), clusterSetName, metav1.GetOptions{})
+		By("Wait for binding to become bound")
+		Eventually(func() bool {
+			binding, err = clusterClient.ClusterV1beta2().ManagedClusterSetBindings(namespace).Get(ctx, clusterSetName, metav1.GetOptions{})
 			if err != nil {
 				return false
 			}
 			return meta.IsStatusConditionTrue(binding.Status.Conditions, clusterv1beta2.ClusterSetBindingBoundType)
-		}, eventuallyTimeout, eventuallyInterval).Should(gomega.BeTrue())
+		}, eventuallyTimeout, eventuallyInterval).Should(BeTrue())
 
-		ginkgo.By("Verify ClusterProfile is created")
-		gomega.Eventually(func() error {
-			profile, err := clusterProfileClient.ApisV1alpha2().ClusterProfiles(namespace).Get(context.Background(), clusterName, metav1.GetOptions{})
+		By("Verify ClusterProfile is created")
+		Eventually(func() error {
+			profile, err := clusterProfileClient.ApisV1alpha2().ClusterProfiles(namespace).Get(ctx, clusterName, metav1.GetOptions{})
 			if err != nil {
 				return err
 			}
@@ -170,19 +169,19 @@ var _ = ginkgo.Describe("ClusterProfile", func() {
 			}
 
 			return nil
-		}, eventuallyTimeout, eventuallyInterval).Should(gomega.Succeed())
+		}, eventuallyTimeout, eventuallyInterval).Should(Succeed())
 
-		ginkgo.By("Preserve access providers written through v1alpha1 during v1alpha2 status synchronization")
+		By("Preserve access providers written through v1alpha1 during v1alpha2 status synchronization")
 		legacyProfile, err := clusterProfileClient.ApisV1alpha1().ClusterProfiles(namespace).Patch(
-			context.Background(), clusterName, types.MergePatchType,
+			ctx, clusterName, types.MergePatchType,
 			[]byte(`{"status":{"accessProviders":[{"name":"kubeconfig","cluster":{"server":"https://api.example.com:6443","tls-server-name":"kubernetes","disable-compression":true}}]}}`),
 			metav1.PatchOptions{}, "status")
-		gomega.Expect(err).NotTo(gomega.HaveOccurred())
-		_, err = clusterClient.ClusterV1().ManagedClusters().Patch(context.Background(), clusterName, types.MergePatchType,
+		Expect(err).NotTo(HaveOccurred())
+		_, err = clusterClient.ClusterV1().ManagedClusters().Patch(ctx, clusterName, types.MergePatchType,
 			[]byte(`{"status":{"version":{"kubernetes":"v1.26.0"}}}`), metav1.PatchOptions{}, "status")
-		gomega.Expect(err).NotTo(gomega.HaveOccurred())
-		gomega.Eventually(func() error {
-			profile, err := clusterProfileClient.ApisV1alpha2().ClusterProfiles(namespace).Get(context.Background(), clusterName, metav1.GetOptions{})
+		Expect(err).NotTo(HaveOccurred())
+		Eventually(func() error {
+			profile, err := clusterProfileClient.ApisV1alpha2().ClusterProfiles(namespace).Get(ctx, clusterName, metav1.GetOptions{})
 			if err != nil {
 				return err
 			}
@@ -201,16 +200,16 @@ var _ = ginkgo.Describe("ClusterProfile", func() {
 				return fmt.Errorf("access provider was modified: %v", provider)
 			}
 			return nil
-		}, eventuallyTimeout, eventuallyInterval).Should(gomega.Succeed())
+		}, eventuallyTimeout, eventuallyInterval).Should(Succeed())
 
-		ginkgo.By("Keep the synchronized profile readable through v1alpha1")
-		legacyProfile, err = clusterProfileClient.ApisV1alpha1().ClusterProfiles(namespace).Get(context.Background(), clusterName, metav1.GetOptions{})
-		gomega.Expect(err).NotTo(gomega.HaveOccurred())
-		gomega.Expect(legacyProfile.Status.Version.Kubernetes).To(gomega.Equal("v1.26.0"))
-		gomega.Expect(legacyProfile.Status.AccessProviders).To(gomega.HaveLen(1))
+		By("Keep the synchronized profile readable through v1alpha1")
+		legacyProfile, err = clusterProfileClient.ApisV1alpha1().ClusterProfiles(namespace).Get(ctx, clusterName, metav1.GetOptions{})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(legacyProfile.Status.Version.Kubernetes).To(Equal("v1.26.0"))
+		Expect(legacyProfile.Status.AccessProviders).To(HaveLen(1))
 	})
 
-	ginkgo.It("should create ClusterProfiles in multiple namespaces", func() {
+	It("should create ClusterProfiles in multiple namespaces", func(ctx SpecContext) {
 		suffix := rand.String(6)
 		clusterName := fmt.Sprintf("cluster-%s", suffix)
 		clusterSetName := fmt.Sprintf("clusterset-%s", suffix)
@@ -218,18 +217,18 @@ var _ = ginkgo.Describe("ClusterProfile", func() {
 		namespace2 := fmt.Sprintf("test-ns2-%s", suffix)
 		testNamespaces = append(testNamespaces, namespace1, namespace2)
 
-		ginkgo.By("Create test namespaces")
+		By("Create test namespaces")
 		for _, ns := range []string{namespace1, namespace2} {
 			namespace := &corev1.Namespace{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: ns,
 				},
 			}
-			_, err := kubeClient.CoreV1().Namespaces().Create(context.Background(), namespace, metav1.CreateOptions{})
-			gomega.Expect(err).NotTo(gomega.HaveOccurred())
+			_, err := kubeClient.CoreV1().Namespaces().Create(ctx, namespace, metav1.CreateOptions{})
+			Expect(err).NotTo(HaveOccurred())
 		}
 
-		ginkgo.By("Create ManagedClusterSet")
+		By("Create ManagedClusterSet")
 		clusterSet := &clusterv1beta2.ManagedClusterSet{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: clusterSetName,
@@ -240,10 +239,10 @@ var _ = ginkgo.Describe("ClusterProfile", func() {
 				},
 			},
 		}
-		_, err := clusterClient.ClusterV1beta2().ManagedClusterSets().Create(context.Background(), clusterSet, metav1.CreateOptions{})
-		gomega.Expect(err).NotTo(gomega.HaveOccurred())
+		_, err := clusterClient.ClusterV1beta2().ManagedClusterSets().Create(ctx, clusterSet, metav1.CreateOptions{})
+		Expect(err).NotTo(HaveOccurred())
 
-		ginkgo.By("Create ManagedCluster")
+		By("Create ManagedCluster")
 		cluster := &clusterv1.ManagedCluster{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: clusterName,
@@ -255,10 +254,10 @@ var _ = ginkgo.Describe("ClusterProfile", func() {
 				HubAcceptsClient: true,
 			},
 		}
-		_, err = clusterClient.ClusterV1().ManagedClusters().Create(context.Background(), cluster, metav1.CreateOptions{})
-		gomega.Expect(err).NotTo(gomega.HaveOccurred())
+		_, err = clusterClient.ClusterV1().ManagedClusters().Create(ctx, cluster, metav1.CreateOptions{})
+		Expect(err).NotTo(HaveOccurred())
 
-		ginkgo.By("Create ManagedClusterSetBinding in namespace1")
+		By("Create ManagedClusterSetBinding in namespace1")
 		binding1 := &clusterv1beta2.ManagedClusterSetBinding{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      clusterSetName,
@@ -268,10 +267,10 @@ var _ = ginkgo.Describe("ClusterProfile", func() {
 				ClusterSet: clusterSetName,
 			},
 		}
-		_, err = clusterClient.ClusterV1beta2().ManagedClusterSetBindings(namespace1).Create(context.Background(), binding1, metav1.CreateOptions{})
-		gomega.Expect(err).NotTo(gomega.HaveOccurred())
+		_, err = clusterClient.ClusterV1beta2().ManagedClusterSetBindings(namespace1).Create(ctx, binding1, metav1.CreateOptions{})
+		Expect(err).NotTo(HaveOccurred())
 
-		ginkgo.By("Create ManagedClusterSetBinding in namespace2")
+		By("Create ManagedClusterSetBinding in namespace2")
 		binding2 := &clusterv1beta2.ManagedClusterSetBinding{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      clusterSetName,
@@ -281,24 +280,24 @@ var _ = ginkgo.Describe("ClusterProfile", func() {
 				ClusterSet: clusterSetName,
 			},
 		}
-		_, err = clusterClient.ClusterV1beta2().ManagedClusterSetBindings(namespace2).Create(context.Background(), binding2, metav1.CreateOptions{})
-		gomega.Expect(err).NotTo(gomega.HaveOccurred())
+		_, err = clusterClient.ClusterV1beta2().ManagedClusterSetBindings(namespace2).Create(ctx, binding2, metav1.CreateOptions{})
+		Expect(err).NotTo(HaveOccurred())
 
-		ginkgo.By("Wait for bindings to become bound")
+		By("Wait for bindings to become bound")
 		for _, ns := range []string{namespace1, namespace2} {
-			gomega.Eventually(func() bool {
-				binding, err := clusterClient.ClusterV1beta2().ManagedClusterSetBindings(ns).Get(context.Background(), clusterSetName, metav1.GetOptions{})
+			Eventually(func() bool {
+				binding, err := clusterClient.ClusterV1beta2().ManagedClusterSetBindings(ns).Get(ctx, clusterSetName, metav1.GetOptions{})
 				if err != nil {
 					return false
 				}
 				return meta.IsStatusConditionTrue(binding.Status.Conditions, clusterv1beta2.ClusterSetBindingBoundType)
-			}, eventuallyTimeout, eventuallyInterval).Should(gomega.BeTrue())
+			}, eventuallyTimeout, eventuallyInterval).Should(BeTrue())
 		}
 
-		ginkgo.By("Verify ClusterProfile is created in both namespaces")
+		By("Verify ClusterProfile is created in both namespaces")
 		for _, ns := range []string{namespace1, namespace2} {
-			gomega.Eventually(func() error {
-				profile, err := clusterProfileClient.ApisV1alpha2().ClusterProfiles(ns).Get(context.Background(), clusterName, metav1.GetOptions{})
+			Eventually(func() error {
+				profile, err := clusterProfileClient.ApisV1alpha2().ClusterProfiles(ns).Get(ctx, clusterName, metav1.GetOptions{})
 				if err != nil {
 					return err
 				}
@@ -309,12 +308,11 @@ var _ = ginkgo.Describe("ClusterProfile", func() {
 					return fmt.Errorf("unexpected inventory member ID: %s", profile.Labels[cpv1alpha2.LabelInventoryMemberIDKey])
 				}
 				return nil
-			}, eventuallyTimeout, eventuallyInterval).Should(gomega.Succeed())
+			}, eventuallyTimeout, eventuallyInterval).Should(Succeed())
 		}
 	})
 
-	ginkgo.It("should synchronize inventory member IDs across namespaces", func() {
-		ctx := context.Background()
+	It("should synchronize inventory member IDs across namespaces", func(ctx SpecContext) {
 		suffix := rand.String(6)
 		clusterName := "cluster-" + suffix
 		clusterSetName := "clusterset-" + suffix
@@ -327,9 +325,9 @@ var _ = ginkgo.Describe("ClusterProfile", func() {
 				ClusterSelector: clusterv1beta2.ManagedClusterSelector{SelectorType: clusterv1beta2.ExclusiveClusterSetLabel},
 			},
 		}, metav1.CreateOptions{})
-		gomega.Expect(err).NotTo(gomega.HaveOccurred())
-		ginkgo.DeferCleanup(func() {
-			gomega.Expect(clusterClient.ClusterV1beta2().ManagedClusterSets().Delete(ctx, clusterSetName, metav1.DeleteOptions{})).To(gomega.Succeed())
+		Expect(err).NotTo(HaveOccurred())
+		DeferCleanup(func(ctx SpecContext) {
+			Expect(clusterClient.ClusterV1beta2().ManagedClusterSets().Delete(ctx, clusterSetName, metav1.DeleteOptions{})).To(Succeed())
 		})
 		_, err = clusterClient.ClusterV1().ManagedClusters().Create(ctx, &clusterv1.ManagedCluster{
 			ObjectMeta: metav1.ObjectMeta{
@@ -341,23 +339,23 @@ var _ = ginkgo.Describe("ClusterProfile", func() {
 			},
 			Spec: clusterv1.ManagedClusterSpec{HubAcceptsClient: true},
 		}, metav1.CreateOptions{})
-		gomega.Expect(err).NotTo(gomega.HaveOccurred())
-		ginkgo.DeferCleanup(func() {
-			gomega.Expect(clusterClient.ClusterV1().ManagedClusters().Delete(ctx, clusterName, metav1.DeleteOptions{})).To(gomega.Succeed())
+		Expect(err).NotTo(HaveOccurred())
+		DeferCleanup(func(ctx SpecContext) {
+			Expect(clusterClient.ClusterV1().ManagedClusters().Delete(ctx, clusterName, metav1.DeleteOptions{})).To(Succeed())
 		})
 		for _, namespace := range namespaces {
 			_, err = kubeClient.CoreV1().Namespaces().Create(ctx, &corev1.Namespace{
 				ObjectMeta: metav1.ObjectMeta{Name: namespace},
 			}, metav1.CreateOptions{})
-			gomega.Expect(err).NotTo(gomega.HaveOccurred())
+			Expect(err).NotTo(HaveOccurred())
 			_, err = clusterClient.ClusterV1beta2().ManagedClusterSetBindings(namespace).Create(ctx, &clusterv1beta2.ManagedClusterSetBinding{
 				ObjectMeta: metav1.ObjectMeta{Name: clusterSetName, Namespace: namespace},
 				Spec:       clusterv1beta2.ManagedClusterSetBindingSpec{ClusterSet: clusterSetName},
 			}, metav1.CreateOptions{})
-			gomega.Expect(err).NotTo(gomega.HaveOccurred())
+			Expect(err).NotTo(HaveOccurred())
 		}
 		expectMemberID := func(memberID string) {
-			gomega.Eventually(func() error {
+			Eventually(func() error {
 				for _, namespace := range namespaces {
 					profile, err := clusterProfileClient.ApisV1alpha2().ClusterProfiles(namespace).Get(ctx, clusterName, metav1.GetOptions{})
 					if err != nil {
@@ -368,16 +366,16 @@ var _ = ginkgo.Describe("ClusterProfile", func() {
 					}
 				}
 				return nil
-			}, eventuallyTimeout, eventuallyInterval).Should(gomega.Succeed())
+			}, eventuallyTimeout, eventuallyInterval).Should(Succeed())
 		}
-		ginkgo.By("Copy the coordinated ID to both inventories")
+		By("Copy the coordinated ID to both inventories")
 		expectMemberID("Prod_JP.cluster-01")
 
-		ginkgo.By("Restore a missing ID on an existing profile and preserve custom metadata")
+		By("Restore a missing ID on an existing profile and preserve custom metadata")
 		_, err = clusterProfileClient.ApisV1alpha2().ClusterProfiles(namespaces[0]).Patch(ctx, clusterName, types.MergePatchType,
 			[]byte(fmt.Sprintf(`{"metadata":{"labels":{%q:null,"custom-label":"keep-me"},"annotations":{"custom-annotation":"keep-me"}}}`,
 				cpv1alpha2.LabelInventoryMemberIDKey)), metav1.PatchOptions{})
-		gomega.Expect(err).NotTo(gomega.HaveOccurred())
+		Expect(err).NotTo(HaveOccurred())
 		expectMemberID("Prod_JP.cluster-01")
 
 		for _, tc := range []struct {
@@ -389,35 +387,35 @@ var _ = ginkgo.Describe("ClusterProfile", func() {
 			{name: "Fall back to the cluster name when the label is removed", labelJSON: `null`, expectedID: clusterName},
 			{name: "Restore the coordinated ID", labelJSON: `"Prod_JP.cluster-03"`, expectedID: "Prod_JP.cluster-03"},
 		} {
-			ginkgo.By(tc.name)
+			By(tc.name)
 			patch := fmt.Sprintf(`{"metadata":{"labels":{%q:%s}}}`, cpv1alpha2.LabelInventoryMemberIDKey, tc.labelJSON)
 			_, err = clusterClient.ClusterV1().ManagedClusters().Patch(ctx, clusterName, types.MergePatchType, []byte(patch), metav1.PatchOptions{})
-			gomega.Expect(err).NotTo(gomega.HaveOccurred())
+			Expect(err).NotTo(HaveOccurred())
 			expectMemberID(tc.expectedID)
 		}
 		profile, err := clusterProfileClient.ApisV1alpha2().ClusterProfiles(namespaces[0]).Get(ctx, clusterName, metav1.GetOptions{})
-		gomega.Expect(err).NotTo(gomega.HaveOccurred())
-		gomega.Expect(profile.Labels["custom-label"]).To(gomega.Equal("keep-me"))
-		gomega.Expect(profile.Annotations["custom-annotation"]).To(gomega.Equal("keep-me"))
+		Expect(err).NotTo(HaveOccurred())
+		Expect(profile.Labels["custom-label"]).To(Equal("keep-me"))
+		Expect(profile.Annotations["custom-annotation"]).To(Equal("keep-me"))
 	})
 
-	ginkgo.It("should delete ClusterProfile when ManagedClusterSetBinding is deleted", func() {
+	It("should delete ClusterProfile when ManagedClusterSetBinding is deleted", func(ctx SpecContext) {
 		suffix := rand.String(6)
 		clusterName := fmt.Sprintf("cluster-%s", suffix)
 		clusterSetName := fmt.Sprintf("clusterset-%s", suffix)
 		namespace := fmt.Sprintf("test-ns-%s", suffix)
 		testNamespaces = append(testNamespaces, namespace)
 
-		ginkgo.By("Create test namespace")
+		By("Create test namespace")
 		ns := &corev1.Namespace{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: namespace,
 			},
 		}
-		_, err := kubeClient.CoreV1().Namespaces().Create(context.Background(), ns, metav1.CreateOptions{})
-		gomega.Expect(err).NotTo(gomega.HaveOccurred())
+		_, err := kubeClient.CoreV1().Namespaces().Create(ctx, ns, metav1.CreateOptions{})
+		Expect(err).NotTo(HaveOccurred())
 
-		ginkgo.By("Create ManagedClusterSet")
+		By("Create ManagedClusterSet")
 		clusterSet := &clusterv1beta2.ManagedClusterSet{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: clusterSetName,
@@ -428,10 +426,10 @@ var _ = ginkgo.Describe("ClusterProfile", func() {
 				},
 			},
 		}
-		_, err = clusterClient.ClusterV1beta2().ManagedClusterSets().Create(context.Background(), clusterSet, metav1.CreateOptions{})
-		gomega.Expect(err).NotTo(gomega.HaveOccurred())
+		_, err = clusterClient.ClusterV1beta2().ManagedClusterSets().Create(ctx, clusterSet, metav1.CreateOptions{})
+		Expect(err).NotTo(HaveOccurred())
 
-		ginkgo.By("Create ManagedCluster")
+		By("Create ManagedCluster")
 		cluster := &clusterv1.ManagedCluster{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: clusterName,
@@ -443,10 +441,10 @@ var _ = ginkgo.Describe("ClusterProfile", func() {
 				HubAcceptsClient: true,
 			},
 		}
-		_, err = clusterClient.ClusterV1().ManagedClusters().Create(context.Background(), cluster, metav1.CreateOptions{})
-		gomega.Expect(err).NotTo(gomega.HaveOccurred())
+		_, err = clusterClient.ClusterV1().ManagedClusters().Create(ctx, cluster, metav1.CreateOptions{})
+		Expect(err).NotTo(HaveOccurred())
 
-		ginkgo.By("Create ManagedClusterSetBinding")
+		By("Create ManagedClusterSetBinding")
 		binding := &clusterv1beta2.ManagedClusterSetBinding{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      clusterSetName,
@@ -456,52 +454,52 @@ var _ = ginkgo.Describe("ClusterProfile", func() {
 				ClusterSet: clusterSetName,
 			},
 		}
-		_, err = clusterClient.ClusterV1beta2().ManagedClusterSetBindings(namespace).Create(context.Background(), binding, metav1.CreateOptions{})
-		gomega.Expect(err).NotTo(gomega.HaveOccurred())
+		_, err = clusterClient.ClusterV1beta2().ManagedClusterSetBindings(namespace).Create(ctx, binding, metav1.CreateOptions{})
+		Expect(err).NotTo(HaveOccurred())
 
-		ginkgo.By("Wait for binding to become bound")
-		gomega.Eventually(func() bool {
-			binding, err = clusterClient.ClusterV1beta2().ManagedClusterSetBindings(namespace).Get(context.Background(), clusterSetName, metav1.GetOptions{})
+		By("Wait for binding to become bound")
+		Eventually(func() bool {
+			binding, err = clusterClient.ClusterV1beta2().ManagedClusterSetBindings(namespace).Get(ctx, clusterSetName, metav1.GetOptions{})
 			if err != nil {
 				return false
 			}
 			return meta.IsStatusConditionTrue(binding.Status.Conditions, clusterv1beta2.ClusterSetBindingBoundType)
-		}, eventuallyTimeout, eventuallyInterval).Should(gomega.BeTrue())
+		}, eventuallyTimeout, eventuallyInterval).Should(BeTrue())
 
-		ginkgo.By("Verify ClusterProfile is created")
-		gomega.Eventually(func() error {
-			_, err := clusterProfileClient.ApisV1alpha2().ClusterProfiles(namespace).Get(context.Background(), clusterName, metav1.GetOptions{})
+		By("Verify ClusterProfile is created")
+		Eventually(func() error {
+			_, err := clusterProfileClient.ApisV1alpha2().ClusterProfiles(namespace).Get(ctx, clusterName, metav1.GetOptions{})
 			return err
-		}, eventuallyTimeout, eventuallyInterval).Should(gomega.Succeed())
+		}, eventuallyTimeout, eventuallyInterval).Should(Succeed())
 
-		ginkgo.By("Delete ManagedClusterSetBinding")
-		err = clusterClient.ClusterV1beta2().ManagedClusterSetBindings(namespace).Delete(context.Background(), clusterSetName, metav1.DeleteOptions{})
-		gomega.Expect(err).NotTo(gomega.HaveOccurred())
+		By("Delete ManagedClusterSetBinding")
+		err = clusterClient.ClusterV1beta2().ManagedClusterSetBindings(namespace).Delete(ctx, clusterSetName, metav1.DeleteOptions{})
+		Expect(err).NotTo(HaveOccurred())
 
-		ginkgo.By("Verify ClusterProfile is deleted")
-		gomega.Eventually(func() bool {
-			_, err := clusterProfileClient.ApisV1alpha2().ClusterProfiles(namespace).Get(context.Background(), clusterName, metav1.GetOptions{})
+		By("Verify ClusterProfile is deleted")
+		Eventually(func() bool {
+			_, err := clusterProfileClient.ApisV1alpha2().ClusterProfiles(namespace).Get(ctx, clusterName, metav1.GetOptions{})
 			return errors.IsNotFound(err)
-		}, eventuallyTimeout, eventuallyInterval).Should(gomega.BeTrue())
+		}, eventuallyTimeout, eventuallyInterval).Should(BeTrue())
 	})
 
-	ginkgo.It("should delete ClusterProfile when ManagedCluster is deleted", func() {
+	It("should delete ClusterProfile when ManagedCluster is deleted", func(ctx SpecContext) {
 		suffix := rand.String(6)
 		clusterName := fmt.Sprintf("cluster-%s", suffix)
 		clusterSetName := fmt.Sprintf("clusterset-%s", suffix)
 		namespace := fmt.Sprintf("test-ns-%s", suffix)
 		testNamespaces = append(testNamespaces, namespace)
 
-		ginkgo.By("Create test namespace")
+		By("Create test namespace")
 		ns := &corev1.Namespace{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: namespace,
 			},
 		}
-		_, err := kubeClient.CoreV1().Namespaces().Create(context.Background(), ns, metav1.CreateOptions{})
-		gomega.Expect(err).NotTo(gomega.HaveOccurred())
+		_, err := kubeClient.CoreV1().Namespaces().Create(ctx, ns, metav1.CreateOptions{})
+		Expect(err).NotTo(HaveOccurred())
 
-		ginkgo.By("Create ManagedClusterSet")
+		By("Create ManagedClusterSet")
 		clusterSet := &clusterv1beta2.ManagedClusterSet{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: clusterSetName,
@@ -512,10 +510,10 @@ var _ = ginkgo.Describe("ClusterProfile", func() {
 				},
 			},
 		}
-		_, err = clusterClient.ClusterV1beta2().ManagedClusterSets().Create(context.Background(), clusterSet, metav1.CreateOptions{})
-		gomega.Expect(err).NotTo(gomega.HaveOccurred())
+		_, err = clusterClient.ClusterV1beta2().ManagedClusterSets().Create(ctx, clusterSet, metav1.CreateOptions{})
+		Expect(err).NotTo(HaveOccurred())
 
-		ginkgo.By("Create ManagedCluster")
+		By("Create ManagedCluster")
 		cluster := &clusterv1.ManagedCluster{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: clusterName,
@@ -527,10 +525,10 @@ var _ = ginkgo.Describe("ClusterProfile", func() {
 				HubAcceptsClient: true,
 			},
 		}
-		_, err = clusterClient.ClusterV1().ManagedClusters().Create(context.Background(), cluster, metav1.CreateOptions{})
-		gomega.Expect(err).NotTo(gomega.HaveOccurred())
+		_, err = clusterClient.ClusterV1().ManagedClusters().Create(ctx, cluster, metav1.CreateOptions{})
+		Expect(err).NotTo(HaveOccurred())
 
-		ginkgo.By("Create ManagedClusterSetBinding")
+		By("Create ManagedClusterSetBinding")
 		binding := &clusterv1beta2.ManagedClusterSetBinding{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      clusterSetName,
@@ -540,36 +538,36 @@ var _ = ginkgo.Describe("ClusterProfile", func() {
 				ClusterSet: clusterSetName,
 			},
 		}
-		_, err = clusterClient.ClusterV1beta2().ManagedClusterSetBindings(namespace).Create(context.Background(), binding, metav1.CreateOptions{})
-		gomega.Expect(err).NotTo(gomega.HaveOccurred())
+		_, err = clusterClient.ClusterV1beta2().ManagedClusterSetBindings(namespace).Create(ctx, binding, metav1.CreateOptions{})
+		Expect(err).NotTo(HaveOccurred())
 
-		ginkgo.By("Wait for binding to become bound")
-		gomega.Eventually(func() bool {
-			binding, err = clusterClient.ClusterV1beta2().ManagedClusterSetBindings(namespace).Get(context.Background(), clusterSetName, metav1.GetOptions{})
+		By("Wait for binding to become bound")
+		Eventually(func() bool {
+			binding, err = clusterClient.ClusterV1beta2().ManagedClusterSetBindings(namespace).Get(ctx, clusterSetName, metav1.GetOptions{})
 			if err != nil {
 				return false
 			}
 			return meta.IsStatusConditionTrue(binding.Status.Conditions, clusterv1beta2.ClusterSetBindingBoundType)
-		}, eventuallyTimeout, eventuallyInterval).Should(gomega.BeTrue())
+		}, eventuallyTimeout, eventuallyInterval).Should(BeTrue())
 
-		ginkgo.By("Verify ClusterProfile is created")
-		gomega.Eventually(func() error {
-			_, err := clusterProfileClient.ApisV1alpha2().ClusterProfiles(namespace).Get(context.Background(), clusterName, metav1.GetOptions{})
+		By("Verify ClusterProfile is created")
+		Eventually(func() error {
+			_, err := clusterProfileClient.ApisV1alpha2().ClusterProfiles(namespace).Get(ctx, clusterName, metav1.GetOptions{})
 			return err
-		}, eventuallyTimeout, eventuallyInterval).Should(gomega.Succeed())
+		}, eventuallyTimeout, eventuallyInterval).Should(Succeed())
 
-		ginkgo.By("Delete ManagedCluster")
-		err = clusterClient.ClusterV1().ManagedClusters().Delete(context.Background(), clusterName, metav1.DeleteOptions{})
-		gomega.Expect(err).NotTo(gomega.HaveOccurred())
+		By("Delete ManagedCluster")
+		err = clusterClient.ClusterV1().ManagedClusters().Delete(ctx, clusterName, metav1.DeleteOptions{})
+		Expect(err).NotTo(HaveOccurred())
 
-		ginkgo.By("Verify ClusterProfile is deleted")
-		gomega.Eventually(func() bool {
-			_, err := clusterProfileClient.ApisV1alpha2().ClusterProfiles(namespace).Get(context.Background(), clusterName, metav1.GetOptions{})
+		By("Verify ClusterProfile is deleted")
+		Eventually(func() bool {
+			_, err := clusterProfileClient.ApisV1alpha2().ClusterProfiles(namespace).Get(ctx, clusterName, metav1.GetOptions{})
 			return errors.IsNotFound(err)
-		}, eventuallyTimeout, eventuallyInterval).Should(gomega.BeTrue())
+		}, eventuallyTimeout, eventuallyInterval).Should(BeTrue())
 	})
 
-	ginkgo.It("should deduplicate ClusterProfiles when cluster is in multiple sets with bindings in same namespace", func() {
+	It("should deduplicate ClusterProfiles when cluster is in multiple sets with bindings in same namespace", func(ctx SpecContext) {
 		suffix := rand.String(6)
 		clusterName := fmt.Sprintf("cluster-%s", suffix)
 		clusterSet1Name := fmt.Sprintf("clusterset1-%s", suffix)
@@ -577,16 +575,16 @@ var _ = ginkgo.Describe("ClusterProfile", func() {
 		namespace := fmt.Sprintf("test-ns-%s", suffix)
 		testNamespaces = append(testNamespaces, namespace)
 
-		ginkgo.By("Create test namespace")
+		By("Create test namespace")
 		ns := &corev1.Namespace{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: namespace,
 			},
 		}
-		_, err := kubeClient.CoreV1().Namespaces().Create(context.Background(), ns, metav1.CreateOptions{})
-		gomega.Expect(err).NotTo(gomega.HaveOccurred())
+		_, err := kubeClient.CoreV1().Namespaces().Create(ctx, ns, metav1.CreateOptions{})
+		Expect(err).NotTo(HaveOccurred())
 
-		ginkgo.By("Create first ManagedClusterSet")
+		By("Create first ManagedClusterSet")
 		clusterSet1 := &clusterv1beta2.ManagedClusterSet{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: clusterSet1Name,
@@ -597,10 +595,10 @@ var _ = ginkgo.Describe("ClusterProfile", func() {
 				},
 			},
 		}
-		_, err = clusterClient.ClusterV1beta2().ManagedClusterSets().Create(context.Background(), clusterSet1, metav1.CreateOptions{})
-		gomega.Expect(err).NotTo(gomega.HaveOccurred())
+		_, err = clusterClient.ClusterV1beta2().ManagedClusterSets().Create(ctx, clusterSet1, metav1.CreateOptions{})
+		Expect(err).NotTo(HaveOccurred())
 
-		ginkgo.By("Create second ManagedClusterSet with label selector")
+		By("Create second ManagedClusterSet with label selector")
 		clusterSet2 := &clusterv1beta2.ManagedClusterSet{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: clusterSet2Name,
@@ -616,10 +614,10 @@ var _ = ginkgo.Describe("ClusterProfile", func() {
 				},
 			},
 		}
-		_, err = clusterClient.ClusterV1beta2().ManagedClusterSets().Create(context.Background(), clusterSet2, metav1.CreateOptions{})
-		gomega.Expect(err).NotTo(gomega.HaveOccurred())
+		_, err = clusterClient.ClusterV1beta2().ManagedClusterSets().Create(ctx, clusterSet2, metav1.CreateOptions{})
+		Expect(err).NotTo(HaveOccurred())
 
-		ginkgo.By("Create ManagedCluster that belongs to both sets")
+		By("Create ManagedCluster that belongs to both sets")
 		cluster := &clusterv1.ManagedCluster{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: clusterName,
@@ -632,10 +630,10 @@ var _ = ginkgo.Describe("ClusterProfile", func() {
 				HubAcceptsClient: true,
 			},
 		}
-		_, err = clusterClient.ClusterV1().ManagedClusters().Create(context.Background(), cluster, metav1.CreateOptions{})
-		gomega.Expect(err).NotTo(gomega.HaveOccurred())
+		_, err = clusterClient.ClusterV1().ManagedClusters().Create(ctx, cluster, metav1.CreateOptions{})
+		Expect(err).NotTo(HaveOccurred())
 
-		ginkgo.By("Create ManagedClusterSetBinding for first set")
+		By("Create ManagedClusterSetBinding for first set")
 		binding1 := &clusterv1beta2.ManagedClusterSetBinding{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      clusterSet1Name,
@@ -645,10 +643,10 @@ var _ = ginkgo.Describe("ClusterProfile", func() {
 				ClusterSet: clusterSet1Name,
 			},
 		}
-		_, err = clusterClient.ClusterV1beta2().ManagedClusterSetBindings(namespace).Create(context.Background(), binding1, metav1.CreateOptions{})
-		gomega.Expect(err).NotTo(gomega.HaveOccurred())
+		_, err = clusterClient.ClusterV1beta2().ManagedClusterSetBindings(namespace).Create(ctx, binding1, metav1.CreateOptions{})
+		Expect(err).NotTo(HaveOccurred())
 
-		ginkgo.By("Create ManagedClusterSetBinding for second set")
+		By("Create ManagedClusterSetBinding for second set")
 		binding2 := &clusterv1beta2.ManagedClusterSetBinding{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      clusterSet2Name,
@@ -658,23 +656,23 @@ var _ = ginkgo.Describe("ClusterProfile", func() {
 				ClusterSet: clusterSet2Name,
 			},
 		}
-		_, err = clusterClient.ClusterV1beta2().ManagedClusterSetBindings(namespace).Create(context.Background(), binding2, metav1.CreateOptions{})
-		gomega.Expect(err).NotTo(gomega.HaveOccurred())
+		_, err = clusterClient.ClusterV1beta2().ManagedClusterSetBindings(namespace).Create(ctx, binding2, metav1.CreateOptions{})
+		Expect(err).NotTo(HaveOccurred())
 
-		ginkgo.By("Wait for both bindings to become bound")
+		By("Wait for both bindings to become bound")
 		for _, bindingName := range []string{clusterSet1Name, clusterSet2Name} {
-			gomega.Eventually(func() bool {
-				binding, err := clusterClient.ClusterV1beta2().ManagedClusterSetBindings(namespace).Get(context.Background(), bindingName, metav1.GetOptions{})
+			Eventually(func() bool {
+				binding, err := clusterClient.ClusterV1beta2().ManagedClusterSetBindings(namespace).Get(ctx, bindingName, metav1.GetOptions{})
 				if err != nil {
 					return false
 				}
 				return meta.IsStatusConditionTrue(binding.Status.Conditions, clusterv1beta2.ClusterSetBindingBoundType)
-			}, eventuallyTimeout, eventuallyInterval).Should(gomega.BeTrue())
+			}, eventuallyTimeout, eventuallyInterval).Should(BeTrue())
 		}
 
-		ginkgo.By("Verify only ONE ClusterProfile is created (deduplication)")
-		gomega.Eventually(func() error {
-			profile, err := clusterProfileClient.ApisV1alpha2().ClusterProfiles(namespace).Get(context.Background(), clusterName, metav1.GetOptions{})
+		By("Verify only ONE ClusterProfile is created (deduplication)")
+		Eventually(func() error {
+			profile, err := clusterProfileClient.ApisV1alpha2().ClusterProfiles(namespace).Get(ctx, clusterName, metav1.GetOptions{})
 			if err != nil {
 				return err
 			}
@@ -685,11 +683,11 @@ var _ = ginkgo.Describe("ClusterProfile", func() {
 			}
 
 			return nil
-		}, eventuallyTimeout, eventuallyInterval).Should(gomega.Succeed())
+		}, eventuallyTimeout, eventuallyInterval).Should(Succeed())
 
-		ginkgo.By("Verify there is exactly one ClusterProfile for the cluster in the namespace")
-		profiles, err := clusterProfileClient.ApisV1alpha2().ClusterProfiles(namespace).List(context.Background(), metav1.ListOptions{})
-		gomega.Expect(err).NotTo(gomega.HaveOccurred())
+		By("Verify there is exactly one ClusterProfile for the cluster in the namespace")
+		profiles, err := clusterProfileClient.ApisV1alpha2().ClusterProfiles(namespace).List(ctx, metav1.ListOptions{})
+		Expect(err).NotTo(HaveOccurred())
 
 		clusterProfileCount := 0
 		for _, profile := range profiles.Items {
@@ -697,26 +695,26 @@ var _ = ginkgo.Describe("ClusterProfile", func() {
 				clusterProfileCount++
 			}
 		}
-		gomega.Expect(clusterProfileCount).To(gomega.Equal(1), "Expected exactly one ClusterProfile, but found %d", clusterProfileCount)
+		Expect(clusterProfileCount).To(Equal(1), "Expected exactly one ClusterProfile, but found %d", clusterProfileCount)
 	})
 
-	ginkgo.It("should sync ClusterProfile status from ManagedCluster", func() {
+	It("should sync ClusterProfile status from ManagedCluster", func(ctx SpecContext) {
 		suffix := rand.String(6)
 		clusterName := fmt.Sprintf("cluster-%s", suffix)
 		clusterSetName := fmt.Sprintf("clusterset-%s", suffix)
 		namespace := fmt.Sprintf("test-ns-%s", suffix)
 		testNamespaces = append(testNamespaces, namespace)
 
-		ginkgo.By("Create test namespace")
+		By("Create test namespace")
 		ns := &corev1.Namespace{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: namespace,
 			},
 		}
-		_, err := kubeClient.CoreV1().Namespaces().Create(context.Background(), ns, metav1.CreateOptions{})
-		gomega.Expect(err).NotTo(gomega.HaveOccurred())
+		_, err := kubeClient.CoreV1().Namespaces().Create(ctx, ns, metav1.CreateOptions{})
+		Expect(err).NotTo(HaveOccurred())
 
-		ginkgo.By("Create ManagedClusterSet")
+		By("Create ManagedClusterSet")
 		clusterSet := &clusterv1beta2.ManagedClusterSet{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: clusterSetName,
@@ -727,10 +725,10 @@ var _ = ginkgo.Describe("ClusterProfile", func() {
 				},
 			},
 		}
-		_, err = clusterClient.ClusterV1beta2().ManagedClusterSets().Create(context.Background(), clusterSet, metav1.CreateOptions{})
-		gomega.Expect(err).NotTo(gomega.HaveOccurred())
+		_, err = clusterClient.ClusterV1beta2().ManagedClusterSets().Create(ctx, clusterSet, metav1.CreateOptions{})
+		Expect(err).NotTo(HaveOccurred())
 
-		ginkgo.By("Create ManagedCluster with status")
+		By("Create ManagedCluster with status")
 		cluster := &clusterv1.ManagedCluster{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: clusterName,
@@ -742,12 +740,12 @@ var _ = ginkgo.Describe("ClusterProfile", func() {
 				HubAcceptsClient: true,
 			},
 		}
-		cluster, err = clusterClient.ClusterV1().ManagedClusters().Create(context.Background(), cluster, metav1.CreateOptions{})
-		gomega.Expect(err).NotTo(gomega.HaveOccurred())
+		_, err = clusterClient.ClusterV1().ManagedClusters().Create(ctx, cluster, metav1.CreateOptions{})
+		Expect(err).NotTo(HaveOccurred())
 
 		// Update cluster status - get latest version first to avoid conflicts with other controllers
-		gomega.Eventually(func() error {
-			latest, err := clusterClient.ClusterV1().ManagedClusters().Get(context.Background(), clusterName, metav1.GetOptions{})
+		Eventually(func() error {
+			latest, err := clusterClient.ClusterV1().ManagedClusters().Get(ctx, clusterName, metav1.GetOptions{})
 			if err != nil {
 				return err
 			}
@@ -776,11 +774,11 @@ var _ = ginkgo.Describe("ClusterProfile", func() {
 					},
 				},
 			}
-			_, err = clusterClient.ClusterV1().ManagedClusters().UpdateStatus(context.Background(), latest, metav1.UpdateOptions{})
+			_, err = clusterClient.ClusterV1().ManagedClusters().UpdateStatus(ctx, latest, metav1.UpdateOptions{})
 			return err
-		}, eventuallyTimeout, eventuallyInterval).Should(gomega.Succeed())
+		}, eventuallyTimeout, eventuallyInterval).Should(Succeed())
 
-		ginkgo.By("Create ManagedClusterSetBinding")
+		By("Create ManagedClusterSetBinding")
 		binding := &clusterv1beta2.ManagedClusterSetBinding{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      clusterSetName,
@@ -790,21 +788,21 @@ var _ = ginkgo.Describe("ClusterProfile", func() {
 				ClusterSet: clusterSetName,
 			},
 		}
-		_, err = clusterClient.ClusterV1beta2().ManagedClusterSetBindings(namespace).Create(context.Background(), binding, metav1.CreateOptions{})
-		gomega.Expect(err).NotTo(gomega.HaveOccurred())
+		_, err = clusterClient.ClusterV1beta2().ManagedClusterSetBindings(namespace).Create(ctx, binding, metav1.CreateOptions{})
+		Expect(err).NotTo(HaveOccurred())
 
-		ginkgo.By("Wait for binding to become bound")
-		gomega.Eventually(func() bool {
-			binding, err = clusterClient.ClusterV1beta2().ManagedClusterSetBindings(namespace).Get(context.Background(), clusterSetName, metav1.GetOptions{})
+		By("Wait for binding to become bound")
+		Eventually(func() bool {
+			binding, err = clusterClient.ClusterV1beta2().ManagedClusterSetBindings(namespace).Get(ctx, clusterSetName, metav1.GetOptions{})
 			if err != nil {
 				return false
 			}
 			return meta.IsStatusConditionTrue(binding.Status.Conditions, clusterv1beta2.ClusterSetBindingBoundType)
-		}, eventuallyTimeout, eventuallyInterval).Should(gomega.BeTrue())
+		}, eventuallyTimeout, eventuallyInterval).Should(BeTrue())
 
-		ginkgo.By("Verify ClusterProfile status is synced from ManagedCluster")
-		gomega.Eventually(func() error {
-			profile, err := clusterProfileClient.ApisV1alpha2().ClusterProfiles(namespace).Get(context.Background(), clusterName, metav1.GetOptions{})
+		By("Verify ClusterProfile status is synced from ManagedCluster")
+		Eventually(func() error {
+			profile, err := clusterProfileClient.ApisV1alpha2().ClusterProfiles(namespace).Get(ctx, clusterName, metav1.GetOptions{})
 			if err != nil {
 				return err
 			}
@@ -845,10 +843,10 @@ var _ = ginkgo.Describe("ClusterProfile", func() {
 			}
 
 			return nil
-		}, eventuallyTimeout, eventuallyInterval).Should(gomega.Succeed())
+		}, eventuallyTimeout, eventuallyInterval).Should(Succeed())
 	})
 
-	ginkgo.It("should create ClusterProfiles with global clusterset (empty LabelSelector)", func() {
+	It("should create ClusterProfiles with global clusterset (empty LabelSelector)", func(ctx SpecContext) {
 		suffix := rand.String(6)
 		cluster1Name := fmt.Sprintf("cluster1-%s", suffix)
 		cluster2Name := fmt.Sprintf("cluster2-%s", suffix)
@@ -856,16 +854,16 @@ var _ = ginkgo.Describe("ClusterProfile", func() {
 		namespace := fmt.Sprintf("test-ns-%s", suffix)
 		testNamespaces = append(testNamespaces, namespace)
 
-		ginkgo.By("Create test namespace")
+		By("Create test namespace")
 		ns := &corev1.Namespace{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: namespace,
 			},
 		}
-		_, err := kubeClient.CoreV1().Namespaces().Create(context.Background(), ns, metav1.CreateOptions{})
-		gomega.Expect(err).NotTo(gomega.HaveOccurred())
+		_, err := kubeClient.CoreV1().Namespaces().Create(ctx, ns, metav1.CreateOptions{})
+		Expect(err).NotTo(HaveOccurred())
 
-		ginkgo.By("Create global ManagedClusterSet with empty LabelSelector")
+		By("Create global ManagedClusterSet with empty LabelSelector")
 		globalClusterSet := &clusterv1beta2.ManagedClusterSet{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: clusterSetName,
@@ -877,10 +875,10 @@ var _ = ginkgo.Describe("ClusterProfile", func() {
 				},
 			},
 		}
-		_, err = clusterClient.ClusterV1beta2().ManagedClusterSets().Create(context.Background(), globalClusterSet, metav1.CreateOptions{})
-		gomega.Expect(err).NotTo(gomega.HaveOccurred())
+		_, err = clusterClient.ClusterV1beta2().ManagedClusterSets().Create(ctx, globalClusterSet, metav1.CreateOptions{})
+		Expect(err).NotTo(HaveOccurred())
 
-		ginkgo.By("Create first ManagedCluster with labels")
+		By("Create first ManagedCluster with labels")
 		cluster1 := &clusterv1.ManagedCluster{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: cluster1Name,
@@ -893,10 +891,10 @@ var _ = ginkgo.Describe("ClusterProfile", func() {
 				HubAcceptsClient: true,
 			},
 		}
-		_, err = clusterClient.ClusterV1().ManagedClusters().Create(context.Background(), cluster1, metav1.CreateOptions{})
-		gomega.Expect(err).NotTo(gomega.HaveOccurred())
+		_, err = clusterClient.ClusterV1().ManagedClusters().Create(ctx, cluster1, metav1.CreateOptions{})
+		Expect(err).NotTo(HaveOccurred())
 
-		ginkgo.By("Create second ManagedCluster with no labels")
+		By("Create second ManagedCluster with no labels")
 		cluster2 := &clusterv1.ManagedCluster{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:   cluster2Name,
@@ -906,10 +904,10 @@ var _ = ginkgo.Describe("ClusterProfile", func() {
 				HubAcceptsClient: true,
 			},
 		}
-		_, err = clusterClient.ClusterV1().ManagedClusters().Create(context.Background(), cluster2, metav1.CreateOptions{})
-		gomega.Expect(err).NotTo(gomega.HaveOccurred())
+		_, err = clusterClient.ClusterV1().ManagedClusters().Create(ctx, cluster2, metav1.CreateOptions{})
+		Expect(err).NotTo(HaveOccurred())
 
-		ginkgo.By("Create ManagedClusterSetBinding for global clusterset")
+		By("Create ManagedClusterSetBinding for global clusterset")
 		binding := &clusterv1beta2.ManagedClusterSetBinding{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      clusterSetName,
@@ -919,22 +917,22 @@ var _ = ginkgo.Describe("ClusterProfile", func() {
 				ClusterSet: clusterSetName,
 			},
 		}
-		_, err = clusterClient.ClusterV1beta2().ManagedClusterSetBindings(namespace).Create(context.Background(), binding, metav1.CreateOptions{})
-		gomega.Expect(err).NotTo(gomega.HaveOccurred())
+		_, err = clusterClient.ClusterV1beta2().ManagedClusterSetBindings(namespace).Create(ctx, binding, metav1.CreateOptions{})
+		Expect(err).NotTo(HaveOccurred())
 
-		ginkgo.By("Wait for binding to become bound")
-		gomega.Eventually(func() bool {
-			binding, err = clusterClient.ClusterV1beta2().ManagedClusterSetBindings(namespace).Get(context.Background(), clusterSetName, metav1.GetOptions{})
+		By("Wait for binding to become bound")
+		Eventually(func() bool {
+			binding, err = clusterClient.ClusterV1beta2().ManagedClusterSetBindings(namespace).Get(ctx, clusterSetName, metav1.GetOptions{})
 			if err != nil {
 				return false
 			}
 			return meta.IsStatusConditionTrue(binding.Status.Conditions, clusterv1beta2.ClusterSetBindingBoundType)
-		}, eventuallyTimeout, eventuallyInterval).Should(gomega.BeTrue())
+		}, eventuallyTimeout, eventuallyInterval).Should(BeTrue())
 
-		ginkgo.By("Verify ClusterProfile is created for both clusters (global selector matches all)")
+		By("Verify ClusterProfile is created for both clusters (global selector matches all)")
 		for _, clusterName := range []string{cluster1Name, cluster2Name} {
-			gomega.Eventually(func() error {
-				profile, err := clusterProfileClient.ApisV1alpha2().ClusterProfiles(namespace).Get(context.Background(), clusterName, metav1.GetOptions{})
+			Eventually(func() error {
+				profile, err := clusterProfileClient.ApisV1alpha2().ClusterProfiles(namespace).Get(ctx, clusterName, metav1.GetOptions{})
 				if err != nil {
 					return err
 				}
@@ -942,11 +940,11 @@ var _ = ginkgo.Describe("ClusterProfile", func() {
 					return fmt.Errorf("unexpected profile name: %s", profile.Name)
 				}
 				return nil
-			}, eventuallyTimeout, eventuallyInterval).Should(gomega.Succeed())
+			}, eventuallyTimeout, eventuallyInterval).Should(Succeed())
 		}
 	})
 
-	ginkgo.It("should create ClusterProfiles with LabelSelector MatchExpressions", func() {
+	It("should create ClusterProfiles with LabelSelector MatchExpressions", func(ctx SpecContext) {
 		suffix := rand.String(6)
 		prodClusterName := fmt.Sprintf("prod-cluster-%s", suffix)
 		devClusterName := fmt.Sprintf("dev-cluster-%s", suffix)
@@ -955,16 +953,16 @@ var _ = ginkgo.Describe("ClusterProfile", func() {
 		namespace := fmt.Sprintf("test-ns-%s", suffix)
 		testNamespaces = append(testNamespaces, namespace)
 
-		ginkgo.By("Create test namespace")
+		By("Create test namespace")
 		ns := &corev1.Namespace{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: namespace,
 			},
 		}
-		_, err := kubeClient.CoreV1().Namespaces().Create(context.Background(), ns, metav1.CreateOptions{})
-		gomega.Expect(err).NotTo(gomega.HaveOccurred())
+		_, err := kubeClient.CoreV1().Namespaces().Create(ctx, ns, metav1.CreateOptions{})
+		Expect(err).NotTo(HaveOccurred())
 
-		ginkgo.By("Create ManagedClusterSet with MatchExpressions")
+		By("Create ManagedClusterSet with MatchExpressions")
 		clusterSet := &clusterv1beta2.ManagedClusterSet{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: clusterSetName,
@@ -984,10 +982,10 @@ var _ = ginkgo.Describe("ClusterProfile", func() {
 				},
 			},
 		}
-		_, err = clusterClient.ClusterV1beta2().ManagedClusterSets().Create(context.Background(), clusterSet, metav1.CreateOptions{})
-		gomega.Expect(err).NotTo(gomega.HaveOccurred())
+		_, err = clusterClient.ClusterV1beta2().ManagedClusterSets().Create(ctx, clusterSet, metav1.CreateOptions{})
+		Expect(err).NotTo(HaveOccurred())
 
-		ginkgo.By("Create production cluster")
+		By("Create production cluster")
 		prodCluster := &clusterv1.ManagedCluster{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: prodClusterName,
@@ -999,10 +997,10 @@ var _ = ginkgo.Describe("ClusterProfile", func() {
 				HubAcceptsClient: true,
 			},
 		}
-		_, err = clusterClient.ClusterV1().ManagedClusters().Create(context.Background(), prodCluster, metav1.CreateOptions{})
-		gomega.Expect(err).NotTo(gomega.HaveOccurred())
+		_, err = clusterClient.ClusterV1().ManagedClusters().Create(ctx, prodCluster, metav1.CreateOptions{})
+		Expect(err).NotTo(HaveOccurred())
 
-		ginkgo.By("Create development cluster")
+		By("Create development cluster")
 		devCluster := &clusterv1.ManagedCluster{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: devClusterName,
@@ -1014,10 +1012,10 @@ var _ = ginkgo.Describe("ClusterProfile", func() {
 				HubAcceptsClient: true,
 			},
 		}
-		_, err = clusterClient.ClusterV1().ManagedClusters().Create(context.Background(), devCluster, metav1.CreateOptions{})
-		gomega.Expect(err).NotTo(gomega.HaveOccurred())
+		_, err = clusterClient.ClusterV1().ManagedClusters().Create(ctx, devCluster, metav1.CreateOptions{})
+		Expect(err).NotTo(HaveOccurred())
 
-		ginkgo.By("Create test cluster (should NOT match)")
+		By("Create test cluster (should NOT match)")
 		testCluster := &clusterv1.ManagedCluster{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: testClusterName,
@@ -1029,10 +1027,10 @@ var _ = ginkgo.Describe("ClusterProfile", func() {
 				HubAcceptsClient: true,
 			},
 		}
-		_, err = clusterClient.ClusterV1().ManagedClusters().Create(context.Background(), testCluster, metav1.CreateOptions{})
-		gomega.Expect(err).NotTo(gomega.HaveOccurred())
+		_, err = clusterClient.ClusterV1().ManagedClusters().Create(ctx, testCluster, metav1.CreateOptions{})
+		Expect(err).NotTo(HaveOccurred())
 
-		ginkgo.By("Create ManagedClusterSetBinding")
+		By("Create ManagedClusterSetBinding")
 		binding := &clusterv1beta2.ManagedClusterSetBinding{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      clusterSetName,
@@ -1042,34 +1040,34 @@ var _ = ginkgo.Describe("ClusterProfile", func() {
 				ClusterSet: clusterSetName,
 			},
 		}
-		_, err = clusterClient.ClusterV1beta2().ManagedClusterSetBindings(namespace).Create(context.Background(), binding, metav1.CreateOptions{})
-		gomega.Expect(err).NotTo(gomega.HaveOccurred())
+		_, err = clusterClient.ClusterV1beta2().ManagedClusterSetBindings(namespace).Create(ctx, binding, metav1.CreateOptions{})
+		Expect(err).NotTo(HaveOccurred())
 
-		ginkgo.By("Wait for binding to become bound")
-		gomega.Eventually(func() bool {
-			binding, err = clusterClient.ClusterV1beta2().ManagedClusterSetBindings(namespace).Get(context.Background(), clusterSetName, metav1.GetOptions{})
+		By("Wait for binding to become bound")
+		Eventually(func() bool {
+			binding, err = clusterClient.ClusterV1beta2().ManagedClusterSetBindings(namespace).Get(ctx, clusterSetName, metav1.GetOptions{})
 			if err != nil {
 				return false
 			}
 			return meta.IsStatusConditionTrue(binding.Status.Conditions, clusterv1beta2.ClusterSetBindingBoundType)
-		}, eventuallyTimeout, eventuallyInterval).Should(gomega.BeTrue())
+		}, eventuallyTimeout, eventuallyInterval).Should(BeTrue())
 
-		ginkgo.By("Verify ClusterProfiles are created for matching clusters only")
+		By("Verify ClusterProfiles are created for matching clusters only")
 		for _, clusterName := range []string{prodClusterName, devClusterName} {
-			gomega.Eventually(func() error {
-				_, err := clusterProfileClient.ApisV1alpha2().ClusterProfiles(namespace).Get(context.Background(), clusterName, metav1.GetOptions{})
+			Eventually(func() error {
+				_, err := clusterProfileClient.ApisV1alpha2().ClusterProfiles(namespace).Get(ctx, clusterName, metav1.GetOptions{})
 				return err
-			}, eventuallyTimeout, eventuallyInterval).Should(gomega.Succeed())
+			}, eventuallyTimeout, eventuallyInterval).Should(Succeed())
 		}
 
-		ginkgo.By("Verify ClusterProfile is NOT created for test cluster")
-		gomega.Consistently(func() bool {
-			_, err := clusterProfileClient.ApisV1alpha2().ClusterProfiles(namespace).Get(context.Background(), testClusterName, metav1.GetOptions{})
+		By("Verify ClusterProfile is NOT created for test cluster")
+		Consistently(func() bool {
+			_, err := clusterProfileClient.ApisV1alpha2().ClusterProfiles(namespace).Get(ctx, testClusterName, metav1.GetOptions{})
 			return errors.IsNotFound(err)
-		}, "10s", "1s").Should(gomega.BeTrue())
+		}, "10s", "1s").Should(BeTrue())
 	})
 
-	ginkgo.It("should deduplicate ClusterProfiles with multiple overlapping LabelSelectors", func() {
+	It("should deduplicate ClusterProfiles with multiple overlapping LabelSelectors", func(ctx SpecContext) {
 		suffix := rand.String(6)
 		clusterName := fmt.Sprintf("cluster-%s", suffix)
 		prodSetName := fmt.Sprintf("prod-set-%s", suffix)
@@ -1077,16 +1075,16 @@ var _ = ginkgo.Describe("ClusterProfile", func() {
 		namespace := fmt.Sprintf("test-ns-%s", suffix)
 		testNamespaces = append(testNamespaces, namespace)
 
-		ginkgo.By("Create test namespace")
+		By("Create test namespace")
 		ns := &corev1.Namespace{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: namespace,
 			},
 		}
-		_, err := kubeClient.CoreV1().Namespaces().Create(context.Background(), ns, metav1.CreateOptions{})
-		gomega.Expect(err).NotTo(gomega.HaveOccurred())
+		_, err := kubeClient.CoreV1().Namespaces().Create(ctx, ns, metav1.CreateOptions{})
+		Expect(err).NotTo(HaveOccurred())
 
-		ginkgo.By("Create production LabelSelector clusterset")
+		By("Create production LabelSelector clusterset")
 		prodSet := &clusterv1beta2.ManagedClusterSet{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: prodSetName,
@@ -1102,10 +1100,10 @@ var _ = ginkgo.Describe("ClusterProfile", func() {
 				},
 			},
 		}
-		_, err = clusterClient.ClusterV1beta2().ManagedClusterSets().Create(context.Background(), prodSet, metav1.CreateOptions{})
-		gomega.Expect(err).NotTo(gomega.HaveOccurred())
+		_, err = clusterClient.ClusterV1beta2().ManagedClusterSets().Create(ctx, prodSet, metav1.CreateOptions{})
+		Expect(err).NotTo(HaveOccurred())
 
-		ginkgo.By("Create us-west LabelSelector clusterset")
+		By("Create us-west LabelSelector clusterset")
 		usWestSet := &clusterv1beta2.ManagedClusterSet{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: usWestSetName,
@@ -1121,10 +1119,10 @@ var _ = ginkgo.Describe("ClusterProfile", func() {
 				},
 			},
 		}
-		_, err = clusterClient.ClusterV1beta2().ManagedClusterSets().Create(context.Background(), usWestSet, metav1.CreateOptions{})
-		gomega.Expect(err).NotTo(gomega.HaveOccurred())
+		_, err = clusterClient.ClusterV1beta2().ManagedClusterSets().Create(ctx, usWestSet, metav1.CreateOptions{})
+		Expect(err).NotTo(HaveOccurred())
 
-		ginkgo.By("Create cluster that matches BOTH label selectors")
+		By("Create cluster that matches BOTH label selectors")
 		cluster := &clusterv1.ManagedCluster{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: clusterName,
@@ -1137,10 +1135,10 @@ var _ = ginkgo.Describe("ClusterProfile", func() {
 				HubAcceptsClient: true,
 			},
 		}
-		_, err = clusterClient.ClusterV1().ManagedClusters().Create(context.Background(), cluster, metav1.CreateOptions{})
-		gomega.Expect(err).NotTo(gomega.HaveOccurred())
+		_, err = clusterClient.ClusterV1().ManagedClusters().Create(ctx, cluster, metav1.CreateOptions{})
+		Expect(err).NotTo(HaveOccurred())
 
-		ginkgo.By("Create binding for production clusterset")
+		By("Create binding for production clusterset")
 		prodBinding := &clusterv1beta2.ManagedClusterSetBinding{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      prodSetName,
@@ -1150,10 +1148,10 @@ var _ = ginkgo.Describe("ClusterProfile", func() {
 				ClusterSet: prodSetName,
 			},
 		}
-		_, err = clusterClient.ClusterV1beta2().ManagedClusterSetBindings(namespace).Create(context.Background(), prodBinding, metav1.CreateOptions{})
-		gomega.Expect(err).NotTo(gomega.HaveOccurred())
+		_, err = clusterClient.ClusterV1beta2().ManagedClusterSetBindings(namespace).Create(ctx, prodBinding, metav1.CreateOptions{})
+		Expect(err).NotTo(HaveOccurred())
 
-		ginkgo.By("Create binding for us-west clusterset")
+		By("Create binding for us-west clusterset")
 		usWestBinding := &clusterv1beta2.ManagedClusterSetBinding{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      usWestSetName,
@@ -1163,29 +1161,29 @@ var _ = ginkgo.Describe("ClusterProfile", func() {
 				ClusterSet: usWestSetName,
 			},
 		}
-		_, err = clusterClient.ClusterV1beta2().ManagedClusterSetBindings(namespace).Create(context.Background(), usWestBinding, metav1.CreateOptions{})
-		gomega.Expect(err).NotTo(gomega.HaveOccurred())
+		_, err = clusterClient.ClusterV1beta2().ManagedClusterSetBindings(namespace).Create(ctx, usWestBinding, metav1.CreateOptions{})
+		Expect(err).NotTo(HaveOccurred())
 
-		ginkgo.By("Wait for both bindings to become bound")
+		By("Wait for both bindings to become bound")
 		for _, bindingName := range []string{prodSetName, usWestSetName} {
-			gomega.Eventually(func() bool {
-				binding, err := clusterClient.ClusterV1beta2().ManagedClusterSetBindings(namespace).Get(context.Background(), bindingName, metav1.GetOptions{})
+			Eventually(func() bool {
+				binding, err := clusterClient.ClusterV1beta2().ManagedClusterSetBindings(namespace).Get(ctx, bindingName, metav1.GetOptions{})
 				if err != nil {
 					return false
 				}
 				return meta.IsStatusConditionTrue(binding.Status.Conditions, clusterv1beta2.ClusterSetBindingBoundType)
-			}, eventuallyTimeout, eventuallyInterval).Should(gomega.BeTrue())
+			}, eventuallyTimeout, eventuallyInterval).Should(BeTrue())
 		}
 
-		ginkgo.By("Verify only ONE ClusterProfile is created (deduplication across LabelSelectors)")
-		gomega.Eventually(func() error {
-			_, err := clusterProfileClient.ApisV1alpha2().ClusterProfiles(namespace).Get(context.Background(), clusterName, metav1.GetOptions{})
+		By("Verify only ONE ClusterProfile is created (deduplication across LabelSelectors)")
+		Eventually(func() error {
+			_, err := clusterProfileClient.ApisV1alpha2().ClusterProfiles(namespace).Get(ctx, clusterName, metav1.GetOptions{})
 			return err
-		}, eventuallyTimeout, eventuallyInterval).Should(gomega.Succeed())
+		}, eventuallyTimeout, eventuallyInterval).Should(Succeed())
 
-		ginkgo.By("Verify there is exactly one ClusterProfile")
-		profiles, err := clusterProfileClient.ApisV1alpha2().ClusterProfiles(namespace).List(context.Background(), metav1.ListOptions{})
-		gomega.Expect(err).NotTo(gomega.HaveOccurred())
+		By("Verify there is exactly one ClusterProfile")
+		profiles, err := clusterProfileClient.ApisV1alpha2().ClusterProfiles(namespace).List(ctx, metav1.ListOptions{})
+		Expect(err).NotTo(HaveOccurred())
 
 		clusterProfileCount := 0
 		for _, profile := range profiles.Items {
@@ -1193,26 +1191,26 @@ var _ = ginkgo.Describe("ClusterProfile", func() {
 				clusterProfileCount++
 			}
 		}
-		gomega.Expect(clusterProfileCount).To(gomega.Equal(1), "Expected exactly one ClusterProfile, but found %d", clusterProfileCount)
+		Expect(clusterProfileCount).To(Equal(1), "Expected exactly one ClusterProfile, but found %d", clusterProfileCount)
 	})
 
-	ginkgo.It("should sync clusterset label from ManagedCluster to ClusterProfile", func() {
+	It("should sync clusterset label from ManagedCluster to ClusterProfile", func(ctx SpecContext) {
 		suffix := rand.String(6)
 		clusterName := fmt.Sprintf("cluster-%s", suffix)
 		clusterSetName := fmt.Sprintf("clusterset-%s", suffix)
 		namespace := fmt.Sprintf("test-ns-%s", suffix)
 		testNamespaces = append(testNamespaces, namespace)
 
-		ginkgo.By("Create test namespace")
+		By("Create test namespace")
 		ns := &corev1.Namespace{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: namespace,
 			},
 		}
-		_, err := kubeClient.CoreV1().Namespaces().Create(context.Background(), ns, metav1.CreateOptions{})
-		gomega.Expect(err).NotTo(gomega.HaveOccurred())
+		_, err := kubeClient.CoreV1().Namespaces().Create(ctx, ns, metav1.CreateOptions{})
+		Expect(err).NotTo(HaveOccurred())
 
-		ginkgo.By("Create ManagedClusterSet")
+		By("Create ManagedClusterSet")
 		clusterSet := &clusterv1beta2.ManagedClusterSet{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: clusterSetName,
@@ -1223,10 +1221,10 @@ var _ = ginkgo.Describe("ClusterProfile", func() {
 				},
 			},
 		}
-		_, err = clusterClient.ClusterV1beta2().ManagedClusterSets().Create(context.Background(), clusterSet, metav1.CreateOptions{})
-		gomega.Expect(err).NotTo(gomega.HaveOccurred())
+		_, err = clusterClient.ClusterV1beta2().ManagedClusterSets().Create(ctx, clusterSet, metav1.CreateOptions{})
+		Expect(err).NotTo(HaveOccurred())
 
-		ginkgo.By("Create ManagedCluster with clusterset label")
+		By("Create ManagedCluster with clusterset label")
 		cluster := &clusterv1.ManagedCluster{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: clusterName,
@@ -1238,10 +1236,10 @@ var _ = ginkgo.Describe("ClusterProfile", func() {
 				HubAcceptsClient: true,
 			},
 		}
-		_, err = clusterClient.ClusterV1().ManagedClusters().Create(context.Background(), cluster, metav1.CreateOptions{})
-		gomega.Expect(err).NotTo(gomega.HaveOccurred())
+		_, err = clusterClient.ClusterV1().ManagedClusters().Create(ctx, cluster, metav1.CreateOptions{})
+		Expect(err).NotTo(HaveOccurred())
 
-		ginkgo.By("Create ManagedClusterSetBinding")
+		By("Create ManagedClusterSetBinding")
 		binding := &clusterv1beta2.ManagedClusterSetBinding{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      clusterSetName,
@@ -1251,21 +1249,21 @@ var _ = ginkgo.Describe("ClusterProfile", func() {
 				ClusterSet: clusterSetName,
 			},
 		}
-		_, err = clusterClient.ClusterV1beta2().ManagedClusterSetBindings(namespace).Create(context.Background(), binding, metav1.CreateOptions{})
-		gomega.Expect(err).NotTo(gomega.HaveOccurred())
+		_, err = clusterClient.ClusterV1beta2().ManagedClusterSetBindings(namespace).Create(ctx, binding, metav1.CreateOptions{})
+		Expect(err).NotTo(HaveOccurred())
 
-		ginkgo.By("Wait for binding to become bound")
-		gomega.Eventually(func() bool {
-			binding, err = clusterClient.ClusterV1beta2().ManagedClusterSetBindings(namespace).Get(context.Background(), clusterSetName, metav1.GetOptions{})
+		By("Wait for binding to become bound")
+		Eventually(func() bool {
+			binding, err = clusterClient.ClusterV1beta2().ManagedClusterSetBindings(namespace).Get(ctx, clusterSetName, metav1.GetOptions{})
 			if err != nil {
 				return false
 			}
 			return meta.IsStatusConditionTrue(binding.Status.Conditions, clusterv1beta2.ClusterSetBindingBoundType)
-		}, eventuallyTimeout, eventuallyInterval).Should(gomega.BeTrue())
+		}, eventuallyTimeout, eventuallyInterval).Should(BeTrue())
 
-		ginkgo.By("Verify ClusterProfile has correct clusterset label")
-		gomega.Eventually(func() error {
-			profile, err := clusterProfileClient.ApisV1alpha2().ClusterProfiles(namespace).Get(context.Background(), clusterName, metav1.GetOptions{})
+		By("Verify ClusterProfile has correct clusterset label")
+		Eventually(func() error {
+			profile, err := clusterProfileClient.ApisV1alpha2().ClusterProfiles(namespace).Get(ctx, clusterName, metav1.GetOptions{})
 			if err != nil {
 				return err
 			}
@@ -1276,26 +1274,26 @@ var _ = ginkgo.Describe("ClusterProfile", func() {
 			}
 
 			return nil
-		}, eventuallyTimeout, eventuallyInterval).Should(gomega.Succeed())
+		}, eventuallyTimeout, eventuallyInterval).Should(Succeed())
 	})
 
-	ginkgo.It("should NOT create ClusterProfile for cluster in deletion state", func() {
+	It("should NOT create ClusterProfile for cluster in deletion state", func(ctx SpecContext) {
 		suffix := rand.String(6)
 		clusterName := fmt.Sprintf("cluster-%s", suffix)
 		clusterSetName := fmt.Sprintf("clusterset-%s", suffix)
 		namespace := fmt.Sprintf("test-ns-%s", suffix)
 		testNamespaces = append(testNamespaces, namespace)
 
-		ginkgo.By("Create test namespace")
+		By("Create test namespace")
 		ns := &corev1.Namespace{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: namespace,
 			},
 		}
-		_, err := kubeClient.CoreV1().Namespaces().Create(context.Background(), ns, metav1.CreateOptions{})
-		gomega.Expect(err).NotTo(gomega.HaveOccurred())
+		_, err := kubeClient.CoreV1().Namespaces().Create(ctx, ns, metav1.CreateOptions{})
+		Expect(err).NotTo(HaveOccurred())
 
-		ginkgo.By("Create ManagedClusterSet")
+		By("Create ManagedClusterSet")
 		clusterSet := &clusterv1beta2.ManagedClusterSet{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: clusterSetName,
@@ -1306,10 +1304,10 @@ var _ = ginkgo.Describe("ClusterProfile", func() {
 				},
 			},
 		}
-		_, err = clusterClient.ClusterV1beta2().ManagedClusterSets().Create(context.Background(), clusterSet, metav1.CreateOptions{})
-		gomega.Expect(err).NotTo(gomega.HaveOccurred())
+		_, err = clusterClient.ClusterV1beta2().ManagedClusterSets().Create(ctx, clusterSet, metav1.CreateOptions{})
+		Expect(err).NotTo(HaveOccurred())
 
-		ginkgo.By("Create ManagedCluster with finalizer")
+		By("Create ManagedCluster with finalizer")
 		cluster := &clusterv1.ManagedCluster{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: clusterName,
@@ -1322,23 +1320,23 @@ var _ = ginkgo.Describe("ClusterProfile", func() {
 				HubAcceptsClient: true,
 			},
 		}
-		_, err = clusterClient.ClusterV1().ManagedClusters().Create(context.Background(), cluster, metav1.CreateOptions{})
-		gomega.Expect(err).NotTo(gomega.HaveOccurred())
+		_, err = clusterClient.ClusterV1().ManagedClusters().Create(ctx, cluster, metav1.CreateOptions{})
+		Expect(err).NotTo(HaveOccurred())
 
-		ginkgo.By("Delete ManagedCluster (put in deletion state)")
-		err = clusterClient.ClusterV1().ManagedClusters().Delete(context.Background(), clusterName, metav1.DeleteOptions{})
-		gomega.Expect(err).NotTo(gomega.HaveOccurred())
+		By("Delete ManagedCluster (put in deletion state)")
+		err = clusterClient.ClusterV1().ManagedClusters().Delete(ctx, clusterName, metav1.DeleteOptions{})
+		Expect(err).NotTo(HaveOccurred())
 
-		ginkgo.By("Verify cluster has DeletionTimestamp (stays in deletion due to finalizer)")
-		gomega.Eventually(func() bool {
-			cluster, err := clusterClient.ClusterV1().ManagedClusters().Get(context.Background(), clusterName, metav1.GetOptions{})
+		By("Verify cluster has DeletionTimestamp (stays in deletion due to finalizer)")
+		Eventually(func() bool {
+			cluster, err := clusterClient.ClusterV1().ManagedClusters().Get(ctx, clusterName, metav1.GetOptions{})
 			if err != nil {
 				return false
 			}
 			return cluster.DeletionTimestamp != nil
-		}, eventuallyTimeout, eventuallyInterval).Should(gomega.BeTrue())
+		}, eventuallyTimeout, eventuallyInterval).Should(BeTrue())
 
-		ginkgo.By("Create ManagedClusterSetBinding AFTER cluster is in deletion")
+		By("Create ManagedClusterSetBinding AFTER cluster is in deletion")
 		binding := &clusterv1beta2.ManagedClusterSetBinding{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      clusterSetName,
@@ -1348,27 +1346,27 @@ var _ = ginkgo.Describe("ClusterProfile", func() {
 				ClusterSet: clusterSetName,
 			},
 		}
-		_, err = clusterClient.ClusterV1beta2().ManagedClusterSetBindings(namespace).Create(context.Background(), binding, metav1.CreateOptions{})
-		gomega.Expect(err).NotTo(gomega.HaveOccurred())
+		_, err = clusterClient.ClusterV1beta2().ManagedClusterSetBindings(namespace).Create(ctx, binding, metav1.CreateOptions{})
+		Expect(err).NotTo(HaveOccurred())
 
-		ginkgo.By("Wait for binding to become bound")
-		gomega.Eventually(func() bool {
-			binding, err = clusterClient.ClusterV1beta2().ManagedClusterSetBindings(namespace).Get(context.Background(), clusterSetName, metav1.GetOptions{})
+		By("Wait for binding to become bound")
+		Eventually(func() bool {
+			binding, err = clusterClient.ClusterV1beta2().ManagedClusterSetBindings(namespace).Get(ctx, clusterSetName, metav1.GetOptions{})
 			if err != nil {
 				return false
 			}
 			return meta.IsStatusConditionTrue(binding.Status.Conditions, clusterv1beta2.ClusterSetBindingBoundType)
-		}, eventuallyTimeout, eventuallyInterval).Should(gomega.BeTrue())
+		}, eventuallyTimeout, eventuallyInterval).Should(BeTrue())
 
-		ginkgo.By("Verify ClusterProfile is NOT created for cluster in deletion")
-		gomega.Consistently(func() bool {
-			_, err := clusterProfileClient.ApisV1alpha2().ClusterProfiles(namespace).Get(context.Background(), clusterName, metav1.GetOptions{})
+		By("Verify ClusterProfile is NOT created for cluster in deletion")
+		Consistently(func() bool {
+			_, err := clusterProfileClient.ApisV1alpha2().ClusterProfiles(namespace).Get(ctx, clusterName, metav1.GetOptions{})
 			return errors.IsNotFound(err)
-		}, "15s", "2s").Should(gomega.BeTrue())
+		}, "15s", "2s").Should(BeTrue())
 
-		ginkgo.By("Clean up: Remove finalizer to allow cluster deletion")
-		gomega.Eventually(func() error {
-			cluster, err := clusterClient.ClusterV1().ManagedClusters().Get(context.Background(), clusterName, metav1.GetOptions{})
+		By("Clean up: Remove finalizer to allow cluster deletion")
+		Eventually(func() error {
+			cluster, err := clusterClient.ClusterV1().ManagedClusters().Get(ctx, clusterName, metav1.GetOptions{})
 			if err != nil {
 				if errors.IsNotFound(err) {
 					return nil // Already deleted
@@ -1376,26 +1374,26 @@ var _ = ginkgo.Describe("ClusterProfile", func() {
 				return err
 			}
 			cluster.Finalizers = []string{}
-			_, err = clusterClient.ClusterV1().ManagedClusters().Update(context.Background(), cluster, metav1.UpdateOptions{})
+			_, err = clusterClient.ClusterV1().ManagedClusters().Update(ctx, cluster, metav1.UpdateOptions{})
 			return err
-		}, eventuallyTimeout, eventuallyInterval).Should(gomega.Succeed())
+		}, eventuallyTimeout, eventuallyInterval).Should(Succeed())
 	})
 
-	ginkgo.It("should NOT create ClusterProfile when binding is not bound", func() {
+	It("should NOT create ClusterProfile when binding is not bound", func(ctx SpecContext) {
 		suffix := rand.String(6)
 		clusterName := fmt.Sprintf("cluster-%s", suffix)
 		clusterSetName := fmt.Sprintf("clusterset-%s", suffix)
 		namespace := fmt.Sprintf("test-ns-%s", suffix)
 		testNamespaces = append(testNamespaces, namespace)
 
-		ginkgo.By("Create test namespace")
+		By("Create test namespace")
 		ns := &corev1.Namespace{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: namespace,
 			},
 		}
-		_, err := kubeClient.CoreV1().Namespaces().Create(context.Background(), ns, metav1.CreateOptions{})
-		gomega.Expect(err).NotTo(gomega.HaveOccurred())
+		_, err := kubeClient.CoreV1().Namespaces().Create(ctx, ns, metav1.CreateOptions{})
+		Expect(err).NotTo(HaveOccurred())
 
 		// NOTE: intentionally do NOT create the ManagedClusterSet. Without it, the
 		// ManagedClusterSetBinding controller keeps the binding unbound
@@ -1404,7 +1402,7 @@ var _ = ginkgo.Describe("ClusterProfile", func() {
 		// binding would become bound and a ClusterProfile would (correctly) be
 		// created, which previously made this test race against that transition.
 
-		ginkgo.By("Create ManagedCluster labeled for the absent clusterset")
+		By("Create ManagedCluster labeled for the absent clusterset")
 		cluster := &clusterv1.ManagedCluster{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: clusterName,
@@ -1416,10 +1414,10 @@ var _ = ginkgo.Describe("ClusterProfile", func() {
 				HubAcceptsClient: true,
 			},
 		}
-		_, err = clusterClient.ClusterV1().ManagedClusters().Create(context.Background(), cluster, metav1.CreateOptions{})
-		gomega.Expect(err).NotTo(gomega.HaveOccurred())
+		_, err = clusterClient.ClusterV1().ManagedClusters().Create(ctx, cluster, metav1.CreateOptions{})
+		Expect(err).NotTo(HaveOccurred())
 
-		ginkgo.By("Create ManagedClusterSetBinding referencing the absent clusterset")
+		By("Create ManagedClusterSetBinding referencing the absent clusterset")
 		binding := &clusterv1beta2.ManagedClusterSetBinding{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      clusterSetName,
@@ -1429,20 +1427,20 @@ var _ = ginkgo.Describe("ClusterProfile", func() {
 				ClusterSet: clusterSetName,
 			},
 		}
-		_, err = clusterClient.ClusterV1beta2().ManagedClusterSetBindings(namespace).Create(context.Background(), binding, metav1.CreateOptions{})
-		gomega.Expect(err).NotTo(gomega.HaveOccurred())
+		_, err = clusterClient.ClusterV1beta2().ManagedClusterSetBindings(namespace).Create(ctx, binding, metav1.CreateOptions{})
+		Expect(err).NotTo(HaveOccurred())
 
-		ginkgo.By("Verify the binding is reported as not bound")
-		gomega.Eventually(func(g gomega.Gomega) {
-			b, err := clusterClient.ClusterV1beta2().ManagedClusterSetBindings(namespace).Get(context.Background(), clusterSetName, metav1.GetOptions{})
-			g.Expect(err).NotTo(gomega.HaveOccurred())
-			g.Expect(meta.IsStatusConditionTrue(b.Status.Conditions, clusterv1beta2.ClusterSetBindingBoundType)).To(gomega.BeFalse())
-		}, "10s", "1s").Should(gomega.Succeed())
+		By("Verify the binding is reported as not bound")
+		Eventually(func(g Gomega) {
+			b, err := clusterClient.ClusterV1beta2().ManagedClusterSetBindings(namespace).Get(ctx, clusterSetName, metav1.GetOptions{})
+			g.Expect(err).NotTo(HaveOccurred())
+			g.Expect(meta.IsStatusConditionTrue(b.Status.Conditions, clusterv1beta2.ClusterSetBindingBoundType)).To(BeFalse())
+		}, "10s", "1s").Should(Succeed())
 
-		ginkgo.By("Verify ClusterProfile is NOT created while the binding is not bound")
-		gomega.Consistently(func(g gomega.Gomega) {
-			_, err := clusterProfileClient.ApisV1alpha2().ClusterProfiles(namespace).Get(context.Background(), clusterName, metav1.GetOptions{})
-			g.Expect(errors.IsNotFound(err)).To(gomega.BeTrue(), "ClusterProfile should not be created while the binding is not bound")
-		}, "10s", "2s").Should(gomega.Succeed())
+		By("Verify ClusterProfile is NOT created while the binding is not bound")
+		Consistently(func(g Gomega) {
+			_, err := clusterProfileClient.ApisV1alpha2().ClusterProfiles(namespace).Get(ctx, clusterName, metav1.GetOptions{})
+			g.Expect(errors.IsNotFound(err)).To(BeTrue(), "ClusterProfile should not be created while the binding is not bound")
+		}, "10s", "2s").Should(Succeed())
 	})
 })

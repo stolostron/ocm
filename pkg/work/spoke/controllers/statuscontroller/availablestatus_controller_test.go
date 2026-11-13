@@ -1,7 +1,6 @@
 package statuscontroller
 
 import (
-	"context"
 	"encoding/json"
 	"testing"
 	"time"
@@ -14,7 +13,6 @@ import (
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	fakedynamic "k8s.io/client-go/dynamic/fake"
 	clienttesting "k8s.io/client-go/testing"
-	"k8s.io/utils/pointer"
 
 	fakeworkclient "open-cluster-management.io/api/client/work/clientset/versioned/fake"
 	workinformers "open-cluster-management.io/api/client/work/informers/externalversions"
@@ -223,7 +221,7 @@ func TestSyncManifestWork(t *testing.T) {
 				objectReader: r,
 			}
 
-			err = controller.syncManifestWork(context.TODO(), syncCtx, testingWork)
+			err = controller.syncManifestWork(t.Context(), syncCtx, testingWork)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -307,21 +305,21 @@ func TestStatusFeedback(t *testing.T) {
 						Name: "ReadyReplicas",
 						Value: workapiv1.FieldValue{
 							Type:    workapiv1.Integer,
-							Integer: pointer.Int64(2),
+							Integer: new(int64(2)),
 						},
 					},
 					{
 						Name: "Replicas",
 						Value: workapiv1.FieldValue{
 							Type:    workapiv1.Integer,
-							Integer: pointer.Int64(3),
+							Integer: new(int64(3)),
 						},
 					},
 					{
 						Name: "AvailableReplicas",
 						Value: workapiv1.FieldValue{
 							Type:    workapiv1.Integer,
-							Integer: pointer.Int64(2),
+							Integer: new(int64(2)),
 						},
 					},
 				}
@@ -382,7 +380,7 @@ func TestStatusFeedback(t *testing.T) {
 						Name: "Replicas",
 						Value: workapiv1.FieldValue{
 							Type:    workapiv1.Integer,
-							Integer: pointer.Int64(3),
+							Integer: new(int64(3)),
 						},
 					},
 				}
@@ -423,7 +421,7 @@ func TestStatusFeedback(t *testing.T) {
 								Name: "ReadyReplicas",
 								Value: workapiv1.FieldValue{
 									Type:    workapiv1.Integer,
-									Integer: pointer.Int64(2), // Different from current state (3)
+									Integer: new(int64(2)), // Different from current state (3)
 								},
 							},
 						},
@@ -507,21 +505,21 @@ func TestStatusFeedback(t *testing.T) {
 						Name: "ReadyReplicas",
 						Value: workapiv1.FieldValue{
 							Type:    workapiv1.Integer,
-							Integer: pointer.Int64(2),
+							Integer: new(int64(2)),
 						},
 					},
 					{
 						Name: "Replicas",
 						Value: workapiv1.FieldValue{
 							Type:    workapiv1.Integer,
-							Integer: pointer.Int64(3),
+							Integer: new(int64(3)),
 						},
 					},
 					{
 						Name: "AvailableReplicas",
 						Value: workapiv1.FieldValue{
 							Type:    workapiv1.Integer,
-							Integer: pointer.Int64(2),
+							Integer: new(int64(2)),
 						},
 					},
 				}
@@ -569,7 +567,7 @@ func TestStatusFeedback(t *testing.T) {
 				objectReader: r,
 			}
 
-			err = controller.syncManifestWork(context.TODO(), syncCtx, testingWork)
+			err = controller.syncManifestWork(t.Context(), syncCtx, testingWork)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -899,7 +897,7 @@ func TestConditionRules(t *testing.T) {
 			}
 
 			syncCtx := testingcommon.NewFakeSyncContext(t, testingWork.Namespace)
-			err = controller.syncManifestWork(context.TODO(), syncCtx, testingWork)
+			err = controller.syncManifestWork(t.Context(), syncCtx, testingWork)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -1114,7 +1112,7 @@ func TestRegisterUnregisterInformersBasedOnFeedbackType(t *testing.T) {
 				statusReader:    statusfeedback.NewStatusReader(),
 			}
 
-			err = controller.syncManifestWork(context.TODO(), syncCtx, testingWork)
+			err = controller.syncManifestWork(t.Context(), syncCtx, testingWork)
 			if err != nil {
 				t.Fatal(err)
 			}

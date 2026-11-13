@@ -8,8 +8,8 @@ import (
 	"net/http"
 	"net/http/httptest"
 
-	"github.com/onsi/ginkgo/v2"
-	"github.com/onsi/gomega"
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -23,13 +23,13 @@ import (
 	testinghelpers "open-cluster-management.io/ocm/pkg/placement/helpers/testing"
 )
 
-var _ = ginkgo.Describe("DebugService", func() {
+var _ = Describe("DebugService", func() {
 	var namespace string
 	var placementName string
 	var clusterSet1Name string
 	var suffix string
 
-	ginkgo.BeforeEach(func() {
+	BeforeEach(func(ctx SpecContext) {
 		suffix = rand.String(5)
 		namespace = fmt.Sprintf("ns-%s", suffix)
 		placementName = fmt.Sprintf("placement-%s", suffix)
@@ -41,46 +41,46 @@ var _ = ginkgo.Describe("DebugService", func() {
 				Name: namespace,
 			},
 		}
-		_, err := kubeClient.CoreV1().Namespaces().Create(context.Background(), ns, metav1.CreateOptions{})
-		gomega.Expect(err).ToNot(gomega.HaveOccurred())
+		_, err := kubeClient.CoreV1().Namespaces().Create(ctx, ns, metav1.CreateOptions{})
+		Expect(err).ToNot(HaveOccurred())
 	})
 
-	ginkgo.AfterEach(func() {
-		err := kubeClient.CoreV1().Namespaces().Delete(context.Background(), namespace, metav1.DeleteOptions{})
-		gomega.Expect(err).ToNot(gomega.HaveOccurred())
+	AfterEach(func(ctx SpecContext) {
+		err := kubeClient.CoreV1().Namespaces().Delete(ctx, namespace, metav1.DeleteOptions{})
+		Expect(err).ToNot(HaveOccurred())
 
-		assertCleanupClusters()
+		assertCleanupClusters(ctx)
 	})
 
-	ginkgo.Context("Debug Endpoint Permission Check with Real RBAC", func() {
+	Context("Debug Endpoint Permission Check with Real RBAC", func() {
 		var serviceAccountName string
 		var roleName string
 		var roleBindingName string
 
-		ginkgo.BeforeEach(func() {
+		BeforeEach(func() {
 			serviceAccountName = fmt.Sprintf("test-sa-%s", suffix)
 			roleName = fmt.Sprintf("test-role-%s", suffix)
 			roleBindingName = fmt.Sprintf("test-rb-%s", suffix)
 		})
 
-		ginkgo.AfterEach(func() {
-			ginkgo.By("Cleanup RBAC resources")
-			_ = kubeClient.CoreV1().ServiceAccounts(namespace).Delete(context.Background(), serviceAccountName, metav1.DeleteOptions{})
-			_ = kubeClient.RbacV1().Roles(namespace).Delete(context.Background(), roleName, metav1.DeleteOptions{})
-			_ = kubeClient.RbacV1().RoleBindings(namespace).Delete(context.Background(), roleBindingName, metav1.DeleteOptions{})
-			_ = clusterClient.ClusterV1beta1().Placements(namespace).Delete(context.Background(), placementName, metav1.DeleteOptions{})
+		AfterEach(func(ctx SpecContext) {
+			By("Cleanup RBAC resources")
+			_ = kubeClient.CoreV1().ServiceAccounts(namespace).Delete(ctx, serviceAccountName, metav1.DeleteOptions{})
+			_ = kubeClient.RbacV1().Roles(namespace).Delete(ctx, roleName, metav1.DeleteOptions{})
+			_ = kubeClient.RbacV1().RoleBindings(namespace).Delete(ctx, roleBindingName, metav1.DeleteOptions{})
+			_ = clusterClient.ClusterV1beta1().Placements(namespace).Delete(ctx, placementName, metav1.DeleteOptions{})
 		})
 
-		ginkgo.It("Should allow request with valid ServiceAccount token and proper RBAC", func() {
+		It("Should allow request with valid ServiceAccount token and proper RBAC", func(ctx SpecContext) {
 			// Create ClusterSet, binding and clusters
-			assertBindingClusterSet(clusterSet1Name, namespace)
-			assertCreatingClusters(clusterSet1Name, 2)
+			assertBindingClusterSet(ctx, clusterSet1Name, namespace)
+			assertCreatingClusters(ctx, clusterSet1Name, 2)
 
 			// Create placement
 			placement := testinghelpers.NewPlacement(namespace, placementName).
 				WithClusterSets(clusterSet1Name).
 				Build()
-			assertCreatingPlacement(placement)
+			assertCreatingPlacement(ctx, placement)
 
 			// Create ServiceAccount
 			sa := &corev1.ServiceAccount{
@@ -89,8 +89,8 @@ var _ = ginkgo.Describe("DebugService", func() {
 					Namespace: namespace,
 				},
 			}
-			_, err := kubeClient.CoreV1().ServiceAccounts(namespace).Create(context.Background(), sa, metav1.CreateOptions{})
-			gomega.Expect(err).ToNot(gomega.HaveOccurred())
+			_, err := kubeClient.CoreV1().ServiceAccounts(namespace).Create(ctx, sa, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
 
 			// Create Role with permission to get placements (GET debug endpoint checks get verb)
 			role := &rbacv1.Role{
@@ -106,8 +106,8 @@ var _ = ginkgo.Describe("DebugService", func() {
 					},
 				},
 			}
-			_, err = kubeClient.RbacV1().Roles(namespace).Create(context.Background(), role, metav1.CreateOptions{})
-			gomega.Expect(err).ToNot(gomega.HaveOccurred())
+			_, err = kubeClient.RbacV1().Roles(namespace).Create(ctx, role, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
 
 			// Create RoleBinding
 			roleBinding := &rbacv1.RoleBinding{
@@ -128,29 +128,29 @@ var _ = ginkgo.Describe("DebugService", func() {
 					Name:     roleName,
 				},
 			}
-			_, err = kubeClient.RbacV1().RoleBindings(namespace).Create(context.Background(), roleBinding, metav1.CreateOptions{})
-			gomega.Expect(err).ToNot(gomega.HaveOccurred())
+			_, err = kubeClient.RbacV1().RoleBindings(namespace).Create(ctx, roleBinding, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
 
 			// Create debugger using helper function
-			ctx, stopFunc := context.WithCancel(context.Background())
+			runCtx, stopFunc := context.WithCancel(context.Background())
 			defer stopFunc()
 
-			debug, clusterInformers, err := controllers.NewDebuggerWithInformers(ctx, restConfig)
-			gomega.Expect(err).ToNot(gomega.HaveOccurred())
+			debug, clusterInformers, err := controllers.NewDebuggerWithInformers(runCtx, restConfig)
+			Expect(err).ToNot(HaveOccurred())
 
 			// Start informers and wait for cache sync
-			clusterInformers.Start(ctx.Done())
-			gomega.Expect(cache.WaitForCacheSync(ctx.Done(),
+			clusterInformers.Start(runCtx.Done())
+			Expect(cache.WaitForCacheSync(runCtx.Done(),
 				clusterInformers.Cluster().V1beta1().Placements().Informer().HasSynced,
 				clusterInformers.Cluster().V1beta1().PlacementDecisions().Informer().HasSynced,
 				clusterInformers.Cluster().V1().ManagedClusters().Informer().HasSynced,
 				clusterInformers.Cluster().V1beta2().ManagedClusterSets().Informer().HasSynced,
 				clusterInformers.Cluster().V1beta2().ManagedClusterSetBindings().Informer().HasSynced,
 				clusterInformers.Cluster().V1alpha1().AddOnPlacementScores().Informer().HasSynced,
-			)).To(gomega.BeTrue())
+			)).To(BeTrue())
 
 			// Create httptest server with handler that injects user info into context
-			ginkgo.By("Create test server with user context injection")
+			By("Create test server with user context injection")
 			handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				// Inject user info into request context (simulating GenericAPIServer authentication)
 				userInfo := &user.DefaultInfo{
@@ -168,34 +168,34 @@ var _ = ginkgo.Describe("DebugService", func() {
 			defer server.Close()
 
 			// Send request without Authorization header (user info is injected by handler)
-			ginkgo.By("Send GET request with user context")
+			By("Send GET request with user context")
 			req, err := http.NewRequest("GET", fmt.Sprintf("%s%s%s/%s", server.URL, debugger.DebugPath, namespace, placementName), nil)
-			gomega.Expect(err).ToNot(gomega.HaveOccurred())
+			Expect(err).ToNot(HaveOccurred())
 
 			resp, err := http.DefaultClient.Do(req)
-			gomega.Expect(err).ToNot(gomega.HaveOccurred())
+			Expect(err).ToNot(HaveOccurred())
 			defer resp.Body.Close()
 
 			// Verify response - should succeed
 			var result debugger.DebugResult
 			err = json.NewDecoder(resp.Body).Decode(&result)
-			gomega.Expect(err).ToNot(gomega.HaveOccurred())
+			Expect(err).ToNot(HaveOccurred())
 
-			ginkgo.By("Verify request was authorized")
-			gomega.Expect(result.Error).To(gomega.BeEmpty(), "Should not have permission error with valid user and RBAC")
-			gomega.Expect(result.Placement).ToNot(gomega.BeNil())
+			By("Verify request was authorized")
+			Expect(result.Error).To(BeEmpty(), "Should not have permission error with valid user and RBAC")
+			Expect(result.Placement).ToNot(BeNil())
 		})
 
-		ginkgo.It("Should reject request when ServiceAccount lacks RBAC permission", func() {
+		It("Should reject request when ServiceAccount lacks RBAC permission", func(ctx SpecContext) {
 			// Create ClusterSet, binding and clusters
-			assertBindingClusterSet(clusterSet1Name, namespace)
-			assertCreatingClusters(clusterSet1Name, 2)
+			assertBindingClusterSet(ctx, clusterSet1Name, namespace)
+			assertCreatingClusters(ctx, clusterSet1Name, 2)
 
 			// Create placement
 			placement := testinghelpers.NewPlacement(namespace, placementName).
 				WithClusterSets(clusterSet1Name).
 				Build()
-			assertCreatingPlacement(placement)
+			assertCreatingPlacement(ctx, placement)
 
 			// Create ServiceAccount WITHOUT any RBAC permissions
 			sa := &corev1.ServiceAccount{
@@ -204,29 +204,29 @@ var _ = ginkgo.Describe("DebugService", func() {
 					Namespace: namespace,
 				},
 			}
-			_, err := kubeClient.CoreV1().ServiceAccounts(namespace).Create(context.Background(), sa, metav1.CreateOptions{})
-			gomega.Expect(err).ToNot(gomega.HaveOccurred())
+			_, err := kubeClient.CoreV1().ServiceAccounts(namespace).Create(ctx, sa, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
 
 			// Create debugger using helper function
-			ctx, stopFunc := context.WithCancel(context.Background())
+			runCtx, stopFunc := context.WithCancel(context.Background())
 			defer stopFunc()
 
-			debug, clusterInformers, err := controllers.NewDebuggerWithInformers(ctx, restConfig)
-			gomega.Expect(err).ToNot(gomega.HaveOccurred())
+			debug, clusterInformers, err := controllers.NewDebuggerWithInformers(runCtx, restConfig)
+			Expect(err).ToNot(HaveOccurred())
 
 			// Start informers and wait for cache sync
-			clusterInformers.Start(ctx.Done())
-			gomega.Expect(cache.WaitForCacheSync(ctx.Done(),
+			clusterInformers.Start(runCtx.Done())
+			Expect(cache.WaitForCacheSync(runCtx.Done(),
 				clusterInformers.Cluster().V1beta1().Placements().Informer().HasSynced,
 				clusterInformers.Cluster().V1beta1().PlacementDecisions().Informer().HasSynced,
 				clusterInformers.Cluster().V1().ManagedClusters().Informer().HasSynced,
 				clusterInformers.Cluster().V1beta2().ManagedClusterSets().Informer().HasSynced,
 				clusterInformers.Cluster().V1beta2().ManagedClusterSetBindings().Informer().HasSynced,
 				clusterInformers.Cluster().V1alpha1().AddOnPlacementScores().Informer().HasSynced,
-			)).To(gomega.BeTrue())
+			)).To(BeTrue())
 
 			// Create httptest server with handler that injects user info into context
-			ginkgo.By("Create test server with user context injection")
+			By("Create test server with user context injection")
 			handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				// Inject user info into request context (simulating GenericAPIServer authentication)
 				userInfo := &user.DefaultInfo{
@@ -244,29 +244,29 @@ var _ = ginkgo.Describe("DebugService", func() {
 			defer server.Close()
 
 			// Send request (user has no RBAC permission)
-			ginkgo.By("Send GET request with user lacking RBAC permission")
+			By("Send GET request with user lacking RBAC permission")
 			req, err := http.NewRequest("GET", fmt.Sprintf("%s%s%s/%s", server.URL, debugger.DebugPath, namespace, placementName), nil)
-			gomega.Expect(err).ToNot(gomega.HaveOccurred())
+			Expect(err).ToNot(HaveOccurred())
 
 			resp, err := http.DefaultClient.Do(req)
-			gomega.Expect(err).ToNot(gomega.HaveOccurred())
+			Expect(err).ToNot(HaveOccurred())
 			defer resp.Body.Close()
 
 			// Verify response - should be rejected
 			var result debugger.DebugResult
 			err = json.NewDecoder(resp.Body).Decode(&result)
-			gomega.Expect(err).ToNot(gomega.HaveOccurred())
+			Expect(err).ToNot(HaveOccurred())
 
-			ginkgo.By("Verify request was rejected due to lack of permission")
-			gomega.Expect(resp.StatusCode).To(gomega.Equal(http.StatusForbidden))
-			gomega.Expect(result.Error).ToNot(gomega.BeEmpty(), "Should have permission error")
-			gomega.Expect(result.Error).To(gomega.ContainSubstring("does not have permission to get placements"))
+			By("Verify request was rejected due to lack of permission")
+			Expect(resp.StatusCode).To(Equal(http.StatusForbidden))
+			Expect(result.Error).ToNot(BeEmpty(), "Should have permission error")
+			Expect(result.Error).To(ContainSubstring("does not have permission to get placements"))
 		})
 
-		ginkgo.It("Should accept POST request with placement JSON and valid token", func() {
+		It("Should accept POST request with placement JSON and valid token", func(ctx SpecContext) {
 			// Create ClusterSet, binding and clusters (no placement in cluster)
-			assertBindingClusterSet(clusterSet1Name, namespace)
-			assertCreatingClusters(clusterSet1Name, 3)
+			assertBindingClusterSet(ctx, clusterSet1Name, namespace)
+			assertCreatingClusters(ctx, clusterSet1Name, 3)
 
 			// Create ServiceAccount
 			sa := &corev1.ServiceAccount{
@@ -275,8 +275,8 @@ var _ = ginkgo.Describe("DebugService", func() {
 					Namespace: namespace,
 				},
 			}
-			_, err := kubeClient.CoreV1().ServiceAccounts(namespace).Create(context.Background(), sa, metav1.CreateOptions{})
-			gomega.Expect(err).ToNot(gomega.HaveOccurred())
+			_, err := kubeClient.CoreV1().ServiceAccounts(namespace).Create(ctx, sa, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
 
 			// Create Role with permission to create placements
 			role := &rbacv1.Role{
@@ -292,8 +292,8 @@ var _ = ginkgo.Describe("DebugService", func() {
 					},
 				},
 			}
-			_, err = kubeClient.RbacV1().Roles(namespace).Create(context.Background(), role, metav1.CreateOptions{})
-			gomega.Expect(err).ToNot(gomega.HaveOccurred())
+			_, err = kubeClient.RbacV1().Roles(namespace).Create(ctx, role, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
 
 			// Create RoleBinding
 			roleBinding := &rbacv1.RoleBinding{
@@ -314,29 +314,29 @@ var _ = ginkgo.Describe("DebugService", func() {
 					Name:     roleName,
 				},
 			}
-			_, err = kubeClient.RbacV1().RoleBindings(namespace).Create(context.Background(), roleBinding, metav1.CreateOptions{})
-			gomega.Expect(err).ToNot(gomega.HaveOccurred())
+			_, err = kubeClient.RbacV1().RoleBindings(namespace).Create(ctx, roleBinding, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
 
 			// Create debugger using helper function
-			ctx, stopFunc := context.WithCancel(context.Background())
+			runCtx, stopFunc := context.WithCancel(context.Background())
 			defer stopFunc()
 
-			debug, clusterInformers, err := controllers.NewDebuggerWithInformers(ctx, restConfig)
-			gomega.Expect(err).ToNot(gomega.HaveOccurred())
+			debug, clusterInformers, err := controllers.NewDebuggerWithInformers(runCtx, restConfig)
+			Expect(err).ToNot(HaveOccurred())
 
 			// Start informers and wait for cache sync
-			clusterInformers.Start(ctx.Done())
-			gomega.Expect(cache.WaitForCacheSync(ctx.Done(),
+			clusterInformers.Start(runCtx.Done())
+			Expect(cache.WaitForCacheSync(runCtx.Done(),
 				clusterInformers.Cluster().V1beta1().Placements().Informer().HasSynced,
 				clusterInformers.Cluster().V1beta1().PlacementDecisions().Informer().HasSynced,
 				clusterInformers.Cluster().V1().ManagedClusters().Informer().HasSynced,
 				clusterInformers.Cluster().V1beta2().ManagedClusterSets().Informer().HasSynced,
 				clusterInformers.Cluster().V1beta2().ManagedClusterSetBindings().Informer().HasSynced,
 				clusterInformers.Cluster().V1alpha1().AddOnPlacementScores().Informer().HasSynced,
-			)).To(gomega.BeTrue())
+			)).To(BeTrue())
 
 			// Create httptest server with handler that injects user info into context
-			ginkgo.By("Create test server with user context injection")
+			By("Create test server with user context injection")
 			handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				// Inject user info into request context (simulating GenericAPIServer authentication)
 				userInfo := &user.DefaultInfo{
@@ -354,35 +354,35 @@ var _ = ginkgo.Describe("DebugService", func() {
 			defer server.Close()
 
 			// Prepare placement JSON for POST request
-			ginkgo.By("Prepare placement JSON for POST request")
+			By("Prepare placement JSON for POST request")
 			placement := testinghelpers.NewPlacement(namespace, placementName).
 				WithClusterSets(clusterSet1Name).
 				WithNOC(2).
 				Build()
 			placementJSON, err := json.Marshal(placement)
-			gomega.Expect(err).ToNot(gomega.HaveOccurred())
+			Expect(err).ToNot(HaveOccurred())
 
 			// Send POST request
-			ginkgo.By("Send POST request with placement JSON and user context")
+			By("Send POST request with placement JSON and user context")
 			req, err := http.NewRequest("POST", server.URL+debugger.DebugPath, bytes.NewBuffer(placementJSON))
-			gomega.Expect(err).ToNot(gomega.HaveOccurred())
+			Expect(err).ToNot(HaveOccurred())
 			req.Header.Set("Content-Type", "application/json")
 
 			resp, err := http.DefaultClient.Do(req)
-			gomega.Expect(err).ToNot(gomega.HaveOccurred())
+			Expect(err).ToNot(HaveOccurred())
 			defer resp.Body.Close()
 
 			// Verify response
 			var result debugger.DebugResult
 			err = json.NewDecoder(resp.Body).Decode(&result)
-			gomega.Expect(err).ToNot(gomega.HaveOccurred())
+			Expect(err).ToNot(HaveOccurred())
 
-			ginkgo.By("Verify POST request was successful")
-			gomega.Expect(result.Error).To(gomega.BeEmpty(), "Should not have error with valid user and RBAC")
-			gomega.Expect(result.Placement).ToNot(gomega.BeNil())
-			gomega.Expect(result.Placement.Name).To(gomega.Equal(placementName))
-			gomega.Expect(result.Placement.Namespace).To(gomega.Equal(namespace))
-			gomega.Expect(result.FilterResults).ToNot(gomega.BeEmpty(), "Should return filter results")
+			By("Verify POST request was successful")
+			Expect(result.Error).To(BeEmpty(), "Should not have error with valid user and RBAC")
+			Expect(result.Placement).ToNot(BeNil())
+			Expect(result.Placement.Name).To(Equal(placementName))
+			Expect(result.Placement.Namespace).To(Equal(namespace))
+			Expect(result.FilterResults).ToNot(BeEmpty(), "Should return filter results")
 		})
 	})
 })

@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	ginkgo "github.com/onsi/ginkgo/v2"
-	"github.com/onsi/gomega"
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -16,11 +16,11 @@ import (
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
 )
 
-var _ = ginkgo.Describe("Token Infrastructure Controller Beta", func() {
+var _ = Describe("Token Infrastructure Controller Beta", func() {
 	var managedClusterName, addOnName string
 	var err error
 
-	ginkgo.BeforeEach(func() {
+	BeforeEach(func(ctx SpecContext) {
 		suffix := rand.String(5)
 		managedClusterName = fmt.Sprintf("cluster-%s", suffix)
 		addOnName = fmt.Sprintf("addon-%s", suffix)
@@ -34,8 +34,8 @@ var _ = ginkgo.Describe("Token Infrastructure Controller Beta", func() {
 				HubAcceptsClient: true,
 			},
 		}
-		_, err = hubClusterClient.ClusterV1().ManagedClusters().Create(context.Background(), managedCluster, metav1.CreateOptions{})
-		gomega.Expect(err).ToNot(gomega.HaveOccurred())
+		_, err = hubClusterClient.ClusterV1().ManagedClusters().Create(ctx, managedCluster, metav1.CreateOptions{})
+		Expect(err).ToNot(HaveOccurred())
 
 		// Create cluster namespace
 		ns := &corev1.Namespace{
@@ -43,27 +43,27 @@ var _ = ginkgo.Describe("Token Infrastructure Controller Beta", func() {
 				Name: managedClusterName,
 			},
 		}
-		_, err = hubKubeClient.CoreV1().Namespaces().Create(context.Background(), ns, metav1.CreateOptions{})
-		gomega.Expect(err).ToNot(gomega.HaveOccurred())
+		_, err = hubKubeClient.CoreV1().Namespaces().Create(ctx, ns, metav1.CreateOptions{})
+		Expect(err).ToNot(HaveOccurred())
 	})
 
-	ginkgo.AfterEach(func() {
-		err = hubClusterClient.ClusterV1().ManagedClusters().Delete(context.Background(), managedClusterName, metav1.DeleteOptions{})
-		gomega.Expect(err).ToNot(gomega.HaveOccurred())
+	AfterEach(func(ctx SpecContext) {
+		err = hubClusterClient.ClusterV1().ManagedClusters().Delete(ctx, managedClusterName, metav1.DeleteOptions{})
+		Expect(err).ToNot(HaveOccurred())
 
-		err = hubKubeClient.CoreV1().Namespaces().Delete(context.Background(), managedClusterName, metav1.DeleteOptions{})
-		gomega.Expect(err).ToNot(gomega.HaveOccurred())
+		err = hubKubeClient.CoreV1().Namespaces().Delete(ctx, managedClusterName, metav1.DeleteOptions{})
+		Expect(err).ToNot(HaveOccurred())
 	})
 
-	assertTokenInfrastructureReady := func(clusterName, addonName string) {
-		ginkgo.By("Verify token infrastructure resources are created")
+	assertTokenInfrastructureReady := func(ctx context.Context, clusterName, addonName string) {
+		By("Verify token infrastructure resources are created")
 		serviceAccountName := fmt.Sprintf("%s-agent", addonName)
 		roleName := fmt.Sprintf("%s-token-role", addonName)
 		roleBindingName := fmt.Sprintf("%s-token-role", addonName)
 
 		// Check ServiceAccount exists with correct labels
-		gomega.Eventually(func() error {
-			sa, err := hubKubeClient.CoreV1().ServiceAccounts(clusterName).Get(context.Background(), serviceAccountName, metav1.GetOptions{})
+		Eventually(func() error {
+			sa, err := hubKubeClient.CoreV1().ServiceAccounts(clusterName).Get(ctx, serviceAccountName, metav1.GetOptions{})
 			if err != nil {
 				return err
 			}
@@ -74,11 +74,11 @@ var _ = ginkgo.Describe("Token Infrastructure Controller Beta", func() {
 				return fmt.Errorf("ServiceAccount missing addon name label")
 			}
 			return nil
-		}, eventuallyTimeout, eventuallyInterval).Should(gomega.Succeed())
+		}, eventuallyTimeout, eventuallyInterval).Should(Succeed())
 
 		// Check Role exists with correct labels
-		gomega.Eventually(func() error {
-			role, err := hubKubeClient.RbacV1().Roles(clusterName).Get(context.Background(), roleName, metav1.GetOptions{})
+		Eventually(func() error {
+			role, err := hubKubeClient.RbacV1().Roles(clusterName).Get(ctx, roleName, metav1.GetOptions{})
 			if err != nil {
 				return err
 			}
@@ -89,11 +89,11 @@ var _ = ginkgo.Describe("Token Infrastructure Controller Beta", func() {
 				return fmt.Errorf("Role missing addon name label")
 			}
 			return nil
-		}, eventuallyTimeout, eventuallyInterval).Should(gomega.Succeed())
+		}, eventuallyTimeout, eventuallyInterval).Should(Succeed())
 
 		// Check RoleBinding exists with correct labels
-		gomega.Eventually(func() error {
-			rb, err := hubKubeClient.RbacV1().RoleBindings(clusterName).Get(context.Background(), roleBindingName, metav1.GetOptions{})
+		Eventually(func() error {
+			rb, err := hubKubeClient.RbacV1().RoleBindings(clusterName).Get(ctx, roleBindingName, metav1.GetOptions{})
 			if err != nil {
 				return err
 			}
@@ -104,11 +104,11 @@ var _ = ginkgo.Describe("Token Infrastructure Controller Beta", func() {
 				return fmt.Errorf("RoleBinding missing addon name label")
 			}
 			return nil
-		}, eventuallyTimeout, eventuallyInterval).Should(gomega.Succeed())
+		}, eventuallyTimeout, eventuallyInterval).Should(Succeed())
 
-		ginkgo.By("Verify TokenInfrastructureReady condition is set to True")
-		gomega.Eventually(func() error {
-			addon, err := hubAddonClient.AddonV1beta1().ManagedClusterAddOns(clusterName).Get(context.Background(), addonName, metav1.GetOptions{})
+		By("Verify TokenInfrastructureReady condition is set to True")
+		Eventually(func() error {
+			addon, err := hubAddonClient.AddonV1beta1().ManagedClusterAddOns(clusterName).Get(ctx, addonName, metav1.GetOptions{})
 			if err != nil {
 				return err
 			}
@@ -121,36 +121,36 @@ var _ = ginkgo.Describe("Token Infrastructure Controller Beta", func() {
 				return fmt.Errorf("TokenInfrastructureReady condition is not True: %s - %s", cond.Reason, cond.Message)
 			}
 			return nil
-		}, eventuallyTimeout, eventuallyInterval).Should(gomega.Succeed())
+		}, eventuallyTimeout, eventuallyInterval).Should(Succeed())
 	}
 
-	assertTokenInfrastructureCleanedUp := func(clusterName, addonName string) {
-		ginkgo.By("Verify token infrastructure resources are deleted")
+	assertTokenInfrastructureCleanedUp := func(ctx context.Context, clusterName, addonName string) {
+		By("Verify token infrastructure resources are deleted")
 		serviceAccountName := fmt.Sprintf("%s-agent", addonName)
 		roleName := fmt.Sprintf("%s-token-role", addonName)
 		roleBindingName := fmt.Sprintf("%s-token-role", addonName)
 
 		// Check ServiceAccount is deleted
-		gomega.Eventually(func() bool {
-			_, err := hubKubeClient.CoreV1().ServiceAccounts(clusterName).Get(context.Background(), serviceAccountName, metav1.GetOptions{})
+		Eventually(func() bool {
+			_, err := hubKubeClient.CoreV1().ServiceAccounts(clusterName).Get(ctx, serviceAccountName, metav1.GetOptions{})
 			return errors.IsNotFound(err)
-		}, eventuallyTimeout, eventuallyInterval).Should(gomega.BeTrue())
+		}, eventuallyTimeout, eventuallyInterval).Should(BeTrue())
 
 		// Check Role is deleted
-		gomega.Eventually(func() bool {
-			_, err := hubKubeClient.RbacV1().Roles(clusterName).Get(context.Background(), roleName, metav1.GetOptions{})
+		Eventually(func() bool {
+			_, err := hubKubeClient.RbacV1().Roles(clusterName).Get(ctx, roleName, metav1.GetOptions{})
 			return errors.IsNotFound(err)
-		}, eventuallyTimeout, eventuallyInterval).Should(gomega.BeTrue())
+		}, eventuallyTimeout, eventuallyInterval).Should(BeTrue())
 
 		// Check RoleBinding is deleted
-		gomega.Eventually(func() bool {
-			_, err := hubKubeClient.RbacV1().RoleBindings(clusterName).Get(context.Background(), roleBindingName, metav1.GetOptions{})
+		Eventually(func() bool {
+			_, err := hubKubeClient.RbacV1().RoleBindings(clusterName).Get(ctx, roleBindingName, metav1.GetOptions{})
 			return errors.IsNotFound(err)
-		}, eventuallyTimeout, eventuallyInterval).Should(gomega.BeTrue())
+		}, eventuallyTimeout, eventuallyInterval).Should(BeTrue())
 	}
 
-	ginkgo.It("should create token infrastructure when addon uses token driver", func() {
-		ginkgo.By("Create ManagedClusterAddOn")
+	It("should create token infrastructure when addon uses token driver", func(ctx SpecContext) {
+		By("Create ManagedClusterAddOn")
 		addOn := &addonapiv1beta1.ManagedClusterAddOn{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      addOnName,
@@ -158,12 +158,12 @@ var _ = ginkgo.Describe("Token Infrastructure Controller Beta", func() {
 			},
 			Spec: addonapiv1beta1.ManagedClusterAddOnSpec{},
 		}
-		_, err = hubAddonClient.AddonV1beta1().ManagedClusterAddOns(managedClusterName).Create(context.Background(), addOn, metav1.CreateOptions{})
-		gomega.Expect(err).ToNot(gomega.HaveOccurred())
+		_, err = hubAddonClient.AddonV1beta1().ManagedClusterAddOns(managedClusterName).Create(ctx, addOn, metav1.CreateOptions{})
+		Expect(err).ToNot(HaveOccurred())
 
-		ginkgo.By("Update addon status with kubeClient registration and token driver")
-		gomega.Eventually(func() error {
-			addon, err := hubAddonClient.AddonV1beta1().ManagedClusterAddOns(managedClusterName).Get(context.Background(), addOnName, metav1.GetOptions{})
+		By("Update addon status with kubeClient registration and token driver")
+		Eventually(func() error {
+			addon, err := hubAddonClient.AddonV1beta1().ManagedClusterAddOns(managedClusterName).Get(ctx, addOnName, metav1.GetOptions{})
 			if err != nil {
 				return err
 			}
@@ -176,15 +176,15 @@ var _ = ginkgo.Describe("Token Infrastructure Controller Beta", func() {
 					},
 				},
 			}
-			_, err = hubAddonClient.AddonV1beta1().ManagedClusterAddOns(managedClusterName).UpdateStatus(context.Background(), addon, metav1.UpdateOptions{})
+			_, err = hubAddonClient.AddonV1beta1().ManagedClusterAddOns(managedClusterName).UpdateStatus(ctx, addon, metav1.UpdateOptions{})
 			return err
-		}, eventuallyTimeout, eventuallyInterval).Should(gomega.Succeed())
+		}, eventuallyTimeout, eventuallyInterval).Should(Succeed())
 
-		assertTokenInfrastructureReady(managedClusterName, addOnName)
+		assertTokenInfrastructureReady(ctx, managedClusterName, addOnName)
 	})
 
-	ginkgo.It("should cleanup token infrastructure when addon switches from token to CSR driver", func() {
-		ginkgo.By("Create ManagedClusterAddOn with token driver")
+	It("should cleanup token infrastructure when addon switches from token to CSR driver", func(ctx SpecContext) {
+		By("Create ManagedClusterAddOn with token driver")
 		addOn := &addonapiv1beta1.ManagedClusterAddOn{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      addOnName,
@@ -192,11 +192,11 @@ var _ = ginkgo.Describe("Token Infrastructure Controller Beta", func() {
 			},
 			Spec: addonapiv1beta1.ManagedClusterAddOnSpec{},
 		}
-		_, err = hubAddonClient.AddonV1beta1().ManagedClusterAddOns(managedClusterName).Create(context.Background(), addOn, metav1.CreateOptions{})
-		gomega.Expect(err).ToNot(gomega.HaveOccurred())
+		_, err = hubAddonClient.AddonV1beta1().ManagedClusterAddOns(managedClusterName).Create(ctx, addOn, metav1.CreateOptions{})
+		Expect(err).ToNot(HaveOccurred())
 
-		gomega.Eventually(func() error {
-			addon, err := hubAddonClient.AddonV1beta1().ManagedClusterAddOns(managedClusterName).Get(context.Background(), addOnName, metav1.GetOptions{})
+		Eventually(func() error {
+			addon, err := hubAddonClient.AddonV1beta1().ManagedClusterAddOns(managedClusterName).Get(ctx, addOnName, metav1.GetOptions{})
 			if err != nil {
 				return err
 			}
@@ -209,15 +209,15 @@ var _ = ginkgo.Describe("Token Infrastructure Controller Beta", func() {
 					},
 				},
 			}
-			_, err = hubAddonClient.AddonV1beta1().ManagedClusterAddOns(managedClusterName).UpdateStatus(context.Background(), addon, metav1.UpdateOptions{})
+			_, err = hubAddonClient.AddonV1beta1().ManagedClusterAddOns(managedClusterName).UpdateStatus(ctx, addon, metav1.UpdateOptions{})
 			return err
-		}, eventuallyTimeout, eventuallyInterval).Should(gomega.Succeed())
+		}, eventuallyTimeout, eventuallyInterval).Should(Succeed())
 
-		assertTokenInfrastructureReady(managedClusterName, addOnName)
+		assertTokenInfrastructureReady(ctx, managedClusterName, addOnName)
 
-		ginkgo.By("Switch addon to CSR driver")
-		gomega.Eventually(func() error {
-			addon, err := hubAddonClient.AddonV1beta1().ManagedClusterAddOns(managedClusterName).Get(context.Background(), addOnName, metav1.GetOptions{})
+		By("Switch addon to CSR driver")
+		Eventually(func() error {
+			addon, err := hubAddonClient.AddonV1beta1().ManagedClusterAddOns(managedClusterName).Get(ctx, addOnName, metav1.GetOptions{})
 			if err != nil {
 				return err
 			}
@@ -231,26 +231,26 @@ var _ = ginkgo.Describe("Token Infrastructure Controller Beta", func() {
 					},
 				},
 			}
-			_, err = hubAddonClient.AddonV1beta1().ManagedClusterAddOns(managedClusterName).UpdateStatus(context.Background(), addon, metav1.UpdateOptions{})
+			_, err = hubAddonClient.AddonV1beta1().ManagedClusterAddOns(managedClusterName).UpdateStatus(ctx, addon, metav1.UpdateOptions{})
 			return err
-		}, eventuallyTimeout, eventuallyInterval).Should(gomega.Succeed())
+		}, eventuallyTimeout, eventuallyInterval).Should(Succeed())
 
-		assertTokenInfrastructureCleanedUp(managedClusterName, addOnName)
+		assertTokenInfrastructureCleanedUp(ctx, managedClusterName, addOnName)
 
-		ginkgo.By("Verify TokenInfrastructureReady condition is removed")
-		gomega.Eventually(func() bool {
-			addon, err := hubAddonClient.AddonV1beta1().ManagedClusterAddOns(managedClusterName).Get(context.Background(), addOnName, metav1.GetOptions{})
+		By("Verify TokenInfrastructureReady condition is removed")
+		Eventually(func() bool {
+			addon, err := hubAddonClient.AddonV1beta1().ManagedClusterAddOns(managedClusterName).Get(ctx, addOnName, metav1.GetOptions{})
 			if err != nil {
 				return false
 			}
 
 			cond := meta.FindStatusCondition(addon.Status.Conditions, "TokenInfrastructureReady")
 			return cond == nil
-		}, eventuallyTimeout, eventuallyInterval).Should(gomega.BeTrue())
+		}, eventuallyTimeout, eventuallyInterval).Should(BeTrue())
 	})
 
-	ginkgo.It("should cleanup token infrastructure when addon is deleted", func() {
-		ginkgo.By("Create ManagedClusterAddOn with token driver")
+	It("should cleanup token infrastructure when addon is deleted", func(ctx SpecContext) {
+		By("Create ManagedClusterAddOn with token driver")
 		addOn := &addonapiv1beta1.ManagedClusterAddOn{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      addOnName,
@@ -258,11 +258,11 @@ var _ = ginkgo.Describe("Token Infrastructure Controller Beta", func() {
 			},
 			Spec: addonapiv1beta1.ManagedClusterAddOnSpec{},
 		}
-		_, err = hubAddonClient.AddonV1beta1().ManagedClusterAddOns(managedClusterName).Create(context.Background(), addOn, metav1.CreateOptions{})
-		gomega.Expect(err).ToNot(gomega.HaveOccurred())
+		_, err = hubAddonClient.AddonV1beta1().ManagedClusterAddOns(managedClusterName).Create(ctx, addOn, metav1.CreateOptions{})
+		Expect(err).ToNot(HaveOccurred())
 
-		gomega.Eventually(func() error {
-			addon, err := hubAddonClient.AddonV1beta1().ManagedClusterAddOns(managedClusterName).Get(context.Background(), addOnName, metav1.GetOptions{})
+		Eventually(func() error {
+			addon, err := hubAddonClient.AddonV1beta1().ManagedClusterAddOns(managedClusterName).Get(ctx, addOnName, metav1.GetOptions{})
 			if err != nil {
 				return err
 			}
@@ -275,21 +275,21 @@ var _ = ginkgo.Describe("Token Infrastructure Controller Beta", func() {
 					},
 				},
 			}
-			_, err = hubAddonClient.AddonV1beta1().ManagedClusterAddOns(managedClusterName).UpdateStatus(context.Background(), addon, metav1.UpdateOptions{})
+			_, err = hubAddonClient.AddonV1beta1().ManagedClusterAddOns(managedClusterName).UpdateStatus(ctx, addon, metav1.UpdateOptions{})
 			return err
-		}, eventuallyTimeout, eventuallyInterval).Should(gomega.Succeed())
+		}, eventuallyTimeout, eventuallyInterval).Should(Succeed())
 
-		assertTokenInfrastructureReady(managedClusterName, addOnName)
+		assertTokenInfrastructureReady(ctx, managedClusterName, addOnName)
 
-		ginkgo.By("Delete the addon")
-		err = hubAddonClient.AddonV1beta1().ManagedClusterAddOns(managedClusterName).Delete(context.Background(), addOnName, metav1.DeleteOptions{})
-		gomega.Expect(err).ToNot(gomega.HaveOccurred())
+		By("Delete the addon")
+		err = hubAddonClient.AddonV1beta1().ManagedClusterAddOns(managedClusterName).Delete(ctx, addOnName, metav1.DeleteOptions{})
+		Expect(err).ToNot(HaveOccurred())
 
-		assertTokenInfrastructureCleanedUp(managedClusterName, addOnName)
+		assertTokenInfrastructureCleanedUp(ctx, managedClusterName, addOnName)
 	})
 
-	ginkgo.It("should handle addon with multiple registrations where only one is token-based", func() {
-		ginkgo.By("Create ManagedClusterAddOn with multiple registrations including token driver")
+	It("should handle addon with multiple registrations where only one is token-based", func(ctx SpecContext) {
+		By("Create ManagedClusterAddOn with multiple registrations including token driver")
 		addOn := &addonapiv1beta1.ManagedClusterAddOn{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      addOnName,
@@ -297,11 +297,11 @@ var _ = ginkgo.Describe("Token Infrastructure Controller Beta", func() {
 			},
 			Spec: addonapiv1beta1.ManagedClusterAddOnSpec{},
 		}
-		_, err = hubAddonClient.AddonV1beta1().ManagedClusterAddOns(managedClusterName).Create(context.Background(), addOn, metav1.CreateOptions{})
-		gomega.Expect(err).ToNot(gomega.HaveOccurred())
+		_, err = hubAddonClient.AddonV1beta1().ManagedClusterAddOns(managedClusterName).Create(ctx, addOn, metav1.CreateOptions{})
+		Expect(err).ToNot(HaveOccurred())
 
-		gomega.Eventually(func() error {
-			addon, err := hubAddonClient.AddonV1beta1().ManagedClusterAddOns(managedClusterName).Get(context.Background(), addOnName, metav1.GetOptions{})
+		Eventually(func() error {
+			addon, err := hubAddonClient.AddonV1beta1().ManagedClusterAddOns(managedClusterName).Get(ctx, addOnName, metav1.GetOptions{})
 			if err != nil {
 				return err
 			}
@@ -320,10 +320,10 @@ var _ = ginkgo.Describe("Token Infrastructure Controller Beta", func() {
 					},
 				},
 			}
-			_, err = hubAddonClient.AddonV1beta1().ManagedClusterAddOns(managedClusterName).UpdateStatus(context.Background(), addon, metav1.UpdateOptions{})
+			_, err = hubAddonClient.AddonV1beta1().ManagedClusterAddOns(managedClusterName).UpdateStatus(ctx, addon, metav1.UpdateOptions{})
 			return err
-		}, eventuallyTimeout, eventuallyInterval).Should(gomega.Succeed())
+		}, eventuallyTimeout, eventuallyInterval).Should(Succeed())
 
-		assertTokenInfrastructureReady(managedClusterName, addOnName)
+		assertTokenInfrastructureReady(ctx, managedClusterName, addOnName)
 	})
 })

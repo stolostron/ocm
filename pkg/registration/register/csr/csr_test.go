@@ -200,7 +200,7 @@ func TestProcess(t *testing.T) {
 			syncCtx := testingcommon.NewFakeSyncContext(t, "test")
 
 			secret, cond, err := driver.Process(
-				context.TODO(), "test", c.secret, additionalSecretData, syncCtx.Recorder())
+				t.Context(), "test", c.secret, additionalSecretData, syncCtx.Recorder())
 			if err != nil {
 				t.Errorf("unexpected error %v", err)
 			}
@@ -443,7 +443,7 @@ func TestIsHubKubeConfigValidFunc(t *testing.T) {
 				secretOption.BootStrapKubeConfigFile = path.Join(tempDir, "bootstrap-kubeconfig")
 			}
 
-			valid, err := register.IsHubKubeConfigValidFunc(driver, secretOption)(context.TODO())
+			valid, err := register.IsHubKubeConfigValidFunc(driver, secretOption)(t.Context())
 			if err != nil {
 				t.Errorf("unexpected error: %v", err)
 			}
@@ -604,12 +604,12 @@ func TestNewCSRDriver(t *testing.T) {
 		ClusterName: "cluster1",
 		AgentName:   "agent1",
 	}
-	driver, err := NewCSRDriver(NewCSROption(), secretOpts)
+	_, err := NewCSRDriver(NewCSROption(), secretOpts)
 	if err == nil {
 		t.Errorf("expect error, but got nil")
 	}
 	secretOpts.BootStrapKubeConfigFile = "bootstrap-kubeconfig"
-	driver, err = NewCSRDriver(NewCSROption(), secretOpts)
+	driver, err := NewCSRDriver(NewCSROption(), secretOpts)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -796,7 +796,7 @@ func TestBuildClient(t *testing.T) {
 				secretOpts.BootStrapKubeConfigFile = path.Join(tempDir, "bootstrap-kubeconfig")
 			}
 			driver, _ := NewCSRDriver(NewCSROption(), secretOpts)
-			_, err := driver.BuildClients(context.TODO(), secretOpts, tt.bootstrap)
+			_, err := driver.BuildClients(t.Context(), secretOpts, tt.bootstrap)
 			if (err != nil) != tt.expectErr {
 				t.Errorf("expected error %v but got %v", tt.expectErr, err)
 			}

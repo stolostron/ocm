@@ -1,7 +1,6 @@
 package templateagent
 
 import (
-	"context"
 	"testing"
 
 	corev1 "k8s.io/api/core/v1"
@@ -222,15 +221,16 @@ func TestProxyDecorator(t *testing.T) {
 				for _, c := range pod.Spec.Containers {
 					if c.Env != nil {
 						for _, e := range c.Env {
-							if e.Name == "HTTP_PROXY" || e.Name == "http_proxy" { //nolint:gocritic
+							switch e.Name {
+							case "HTTP_PROXY", "http_proxy":
 								if e.Value != "http://proxy" {
 									t.Errorf("http proxy env is not correct, got %v", e)
 								}
-							} else if e.Name == "HTTPS_PROXY" || e.Name == "https_proxy" {
+							case "HTTPS_PROXY", "https_proxy":
 								if e.Value != "https://proxy" {
 									t.Errorf("https proxy env is not correct, got %v", e)
 								}
-							} else if e.Name == "NO_PROXY" || e.Name == "no_proxy" {
+							case "NO_PROXY", "no_proxy":
 								if e.Value != "no-proxy" {
 									t.Errorf("no proxy env is not correct, got %v", e)
 								}
@@ -248,7 +248,7 @@ func TestProxyDecorator(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			ctx := context.TODO()
+			ctx := t.Context()
 			logger := klog.FromContext(ctx)
 			d := newProxyHandler(logger, "addon1", values)
 			err = d.decorate("", tc.pod)
@@ -418,7 +418,7 @@ func TestResourceRequirementsDecorator(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			ctx := context.TODO()
+			ctx := t.Context()
 			logger := klog.FromContext(ctx)
 			d := newResourceRequirementsDecorator(logger, tc.supportResource, values)
 			err = d.decorate(tc.resourceName, tc.pod)
@@ -441,11 +441,30 @@ func TestNodePlacementDecorator(t *testing.T) {
 		},
 	}
 
+	affinity := &corev1.Affinity{
+		NodeAffinity: &corev1.NodeAffinity{
+			PreferredDuringSchedulingIgnoredDuringExecution: []corev1.PreferredSchedulingTerm{
+				{
+					Weight: 80,
+					Preference: corev1.NodeSelectorTerm{
+						MatchExpressions: []corev1.NodeSelectorRequirement{
+							{
+								Key:      "node-role.kubernetes.io/infra",
+								Operator: corev1.NodeSelectorOpExists,
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
 	tests := []struct {
 		name                 string
 		config               addonapiv1beta1.AddOnDeploymentConfig
 		expectedNodeSelector map[string]string
 		expectedTolerations  []corev1.Toleration
+		expectedAffinity     *corev1.Affinity
 	}{
 		{
 			name: "no node placement set",
@@ -487,6 +506,34 @@ func TestNodePlacementDecorator(t *testing.T) {
 			expectedNodeSelector: nodeSelector,
 			expectedTolerations:  tolerations,
 		},
+		{
+			// Preferring infra nodes only falls back to workers when no node selector
+			// narrows the feasible nodes, so affinity has to apply on its own.
+			name: "affinity only, no node selector",
+			config: addonapiv1beta1.AddOnDeploymentConfig{
+				Spec: addonapiv1beta1.AddOnDeploymentConfigSpec{
+					NodePlacement: &addonapiv1beta1.NodePlacement{
+						Affinity: affinity,
+					},
+				},
+			},
+			expectedAffinity: affinity,
+		},
+		{
+			name: "node selector, tolerations and affinity",
+			config: addonapiv1beta1.AddOnDeploymentConfig{
+				Spec: addonapiv1beta1.AddOnDeploymentConfigSpec{
+					NodePlacement: &addonapiv1beta1.NodePlacement{
+						NodeSelector: nodeSelector,
+						Tolerations:  tolerations,
+						Affinity:     affinity,
+					},
+				},
+			},
+			expectedNodeSelector: nodeSelector,
+			expectedTolerations:  tolerations,
+			expectedAffinity:     affinity,
+		},
 	}
 
 	for _, tc := range tests {
@@ -517,6 +564,9 @@ func TestNodePlacementDecorator(t *testing.T) {
 			}
 			if !apiequality.Semantic.DeepEqual(pod.Spec.Tolerations, tc.expectedTolerations) {
 				t.Errorf("expected tolerations %v, got %v", tc.expectedTolerations, pod.Spec.Tolerations)
+			}
+			if !apiequality.Semantic.DeepEqual(pod.Spec.Affinity, tc.expectedAffinity) {
+				t.Errorf("expected affinity %v, got %v", tc.expectedAffinity, pod.Spec.Affinity)
 			}
 		})
 	}

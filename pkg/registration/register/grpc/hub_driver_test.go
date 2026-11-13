@@ -1,7 +1,6 @@
 package grpc
 
 import (
-	"context"
 	"crypto/x509/pkix"
 	"net"
 	"testing"
@@ -133,7 +132,9 @@ func TestSignCSR(t *testing.T) {
 			csrInformers := informers.NewSharedInformerFactory(csrClient, 10*time.Minute)
 			csrInformer := csrInformers.Certificates().V1().CertificateSigningRequests()
 			for _, csr := range c.csrs {
-				csrInformer.Informer().GetStore().Add(csr)
+				if err := csrInformer.Informer().GetStore().Add(csr); err != nil {
+					t.Fatal(err)
+				}
 			}
 
 			ctrl := &csrSignController{
@@ -144,7 +145,7 @@ func TestSignCSR(t *testing.T) {
 				duration:   1 * time.Hour,
 			}
 
-			if err := ctrl.sync(context.Background(), testingcommon.NewFakeSyncContext(t, "test_csr"), "test_csr"); err != nil {
+			if err := ctrl.sync(t.Context(), testingcommon.NewFakeSyncContext(t, "test_csr"), "test_csr"); err != nil {
 				t.Errorf("unexpected error: %v", err)
 			}
 

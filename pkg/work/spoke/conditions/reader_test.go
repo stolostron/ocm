@@ -1,14 +1,12 @@
 package conditions
 
 import (
-	"context"
 	"testing"
 
 	apiequality "k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
-	"k8s.io/utils/ptr"
 
 	ocmfeature "open-cluster-management.io/api/feature"
 	workapiv1 "open-cluster-management.io/api/work/v1"
@@ -344,7 +342,7 @@ func TestConditionReader(t *testing.T) {
 				Reason:  workapiv1.ConditionRuleExpressionError,
 				Message: "CEL evaluation budget exceeded",
 			},
-			budget: ptr.To(int64(1)),
+			budget: new(int64(1)),
 		},
 	}
 
@@ -362,7 +360,7 @@ func TestConditionReader(t *testing.T) {
 				budget = int64(1000)
 			}
 
-			condition, remainingBudget, err := reader.GetConditionByRule(context.TODO(), c.object, c.rule, budget)
+			condition, remainingBudget, err := reader.GetConditionByRule(t.Context(), c.object, c.rule, budget)
 			if err == nil && c.expectError {
 				t.Errorf("%s: Expect error but got no error", c.name)
 			}

@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/onsi/ginkgo/v2"
-	"github.com/onsi/gomega"
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 	"github.com/openshift/library-go/pkg/controller/controllercmd"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/rest"
@@ -234,7 +234,7 @@ func TestGetSpokeClusterCABundle(t *testing.T) {
 				restConig.CAData = nil
 				restConig.CAFile = path.Join(tempDir, c.caFile)
 			}
-			_, cancel := context.WithCancel(context.TODO())
+			_, cancel := context.WithCancel(t.Context())
 			cfg := NewSpokeAgentConfig(commonoptions.NewAgentOptions(), c.options, cancel)
 			caData, err := cfg.getSpokeClusterCABundle(restConig)
 			testingcommon.AssertError(t, err, c.expectedErr)
@@ -249,20 +249,20 @@ func TestGetSpokeClusterCABundle(t *testing.T) {
 }
 
 func TestManager(t *testing.T) {
-	gomega.RegisterFailHandler(ginkgo.Fail)
-	ginkgo.RunSpecs(t, "Manager Suite")
+	RegisterFailHandler(Fail)
+	RunSpecs(t, "Manager Suite")
 }
 
-var _ = ginkgo.BeforeSuite(func() {
-	logf.SetLogger(zap.New(zap.WriteTo(ginkgo.GinkgoWriter), zap.UseDevMode(true)))
+var _ = BeforeSuite(func() {
+	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
 
-	ginkgo.By("bootstrapping test environment")
+	By("bootstrapping test environment")
 
 	var err error
 
 	authn = util.DefaultTestAuthn
 	apiServer := &envtest.APIServer{}
-	apiServer.SecureServing.Authn = authn
+	apiServer.Authn = authn
 
 	testEnv = &envtest.Environment{
 		ControlPlane: envtest.ControlPlane{
@@ -273,35 +273,35 @@ var _ = ginkgo.BeforeSuite(func() {
 	}
 
 	cfg, err = testEnv.Start()
-	gomega.Expect(err).ToNot(gomega.HaveOccurred())
-	gomega.Expect(cfg).ToNot(gomega.BeNil())
+	Expect(err).ToNot(HaveOccurred())
+	Expect(cfg).ToNot(BeNil())
 
 	// prepare configs
-	securePort := testEnv.ControlPlane.APIServer.SecureServing.Port
-	gomega.Expect(len(securePort)).ToNot(gomega.BeZero())
+	securePort := testEnv.ControlPlane.APIServer.Port
+	Expect(len(securePort)).ToNot(BeZero())
 
 	serverCertFile := fmt.Sprintf("%s/apiserver.crt", testEnv.ControlPlane.APIServer.CertDir)
 	bootstrapKubeConfigFile = path.Join(util.TestDir, "bootstrap", "kubeconfig")
 	err = authn.CreateBootstrapKubeConfigWithCertAge(bootstrapKubeConfigFile, serverCertFile, securePort, 24*time.Hour)
-	gomega.Expect(err).NotTo(gomega.HaveOccurred())
+	Expect(err).NotTo(HaveOccurred())
 
 	err = features.SpokeMutableFeatureGate.Add(ocmfeature.DefaultSpokeRegistrationFeatureGates)
-	gomega.Expect(err).ToNot(gomega.HaveOccurred())
+	Expect(err).ToNot(HaveOccurred())
 })
 
-var _ = ginkgo.AfterSuite(func() {
-	ginkgo.By("tearing down the test environment")
+var _ = AfterSuite(func() {
+	By("tearing down the test environment")
 
 	err := testEnv.Stop()
-	gomega.Expect(err).ToNot(gomega.HaveOccurred())
+	Expect(err).ToNot(HaveOccurred())
 })
 
-var _ = ginkgo.Describe("start agent", func() {
-	ginkgo.It("start hub manager", func() {
+var _ = Describe("start agent", func() {
+	It("start hub manager", func() {
 		_ = features.SpokeMutableFeatureGate.SetFromMap(map[string]bool{
 			string(ocmfeature.MultipleHubs): false,
 		})
-		ctx, stopAgent := context.WithCancel(context.Background())
+		runCtx, stopAgent := context.WithCancel(context.Background())
 		agentOptions := NewSpokeAgentOptions()
 		commonOptions := commonoptions.NewAgentOptions()
 		commonOptions.AgentID = "test"
@@ -310,12 +310,12 @@ var _ = ginkgo.Describe("start agent", func() {
 
 		agentConfig := NewSpokeAgentConfig(commonOptions, agentOptions, stopAgent)
 		go func() {
-			err := agentConfig.RunSpokeAgent(ctx, &controllercmd.ControllerContext{
+			err := agentConfig.RunSpokeAgent(runCtx, &controllercmd.ControllerContext{
 				KubeConfig:    cfg,
 				EventRecorder: util.NewIntegrationTestEventRecorder("agent"),
 			})
 			// should get err since bootstrap is not finished yet.
-			gomega.Expect(err).Should(gomega.HaveOccurred())
+			Expect(err).Should(HaveOccurred())
 		}()
 		// wait for 5 second until the controller is started
 		time.Sleep(5 * time.Second)

@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/onsi/ginkgo/v2"
-	"github.com/onsi/gomega"
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/rand"
@@ -16,7 +16,7 @@ import (
 	"open-cluster-management.io/ocm/test/integration/util"
 )
 
-var _ = ginkgo.Describe("Klusterlet using aws auth", func() {
+var _ = Describe("Klusterlet using aws auth", func() {
 	var cancel context.CancelFunc
 	var klusterlet *operatorapiv1.Klusterlet
 	var hubKubeConfigSecret *corev1.Secret
@@ -27,8 +27,8 @@ var _ = ginkgo.Describe("Klusterlet using aws auth", func() {
 	var workSAName string
 	var agentLabelSelector string
 
-	ginkgo.BeforeEach(func() {
-		var ctx context.Context
+	BeforeEach(func(ctx SpecContext) {
+		var runCtx context.Context
 
 		klusterletNamespace = fmt.Sprintf("open-cluster-management-aws-%s", rand.String(6))
 		ns := &corev1.Namespace{
@@ -36,8 +36,8 @@ var _ = ginkgo.Describe("Klusterlet using aws auth", func() {
 				Name: klusterletNamespace,
 			},
 		}
-		_, err := kubeClient.CoreV1().Namespaces().Create(context.Background(), ns, metav1.CreateOptions{})
-		gomega.Expect(err).ToNot(gomega.HaveOccurred())
+		_, err := kubeClient.CoreV1().Namespaces().Create(ctx, ns, metav1.CreateOptions{})
+		Expect(err).ToNot(HaveOccurred())
 
 		klusterlet = &operatorapiv1.Klusterlet{
 			ObjectMeta: metav1.ObjectMeta{
@@ -85,24 +85,24 @@ var _ = ginkgo.Describe("Klusterlet using aws auth", func() {
 				"placeholder": []byte("placeholder"),
 			},
 		}
-		_, err = kubeClient.CoreV1().Secrets(klusterletNamespace).Create(context.Background(), hubKubeConfigSecret, metav1.CreateOptions{})
-		gomega.Expect(err).ToNot(gomega.HaveOccurred())
+		_, err = kubeClient.CoreV1().Secrets(klusterletNamespace).Create(ctx, hubKubeConfigSecret, metav1.CreateOptions{})
+		Expect(err).ToNot(HaveOccurred())
 
-		ctx, cancel = context.WithCancel(context.Background())
-		go startKlusterletOperator(ctx)
+		runCtx, cancel = context.WithCancel(context.Background())
+		go startKlusterletOperator(runCtx)
 	})
 
-	ginkgo.AfterEach(func() {
-		err := kubeClient.CoreV1().Namespaces().Delete(context.Background(), klusterletNamespace, metav1.DeleteOptions{})
-		gomega.Expect(err).NotTo(gomega.HaveOccurred())
+	AfterEach(func(ctx SpecContext) {
+		err := kubeClient.CoreV1().Namespaces().Delete(ctx, klusterletNamespace, metav1.DeleteOptions{})
+		Expect(err).NotTo(HaveOccurred())
 
 		if cancel != nil {
 			cancel()
 		}
 	})
 
-	ginkgo.Context("Deploy and clean klusterlet component using aws auth", func() {
-		ginkgo.BeforeEach(func() {
+	Context("Deploy and clean klusterlet component using aws auth", func() {
+		BeforeEach(func() {
 			registrationDeploymentName = fmt.Sprintf("%s-registration-agent", klusterlet.Name)
 			workDeploymentName = fmt.Sprintf("%s-work-agent", klusterlet.Name)
 
@@ -110,17 +110,17 @@ var _ = ginkgo.Describe("Klusterlet using aws auth", func() {
 			workSAName = fmt.Sprintf("%s-work-sa", klusterlet.Name)
 		})
 
-		ginkgo.AfterEach(func() {
-			gomega.Expect(operatorClient.OperatorV1().Klusterlets().Delete(context.Background(), klusterlet.Name, metav1.DeleteOptions{})).To(gomega.BeNil())
+		AfterEach(func(ctx SpecContext) {
+			Expect(operatorClient.OperatorV1().Klusterlets().Delete(ctx, klusterlet.Name, metav1.DeleteOptions{})).To(BeNil())
 		})
 
-		ginkgo.It("should have expected resource created successfully using aws auth", func() {
-			_, err := operatorClient.OperatorV1().Klusterlets().Create(context.Background(), klusterlet, metav1.CreateOptions{})
-			gomega.Expect(err).NotTo(gomega.HaveOccurred())
+		It("should have expected resource created successfully using aws auth", func(ctx SpecContext) {
+			_, err := operatorClient.OperatorV1().Klusterlets().Create(ctx, klusterlet, metav1.CreateOptions{})
+			Expect(err).NotTo(HaveOccurred())
 
 			// Check service account
-			gomega.Eventually(func() bool {
-				serviceaccouts, err := kubeClient.CoreV1().ServiceAccounts(klusterletNamespace).List(context.Background(),
+			Eventually(func() bool {
+				serviceaccouts, err := kubeClient.CoreV1().ServiceAccounts(klusterletNamespace).List(ctx,
 					metav1.ListOptions{LabelSelector: agentLabelSelector})
 				if err != nil {
 					return false
@@ -138,11 +138,11 @@ var _ = ginkgo.Describe("Klusterlet using aws auth", func() {
 					}
 				}
 				return true
-			}, eventuallyTimeout, eventuallyInterval).Should(gomega.BeTrue())
+			}, eventuallyTimeout, eventuallyInterval).Should(BeTrue())
 
 			// Check deployment
-			gomega.Eventually(func() bool {
-				deployments, err := kubeClient.AppsV1().Deployments(klusterletNamespace).List(context.Background(),
+			Eventually(func() bool {
+				deployments, err := kubeClient.AppsV1().Deployments(klusterletNamespace).List(ctx,
 					metav1.ListOptions{LabelSelector: agentLabelSelector})
 				if err != nil {
 					return false
@@ -169,9 +169,54 @@ var _ = ginkgo.Describe("Klusterlet using aws auth", func() {
 				}
 
 				return true
-			}, eventuallyTimeout, eventuallyInterval).Should(gomega.BeTrue())
+			}, eventuallyTimeout, eventuallyInterval).Should(BeTrue())
 
 			util.AssertKlusterletCondition(klusterlet.Name, operatorClient, "Applied", "KlusterletApplied", metav1.ConditionTrue)
+		})
+
+		It("should remove IRSA annotation and roll the agents when switched to PodIdentity", func(ctx SpecContext) {
+			_, err := operatorClient.OperatorV1().Klusterlets().Create(ctx, klusterlet, metav1.CreateOptions{})
+			Expect(err).NotTo(HaveOccurred())
+
+			saAnnotated := func(name string) bool {
+				sa, err := kubeClient.CoreV1().ServiceAccounts(klusterletNamespace).Get(ctx, name, metav1.GetOptions{})
+				if err != nil {
+					return false
+				}
+				_, ok := sa.Annotations[util.IrsaAnnotationKey]
+				return ok
+			}
+			Eventually(func() bool {
+				return saAnnotated(registrationSAName) && saAnnotated(workSAName)
+			}, eventuallyTimeout, eventuallyInterval).Should(BeTrue())
+
+			Eventually(func() error {
+				current, err := operatorClient.OperatorV1().Klusterlets().Get(ctx, klusterlet.Name, metav1.GetOptions{})
+				if err != nil {
+					return err
+				}
+				current.Spec.RegistrationConfiguration.RegistrationDriver.AwsIrsa.CredentialSource = operatorapiv1.AwsCredentialSourcePodIdentity
+				_, err = operatorClient.OperatorV1().Klusterlets().Update(ctx, current, metav1.UpdateOptions{})
+				return err
+			}, eventuallyTimeout, eventuallyInterval).ShouldNot(HaveOccurred())
+
+			Eventually(func() bool {
+				return !saAnnotated(registrationSAName) && !saAnnotated(workSAName)
+			}, eventuallyTimeout, eventuallyInterval).Should(BeTrue())
+
+			Eventually(func() bool {
+				for _, name := range []string{registrationDeploymentName, workDeploymentName} {
+					deployment, err := kubeClient.AppsV1().Deployments(klusterletNamespace).Get(ctx, name, metav1.GetOptions{})
+					if err != nil {
+						return false
+					}
+					if deployment.Spec.Template.Annotations["open-cluster-management.io/aws-credential-source"] !=
+						string(operatorapiv1.AwsCredentialSourcePodIdentity) {
+						return false
+					}
+				}
+				return true
+			}, eventuallyTimeout, eventuallyInterval).Should(BeTrue())
 		})
 
 	})

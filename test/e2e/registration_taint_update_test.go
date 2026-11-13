@@ -1,11 +1,10 @@
 package e2e
 
 import (
-	"context"
 	"fmt"
 
-	"github.com/onsi/ginkgo/v2"
-	"github.com/onsi/gomega"
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/rand"
@@ -16,14 +15,14 @@ import (
 	"open-cluster-management.io/ocm/pkg/registration/hub/taint"
 )
 
-var _ = ginkgo.Describe("Taints update check", ginkgo.Label("registration-taint"), func() {
-	ginkgo.Context("Check the taint to update according to the condition status", func() {
+var _ = Describe("Taints update check", Label("registration-taint"), func() {
+	Context("Check the taint to update according to the condition status", func() {
 		var (
 			err            error
 			managedCluster *clusterv1.ManagedCluster
 			clusterName    string
 		)
-		ginkgo.BeforeEach(func() {
+		BeforeEach(func(ctx SpecContext) {
 			clusterName = fmt.Sprintf("managedcluster-%s", rand.String(6))
 			managedCluster = &clusterv1.ManagedCluster{
 				ObjectMeta: metav1.ObjectMeta{
@@ -33,21 +32,21 @@ var _ = ginkgo.Describe("Taints update check", ginkgo.Label("registration-taint"
 					HubAcceptsClient: true,
 				},
 			}
-			managedCluster, err = hub.ClusterClient.ClusterV1().ManagedClusters().Create(context.Background(), managedCluster, metav1.CreateOptions{})
-			gomega.Expect(err).ToNot(gomega.HaveOccurred())
+			managedCluster, err = hub.ClusterClient.ClusterV1().ManagedClusters().Create(ctx, managedCluster, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
 		})
 
-		ginkgo.AfterEach(func() {
-			err := hub.ClusterClient.ClusterV1().ManagedClusters().Delete(context.Background(), clusterName, metav1.DeleteOptions{})
-			gomega.Expect(err).ToNot(gomega.HaveOccurred())
+		AfterEach(func(ctx SpecContext) {
+			err := hub.ClusterClient.ClusterV1().ManagedClusters().Delete(ctx, clusterName, metav1.DeleteOptions{})
+			Expect(err).ToNot(HaveOccurred())
 		})
 
-		ginkgo.It("Should update taints automatically", func() {
+		It("Should update taints automatically", func(ctx SpecContext) {
 			managedClusters := hub.ClusterClient.ClusterV1().ManagedClusters()
 
-			ginkgo.By("Should only be one UnreachableTaint")
-			gomega.Eventually(func() error {
-				if managedCluster, err = managedClusters.Get(context.TODO(), clusterName, metav1.GetOptions{}); err != nil {
+			By("Should only be one UnreachableTaint")
+			Eventually(func() error {
+				if managedCluster, err = managedClusters.Get(ctx, clusterName, metav1.GetOptions{}); err != nil {
 					return err
 				}
 				if len(managedCluster.Spec.Taints) != 1 {
@@ -57,23 +56,23 @@ var _ = ginkgo.Describe("Taints update check", ginkgo.Label("registration-taint"
 					return fmt.Errorf("the %+v is not equal to UnreachableTaint", managedCluster.Spec.Taints[0])
 				}
 				return nil
-			}).Should(gomega.BeNil())
+			}).Should(BeNil())
 
-			ginkgo.By("Change the LeaseDurationSeconds to 60")
-			gomega.Eventually(func() error {
-				if managedCluster, err = managedClusters.Get(context.TODO(), clusterName, metav1.GetOptions{}); err != nil {
+			By("Change the LeaseDurationSeconds to 60")
+			Eventually(func() error {
+				if managedCluster, err = managedClusters.Get(ctx, clusterName, metav1.GetOptions{}); err != nil {
 					return err
 				}
 				managedCluster.Spec.LeaseDurationSeconds = 60
-				if _, err = managedClusters.Update(context.TODO(), managedCluster, metav1.UpdateOptions{}); err != nil {
+				if _, err = managedClusters.Update(ctx, managedCluster, metav1.UpdateOptions{}); err != nil {
 					return err
 				}
 				return nil
-			}).Should(gomega.BeNil())
+			}).Should(BeNil())
 
-			ginkgo.By("Add a ManagedClusterConditionAvailable condition")
-			gomega.Eventually(func() error {
-				if managedCluster, err = managedClusters.Get(context.TODO(), clusterName, metav1.GetOptions{}); err != nil {
+			By("Add a ManagedClusterConditionAvailable condition")
+			Eventually(func() error {
+				if managedCluster, err = managedClusters.Get(ctx, clusterName, metav1.GetOptions{}); err != nil {
 					return err
 				}
 				meta.SetStatusCondition(&(managedCluster.Status.Conditions), metav1.Condition{
@@ -81,26 +80,26 @@ var _ = ginkgo.Describe("Taints update check", ginkgo.Label("registration-taint"
 					Status: metav1.ConditionTrue,
 					Reason: "ForTest",
 				})
-				if _, err = managedClusters.UpdateStatus(context.TODO(), managedCluster, metav1.UpdateOptions{}); err != nil {
+				if _, err = managedClusters.UpdateStatus(ctx, managedCluster, metav1.UpdateOptions{}); err != nil {
 					return err
 				}
 				return nil
-			}).Should(gomega.BeNil())
+			}).Should(BeNil())
 
-			ginkgo.By("The taints len should be 0")
-			gomega.Eventually(func() error {
-				if managedCluster, err = managedClusters.Get(context.TODO(), clusterName, metav1.GetOptions{}); err != nil {
+			By("The taints len should be 0")
+			Eventually(func() error {
+				if managedCluster, err = managedClusters.Get(ctx, clusterName, metav1.GetOptions{}); err != nil {
 					return err
 				}
 				if len(managedCluster.Spec.Taints) != 0 {
 					return fmt.Errorf("managedCluster taints len is not 0")
 				}
 				return nil
-			}).Should(gomega.BeNil())
+			}).Should(BeNil())
 
-			ginkgo.By("Set the ManagedClusterConditionAvailable status to false")
-			gomega.Eventually(func() error {
-				if managedCluster, err = managedClusters.Get(context.TODO(), clusterName, metav1.GetOptions{}); err != nil {
+			By("Set the ManagedClusterConditionAvailable status to false")
+			Eventually(func() error {
+				if managedCluster, err = managedClusters.Get(ctx, clusterName, metav1.GetOptions{}); err != nil {
 					return err
 				}
 				meta.SetStatusCondition(&(managedCluster.Status.Conditions), metav1.Condition{
@@ -108,15 +107,15 @@ var _ = ginkgo.Describe("Taints update check", ginkgo.Label("registration-taint"
 					Status: metav1.ConditionFalse,
 					Reason: "ForTest",
 				})
-				if _, err = managedClusters.UpdateStatus(context.TODO(), managedCluster, metav1.UpdateOptions{}); err != nil {
+				if _, err = managedClusters.UpdateStatus(ctx, managedCluster, metav1.UpdateOptions{}); err != nil {
 					return err
 				}
 				return nil
-			}).Should(gomega.BeNil())
+			}).Should(BeNil())
 
-			ginkgo.By("Should only be one UnavailableTaint")
-			gomega.Eventually(func() error {
-				if managedCluster, err = managedClusters.Get(context.TODO(), clusterName, metav1.GetOptions{}); err != nil {
+			By("Should only be one UnavailableTaint")
+			Eventually(func() error {
+				if managedCluster, err = managedClusters.Get(ctx, clusterName, metav1.GetOptions{}); err != nil {
 					return err
 				}
 				if len(managedCluster.Spec.Taints) != 1 {
@@ -126,11 +125,11 @@ var _ = ginkgo.Describe("Taints update check", ginkgo.Label("registration-taint"
 					return fmt.Errorf("the %+v is not equal to UnavailableTaint\n", managedCluster.Spec.Taints[0])
 				}
 				return nil
-			}).Should(gomega.BeNil())
+			}).Should(BeNil())
 
-			ginkgo.By("Set the ManagedClusterConditionAvailable status to unknown")
-			gomega.Eventually(func() error {
-				if managedCluster, err = managedClusters.Get(context.TODO(), clusterName, metav1.GetOptions{}); err != nil {
+			By("Set the ManagedClusterConditionAvailable status to unknown")
+			Eventually(func() error {
+				if managedCluster, err = managedClusters.Get(ctx, clusterName, metav1.GetOptions{}); err != nil {
 					return err
 				}
 				meta.SetStatusCondition(&(managedCluster.Status.Conditions), metav1.Condition{
@@ -138,15 +137,15 @@ var _ = ginkgo.Describe("Taints update check", ginkgo.Label("registration-taint"
 					Status: metav1.ConditionUnknown,
 					Reason: "ForTest",
 				})
-				if _, err = managedClusters.UpdateStatus(context.TODO(), managedCluster, metav1.UpdateOptions{}); err != nil {
+				if _, err = managedClusters.UpdateStatus(ctx, managedCluster, metav1.UpdateOptions{}); err != nil {
 					return err
 				}
 				return nil
-			}).Should(gomega.BeNil())
+			}).Should(BeNil())
 
-			ginkgo.By("Should only be one UnreachableTaint")
-			gomega.Eventually(func() error {
-				if managedCluster, err = managedClusters.Get(context.TODO(), clusterName, metav1.GetOptions{}); err != nil {
+			By("Should only be one UnreachableTaint")
+			Eventually(func() error {
+				if managedCluster, err = managedClusters.Get(ctx, clusterName, metav1.GetOptions{}); err != nil {
 					return err
 				}
 				if len(managedCluster.Spec.Taints) != 1 {
@@ -156,7 +155,7 @@ var _ = ginkgo.Describe("Taints update check", ginkgo.Label("registration-taint"
 					return fmt.Errorf("the %+v is not equal to UnreachableTaint", managedCluster.Spec.Taints[0])
 				}
 				return nil
-			}).Should(gomega.BeNil())
+			}).Should(BeNil())
 		})
 	})
 })

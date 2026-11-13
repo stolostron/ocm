@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"html/template"
 	"net/url"
@@ -19,10 +20,10 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/eks/types"
 	"github.com/aws/aws-sdk-go-v2/service/iam"
 	iamtypes "github.com/aws/aws-sdk-go-v2/service/iam/types"
+	"github.com/aws/smithy-go"
 	"k8s.io/klog/v2"
 
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
-	v1 "open-cluster-management.io/api/cluster/v1"
 	operatorv1 "open-cluster-management.io/api/operator/v1"
 
 	"open-cluster-management.io/ocm/manifests"
@@ -131,7 +132,7 @@ func (a *AWSIRSAHubDriver) CreatePermissions(ctx context.Context, cluster *clust
 // This function creates:
 // 1. IAM Role and Trust Policy in the hub cluster IAM
 // 2. Returns the hubClusterName and the roleArn to be used for Access Entry creation
-func createIAMRoleAndPolicy(ctx context.Context, hubClusterArn string, managedCluster *v1.ManagedCluster, cfg aws.Config,
+func createIAMRoleAndPolicy(ctx context.Context, hubClusterArn string, managedCluster *clusterv1.ManagedCluster, cfg aws.Config,
 	awsResourceTags []string) (string, string, error) {
 	logger := klog.FromContext(ctx)
 	var managedClusterIamRoleSuffix string
@@ -215,10 +216,19 @@ func createIAMRoleAndPolicy(ctx context.Context, hubClusterArn string, managedCl
 // reconcileTrustPolicy makes sure an existing hub role trusts the managed cluster role that
 // TrustPolicy.tmpl renders. Errors are returned rather than logged so the hub controller surfaces
 // them on the ManagedCluster's HubAccepted condition.
+//
+// AccessDenied is the exception. Identity-creator policies written for v1.4.0 and earlier do not
+// grant iam:GetRole or iam:UpdateAssumeRolePolicy, and failing here would mark every existing
+// cluster not accepted after a hub upgrade. Those clusters joined with a trust policy that already
+// works for IRSA, so the driver keeps it and logs what permission is missing.
 func reconcileTrustPolicy(ctx context.Context, iamClient *iam.Client, roleName, desiredTrustPolicy, managedClusterName string) error {
 	logger := klog.FromContext(ctx)
 
 	getRoleOutput, err := iamClient.GetRole(ctx, &iam.GetRoleInput{RoleName: aws.String(roleName)})
+	if isAccessDenied(err) {
+		logTrustPolicySkipped(logger, err, "iam:GetRole", roleName, managedClusterName)
+		return nil
+	}
 	if err != nil {
 		return fmt.Errorf("failed to get IAM role %s to verify its trust policy for ManagedCluster %s: %w", roleName, managedClusterName, err)
 	}
@@ -242,11 +252,31 @@ func reconcileTrustPolicy(ctx context.Context, iamClient *iam.Client, roleName, 
 		RoleName:       aws.String(roleName),
 		PolicyDocument: aws.String(desiredTrustPolicy),
 	})
+	if isAccessDenied(err) {
+		logTrustPolicySkipped(logger, err, "iam:UpdateAssumeRolePolicy", roleName, managedClusterName)
+		return nil
+	}
 	if err != nil {
 		return fmt.Errorf("failed to update trust policy of IAM role %s for ManagedCluster %s: %w", roleName, managedClusterName, err)
 	}
 	logger.Info("Trust policy of existing IAM role updated", "IAMRole", roleName, "ManagedCluster", managedClusterName)
 	return nil
+}
+
+func isAccessDenied(err error) bool {
+	var apiErr smithy.APIError
+	if !errors.As(err, &apiErr) {
+		return false
+	}
+	code := apiErr.ErrorCode()
+	return code == "AccessDenied" || code == "AccessDeniedException"
+}
+
+func logTrustPolicySkipped(logger klog.Logger, err error, permission, roleName, managedClusterName string) {
+	logger.Error(err, "Skipping trust policy reconcile of existing IAM role: the hub's identity-creator role lacks "+
+		permission+". Existing IRSA clusters keep working; add iam:GetRole and iam:UpdateAssumeRolePolicy to the "+
+		"identity-creator policy so recreated managed-cluster roles and EKS Pod Identity spokes are trusted.",
+		"IAMRole", roleName, "ManagedCluster", managedClusterName)
 }
 
 // trustPolicyMatches compares the trust policy IAM stores on a role with the one the driver wants.
@@ -355,7 +385,7 @@ func deleteIAMRole(ctx context.Context, cfg aws.Config, roleName string) error {
 
 // The IAM role lives in the hub cluster's account, so its ARN has to be built in the
 // same partition as hubClusterArn.
-func getRoleNameAndArn(ctx context.Context, managedCluster *v1.ManagedCluster, cfg aws.Config,
+func getRoleNameAndArn(ctx context.Context, managedCluster *clusterv1.ManagedCluster, cfg aws.Config,
 	hubClusterArn string) (string, string, error) {
 	logger := klog.FromContext(ctx)
 
@@ -370,6 +400,10 @@ func getRoleNameAndArn(ctx context.Context, managedCluster *v1.ManagedCluster, c
 		return "", "", err
 	}
 	awsAccountId := creds.AccountID
+	// Container credentials (e.g. EKS Pod Identity) only carry the account ID if the endpoint returns it.
+	if awsAccountId == "" {
+		awsAccountId, _ = commonhelpers.GetAwsAccountIdAndClusterName(hubClusterArn)
+	}
 	roleArn := commonhelpers.BuildIamRoleArn(commonhelpers.GetAwsPartition(hubClusterArn), awsAccountId, roleName)
 	return roleName, roleArn, err
 }
@@ -442,7 +476,7 @@ func NewAWSIRSAHubDriver(ctx context.Context, hubClusterArn string, autoApproved
 	for i, s := range autoApprovedIdentityPatterns {
 		p, err := regexp.Compile(s)
 		if err != nil {
-			return nil, fmt.Errorf("Failed to process auto approval ARN pattern: %w", err)
+			return nil, fmt.Errorf("failed to process auto approval ARN pattern: %w", err)
 		}
 		compiledPatterns[i] = p
 	}

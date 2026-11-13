@@ -2,7 +2,6 @@ package clusterprofile
 
 import (
 	"cmp"
-	"context"
 	"testing"
 
 	corev1 "k8s.io/api/core/v1"
@@ -807,16 +806,24 @@ func TestLifecycleControllerSync(t *testing.T) {
 
 			// Populate informers
 			for _, cluster := range c.clusters {
-				clusterInformers.Cluster().V1().ManagedClusters().Informer().GetStore().Add(cluster)
+				if err := clusterInformers.Cluster().V1().ManagedClusters().Informer().GetStore().Add(cluster); err != nil {
+					t.Fatal(err)
+				}
 			}
 			for _, set := range c.clusterSets {
-				clusterInformers.Cluster().V1beta2().ManagedClusterSets().Informer().GetStore().Add(set)
+				if err := clusterInformers.Cluster().V1beta2().ManagedClusterSets().Informer().GetStore().Add(set); err != nil {
+					t.Fatal(err)
+				}
 			}
 			for _, binding := range c.bindings {
-				clusterInformers.Cluster().V1beta2().ManagedClusterSetBindings().Informer().GetStore().Add(binding)
+				if err := clusterInformers.Cluster().V1beta2().ManagedClusterSetBindings().Informer().GetStore().Add(binding); err != nil {
+					t.Fatal(err)
+				}
 			}
 			for _, profile := range c.existingProfiles {
-				cpInformers.Apis().V1alpha2().ClusterProfiles().Informer().GetStore().Add(profile)
+				if err := cpInformers.Apis().V1alpha2().ClusterProfiles().Informer().GetStore().Add(profile); err != nil {
+					t.Fatal(err)
+				}
 			}
 
 			ctrl := &clusterProfileLifecycleController{
@@ -830,7 +837,7 @@ func TestLifecycleControllerSync(t *testing.T) {
 			}
 
 			syncCtx := testingcommon.NewFakeSyncContext(t, c.key)
-			err := ctrl.sync(context.TODO(), syncCtx, c.key)
+			err := ctrl.sync(t.Context(), syncCtx, c.key)
 			if err != nil {
 				t.Errorf("unexpected error: %v", err)
 			}

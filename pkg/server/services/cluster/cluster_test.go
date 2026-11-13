@@ -61,7 +61,7 @@ func TestList(t *testing.T) {
 			}
 
 			service := NewClusterService(clusterClient, clusterInformer)
-			evts, err := service.List(context.Background(), types.ListOptions{ClusterName: c.clusterName})
+			evts, err := service.List(t.Context(), types.ListOptions{ClusterName: c.clusterName})
 			if err != nil {
 				t.Errorf("unexpected error: %v", err)
 			}
@@ -201,7 +201,9 @@ func TestHandleStatusUpdate(t *testing.T) {
 				cluster := &clusterv1.ManagedCluster{
 					ObjectMeta: metav1.ObjectMeta{Name: "test-cluster"},
 				}
-				evt.SetData(cloudevents.ApplicationJSON, cluster)
+				if err := evt.SetData(cloudevents.ApplicationJSON, cluster); err != nil {
+					t.Fatal(err)
+				}
 				return &evt
 			}(),
 			expectedError: true,
@@ -218,7 +220,9 @@ func TestHandleStatusUpdate(t *testing.T) {
 				cluster := &clusterv1.ManagedCluster{
 					ObjectMeta: metav1.ObjectMeta{Name: "test-cluster"},
 				}
-				evt.SetData(cloudevents.ApplicationJSON, cluster)
+				if err := evt.SetData(cloudevents.ApplicationJSON, cluster); err != nil {
+					t.Fatal(err)
+				}
 				return &evt
 			}(),
 			validateActions: func(t *testing.T, actions []clienttesting.Action) {
@@ -241,7 +245,9 @@ func TestHandleStatusUpdate(t *testing.T) {
 				cluster := &clusterv1.ManagedCluster{
 					ObjectMeta: metav1.ObjectMeta{Name: "test-cluster"},
 				}
-				evt.SetData(cloudevents.ApplicationJSON, cluster)
+				if err := evt.SetData(cloudevents.ApplicationJSON, cluster); err != nil {
+					t.Fatal(err)
+				}
 				return &evt
 			}(),
 			validateActions: func(t *testing.T, actions []clienttesting.Action) {
@@ -267,7 +273,9 @@ func TestHandleStatusUpdate(t *testing.T) {
 				cluster := &clusterv1.ManagedCluster{
 					ObjectMeta: metav1.ObjectMeta{Name: "test-cluster"},
 				}
-				evt.SetData(cloudevents.ApplicationJSON, cluster)
+				if err := evt.SetData(cloudevents.ApplicationJSON, cluster); err != nil {
+					t.Fatal(err)
+				}
 				return &evt
 			}(),
 			validateActions: func(t *testing.T, actions []clienttesting.Action) {
@@ -286,7 +294,7 @@ func TestHandleStatusUpdate(t *testing.T) {
 			clusterInformer := clusterInformers.Cluster().V1().ManagedClusters()
 
 			service := NewClusterService(clusterClient, clusterInformer)
-			err := service.HandleStatusUpdate(context.Background(), c.clusterEvt)
+			err := service.HandleStatusUpdate(t.Context(), c.clusterEvt)
 			if c.expectedError {
 				if err == nil {
 					t.Errorf("expected error, got nil")
@@ -306,7 +314,7 @@ func TestHandleStatusUpdate(t *testing.T) {
 func TestEventHandlerFuncs(t *testing.T) {
 	handler := &clusterHandler{}
 	service := &ClusterService{}
-	eventHandlerFuncs := service.EventHandlerFuncs(context.Background(), handler)
+	eventHandlerFuncs := service.EventHandlerFuncs(t.Context(), handler)
 
 	cluster := &clusterv1.ManagedCluster{
 		ObjectMeta: metav1.ObjectMeta{Name: "test-cluster"},

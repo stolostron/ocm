@@ -1,7 +1,6 @@
 package addonmanagement
 
 import (
-	"context"
 	"testing"
 	"time"
 
@@ -19,7 +18,6 @@ import (
 	clusterv1informers "open-cluster-management.io/api/client/cluster/informers/externalversions"
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
 	clusterv1beta1 "open-cluster-management.io/api/cluster/v1beta1"
-	"open-cluster-management.io/sdk-go/pkg/basecontroller/factory"
 
 	addonindex "open-cluster-management.io/ocm/pkg/addon/index"
 	testingcommon "open-cluster-management.io/ocm/pkg/common/testing"
@@ -485,7 +483,7 @@ func TestAddonInstallReconcile(t *testing.T) {
 				managedClusterAddonIndexer: addonInformers.Addon().V1beta1().ManagedClusterAddOns().Informer().GetIndexer(),
 			}
 
-			_, _, err = reconcile.reconcile(context.TODO(), c.clusterManagementAddon)
+			_, _, err = reconcile.reconcile(t.Context(), c.clusterManagementAddon)
 			if err != nil && !c.expectErr {
 				t.Errorf("expected no error when sync: %v", err)
 			}
@@ -523,12 +521,7 @@ func TestNewAddonManagementController(t *testing.T) {
 	)
 
 	if controller == nil {
-		t.Error("Expected controller to be created, got nil")
-	}
-
-	// Verify controller is of correct type
-	if _, ok := controller.(factory.Controller); !ok {
-		t.Error("Expected controller to implement factory.Controller interface")
+		t.Fatal("Expected controller to be created, got nil")
 	}
 }
 
@@ -693,7 +686,7 @@ func TestAddonManagementControllerSync(t *testing.T) {
 			syncCtx := testingcommon.NewFakeSyncContext(t, c.queueKey)
 
 			// Test sync method
-			ctx := context.TODO()
+			ctx := t.Context()
 			err = controller.sync(ctx, syncCtx, c.queueKey)
 
 			if c.expectError && err == nil {

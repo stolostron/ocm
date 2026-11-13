@@ -66,7 +66,7 @@ func TestList(t *testing.T) {
 			}
 
 			service := NewLeaseService(kubeClient, kubeInformer)
-			evts, err := service.List(context.Background(), types.ListOptions{ClusterName: c.clusterName})
+			evts, err := service.List(t.Context(), types.ListOptions{ClusterName: c.clusterName})
 			if err != nil {
 				t.Errorf("unexpected error: %v", err)
 			}
@@ -106,7 +106,9 @@ func TestHandleStatusUpdate(t *testing.T) {
 				lease := &coordinationv1.Lease{
 					ObjectMeta: metav1.ObjectMeta{Name: "test-lease", Namespace: "test-lease-namespace"},
 				}
-				evt.SetData(cloudevents.ApplicationJSON, lease)
+				if err := evt.SetData(cloudevents.ApplicationJSON, lease); err != nil {
+					t.Fatal(err)
+				}
 				return &evt
 			}(),
 			expectedError: true,
@@ -123,7 +125,9 @@ func TestHandleStatusUpdate(t *testing.T) {
 				lease := &coordinationv1.Lease{
 					ObjectMeta: metav1.ObjectMeta{Name: "test-lease", Namespace: "test-lease-namespace"},
 				}
-				evt.SetData(cloudevents.ApplicationJSON, lease)
+				if err := evt.SetData(cloudevents.ApplicationJSON, lease); err != nil {
+					t.Fatal(err)
+				}
 				return &evt
 			}(),
 			expectedError: true,
@@ -140,7 +144,9 @@ func TestHandleStatusUpdate(t *testing.T) {
 				lease := &coordinationv1.Lease{
 					ObjectMeta: metav1.ObjectMeta{Name: "test-lease", Namespace: "test-lease-namespace"},
 				}
-				evt.SetData(cloudevents.ApplicationJSON, lease)
+				if err := evt.SetData(cloudevents.ApplicationJSON, lease); err != nil {
+					t.Fatal(err)
+				}
 				return &evt
 			}(),
 			expectedError: true,
@@ -161,7 +167,9 @@ func TestHandleStatusUpdate(t *testing.T) {
 				lease := &coordinationv1.Lease{
 					ObjectMeta: metav1.ObjectMeta{Name: "test-lease", Namespace: "test-lease-namespace"},
 				}
-				evt.SetData(cloudevents.ApplicationJSON, lease)
+				if err := evt.SetData(cloudevents.ApplicationJSON, lease); err != nil {
+					t.Fatal(err)
+				}
 				return &evt
 			}(),
 			validateActions: func(t *testing.T, actions []clienttesting.Action) {
@@ -180,7 +188,7 @@ func TestHandleStatusUpdate(t *testing.T) {
 			kubeInformer := kubeInformers.Coordination().V1().Leases()
 
 			service := NewLeaseService(kubeClient, kubeInformer)
-			err := service.HandleStatusUpdate(context.Background(), c.leaseEvt)
+			err := service.HandleStatusUpdate(t.Context(), c.leaseEvt)
 			if c.expectedError {
 				if err == nil {
 					t.Errorf("expected error, got nil")
@@ -200,7 +208,7 @@ func TestHandleStatusUpdate(t *testing.T) {
 func TestEventHandlerFuncs(t *testing.T) {
 	handler := &leaseHandler{}
 	service := &LeaseService{}
-	eventHandlerFuncs := service.EventHandlerFuncs(context.Background(), handler)
+	eventHandlerFuncs := service.EventHandlerFuncs(t.Context(), handler)
 
 	lease := &coordinationv1.Lease{
 		ObjectMeta: metav1.ObjectMeta{

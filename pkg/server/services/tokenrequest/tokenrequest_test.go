@@ -47,7 +47,7 @@ func TestList(t *testing.T) {
 	kubeClient := kubefake.NewSimpleClientset()
 	service := NewTokenRequestService(kubeClient, nil)
 
-	evts, err := service.List(context.Background(), types.ListOptions{})
+	evts, err := service.List(t.Context(), types.ListOptions{})
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
@@ -167,7 +167,9 @@ func TestHandleStatusUpdate(t *testing.T) {
 						Namespace: "test-namespace",
 					},
 				}
-				evt.SetData(cloudevents.ApplicationJSON, tokenRequest)
+				if err := evt.SetData(cloudevents.ApplicationJSON, tokenRequest); err != nil {
+					t.Fatal(err)
+				}
 				return &evt
 			}(),
 			expectedError:     true,
@@ -199,7 +201,9 @@ func TestHandleStatusUpdate(t *testing.T) {
 					},
 				}
 				tokenRequest.UID = "test-request-uid"
-				evt.SetData(cloudevents.ApplicationJSON, tokenRequest)
+				if err := evt.SetData(cloudevents.ApplicationJSON, tokenRequest); err != nil {
+					t.Fatal(err)
+				}
 				return &evt
 			}(),
 			validateActions: func(t *testing.T, actions []clienttesting.Action) {
@@ -235,7 +239,9 @@ func TestHandleStatusUpdate(t *testing.T) {
 						Audiences: []string{"test-audience"},
 					},
 				}
-				evt.SetData(cloudevents.ApplicationJSON, tokenRequest)
+				if err := evt.SetData(cloudevents.ApplicationJSON, tokenRequest); err != nil {
+					t.Fatal(err)
+				}
 				return &evt
 			}(),
 			reactorError:      fmt.Errorf("simulated error"),
@@ -259,9 +265,9 @@ func TestHandleStatusUpdate(t *testing.T) {
 
 			// Create and register a mock handler
 			mockHandler := &mockEventHandler{}
-			service.RegisterHandler(context.Background(), mockHandler)
+			service.RegisterHandler(t.Context(), mockHandler)
 
-			err := service.HandleStatusUpdate(context.Background(), c.tokenRequestEvt)
+			err := service.HandleStatusUpdate(t.Context(), c.tokenRequestEvt)
 			if c.expectedError {
 				if err == nil {
 					t.Errorf("expected error, got nil")
@@ -294,7 +300,7 @@ func TestRegisterHandler(t *testing.T) {
 	service := NewTokenRequestService(kubeClient, nil).(*TokenRequestService)
 
 	mockHandler := &mockEventHandler{}
-	service.RegisterHandler(context.Background(), mockHandler)
+	service.RegisterHandler(t.Context(), mockHandler)
 
 	if service.handler == nil {
 		t.Errorf("handler should not be nil after registration")

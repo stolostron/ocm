@@ -1,11 +1,10 @@
 package e2e
 
 import (
-	"context"
 	"fmt"
 
-	ginkgo "github.com/onsi/ginkgo/v2"
-	"github.com/onsi/gomega"
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -24,7 +23,7 @@ import (
 	"open-cluster-management.io/ocm/test/framework"
 )
 
-var _ = ginkgo.Describe("Template addon with token-based authentication (v1beta1)", ginkgo.Ordered, ginkgo.Label("addon-manager", "addon-token-auth"), func() {
+var _ = Describe("Template addon with token-based authentication (v1beta1)", Ordered, Label("addon-manager", "addon-token-auth"), func() {
 	addOnName := "hello-template"
 	addonInstallNamespace := "test-addon-template-token"
 	var signerSecretNamespace string
@@ -44,11 +43,11 @@ var _ = ginkgo.Describe("Template addon with token-based authentication (v1beta1
 		"addon/signca_secret_rolebinding.yaml",
 	}
 
-	ginkgo.BeforeAll(func() {
-		ginkgo.By("Save original klusterlet configuration")
+	BeforeAll(func(ctx SpecContext) {
+		By("Save original klusterlet configuration")
 		klusterlet, err := spoke.OperatorClient.OperatorV1().Klusterlets().Get(
-			context.TODO(), universalKlusterletName, metav1.GetOptions{})
-		gomega.Expect(err).ToNot(gomega.HaveOccurred())
+			ctx, universalKlusterletName, metav1.GetOptions{})
+		Expect(err).ToNot(HaveOccurred())
 
 		if klusterlet.Spec.RegistrationConfiguration != nil {
 			originalAddOnDriver = klusterlet.Spec.RegistrationConfiguration.AddOnKubeClientRegistrationDriver
@@ -57,7 +56,7 @@ var _ = ginkgo.Describe("Template addon with token-based authentication (v1beta1
 		// In hosted mode, agents run on the hub cluster, otherwise on the spoke cluster
 		agentClient = framework.AgentClient(hub, spoke, klusterlet)
 
-		ginkgo.By("Update klusterlet to use token-based authentication for addons")
+		By("Update klusterlet to use token-based authentication for addons")
 		framework.UpdateKlusterlet(hub, spoke, universalKlusterletName,
 			func(klusterlet *operatorapiv1.Klusterlet) {
 				if klusterlet.Spec.RegistrationConfiguration == nil {
@@ -73,39 +72,39 @@ var _ = ginkgo.Describe("Template addon with token-based authentication (v1beta1
 			})
 
 		signerSecretNamespace = "signer-secret-token-ns-" + rand.String(6)
-		ginkgo.By("Create addon custom sign secret namespace")
-		_, err = hub.KubeClient.CoreV1().Namespaces().Create(context.TODO(), &corev1.Namespace{
+		By("Create addon custom sign secret namespace")
+		_, err = hub.KubeClient.CoreV1().Namespaces().Create(ctx, &corev1.Namespace{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: signerSecretNamespace,
 			},
 		}, metav1.CreateOptions{})
 		if err != nil && !errors.IsAlreadyExists(err) {
-			gomega.Expect(err).ToNot(gomega.HaveOccurred())
+			Expect(err).ToNot(HaveOccurred())
 		}
 
-		ginkgo.By("Create addon custom sign secret")
-		err = copySignerSecret(context.TODO(), hub.KubeClient, "open-cluster-management-hub",
+		By("Create addon custom sign secret")
+		err = copySignerSecret(ctx, hub.KubeClient, "open-cluster-management-hub",
 			"signer-secret", signerSecretNamespace, customSignerSecretName)
-		gomega.Expect(err).ToNot(gomega.HaveOccurred())
+		Expect(err).ToNot(HaveOccurred())
 
 	})
 
-	ginkgo.AfterAll(func() {
-		ginkgo.By("Delete addon custom sign secret")
-		err := hub.KubeClient.CoreV1().Secrets(signerSecretNamespace).Delete(context.TODO(),
+	AfterAll(func(ctx SpecContext) {
+		By("Delete addon custom sign secret")
+		err := hub.KubeClient.CoreV1().Secrets(signerSecretNamespace).Delete(ctx,
 			customSignerSecretName, metav1.DeleteOptions{})
 		if err != nil && !errors.IsNotFound(err) {
-			ginkgo.Fail(fmt.Sprintf("failed to delete custom signer secret %v/%v: %v",
+			Fail(fmt.Sprintf("failed to delete custom signer secret %v/%v: %v",
 				signerSecretNamespace, customSignerSecretName, err))
 		}
 
-		ginkgo.By("Delete addon custom sign secret namespace")
-		err = hub.KubeClient.CoreV1().Namespaces().Delete(context.TODO(), signerSecretNamespace, metav1.DeleteOptions{})
+		By("Delete addon custom sign secret namespace")
+		err = hub.KubeClient.CoreV1().Namespaces().Delete(ctx, signerSecretNamespace, metav1.DeleteOptions{})
 		if err != nil && !errors.IsNotFound(err) {
-			ginkgo.Fail(fmt.Sprintf("failed to delete custom signer secret namespace %v: %v", signerSecretNamespace, err))
+			Fail(fmt.Sprintf("failed to delete custom signer secret namespace %v: %v", signerSecretNamespace, err))
 		}
 
-		ginkgo.By("Restore original klusterlet AddOnKubeClientRegistrationDriver configuration")
+		By("Restore original klusterlet AddOnKubeClientRegistrationDriver configuration")
 		framework.UpdateKlusterlet(hub, spoke, universalKlusterletName,
 			func(klusterlet *operatorapiv1.Klusterlet) {
 				if klusterlet.Spec.RegistrationConfiguration == nil {
@@ -116,11 +115,11 @@ var _ = ginkgo.Describe("Template addon with token-based authentication (v1beta1
 			})
 	})
 
-	ginkgo.It("Should work with token-based authentication flow", func() {
+	It("Should work with token-based authentication flow", func(ctx SpecContext) {
 		var err error
 
-		ginkgo.By("Step 1: Create addon template resources")
-		err = createResourcesFromYamlFiles(context.Background(), hub.DynamicClient, hub.RestMapper, s,
+		By("Step 1: Create addon template resources")
+		err = createResourcesFromYamlFiles(ctx, hub.DynamicClient, hub.RestMapper, s,
 			defaultAddonTemplateReaderManifestsFunc(manifests.AddonManifestFiles, map[string]interface{}{
 				"Namespace":                   universalClusterName,
 				"AddonInstallNamespace":       addonInstallNamespace,
@@ -131,22 +130,22 @@ var _ = ginkgo.Describe("Template addon with token-based authentication (v1beta1
 			}),
 			templateResources,
 		)
-		gomega.Expect(err).ToNot(gomega.HaveOccurred())
+		Expect(err).ToNot(HaveOccurred())
 
-		ginkgo.By("Step 2: Create the template addon")
+		By("Step 2: Create the template addon")
 		err = hub.CreateManagedClusterAddOnV1Beta1(universalClusterName, addOnName, addonInstallNamespace)
 		if err != nil {
-			gomega.Expect(errors.IsAlreadyExists(err)).To(gomega.BeTrue())
+			Expect(errors.IsAlreadyExists(err)).To(BeTrue())
 		}
 
-		ginkgo.By("Step 3: Wait for addon to become available with token authentication")
-		gomega.Eventually(func() error {
+		By("Step 3: Wait for addon to become available with token authentication")
+		Eventually(func() error {
 			return hub.CheckManagedClusterAddOnStatusV1Beta1(universalClusterName, addOnName)
-		}, "5m", "10s").Should(gomega.Succeed())
+		}, "5m", "10s").Should(Succeed())
 
-		ginkgo.By("Step 4: Verify hub kubeconfig secret is created with token authentication")
-		gomega.Eventually(func() error {
-			secret, err := agentClient.CoreV1().Secrets(addonInstallNamespace).Get(context.TODO(),
+		By("Step 4: Verify hub kubeconfig secret is created with token authentication")
+		Eventually(func() error {
+			secret, err := agentClient.CoreV1().Secrets(addonInstallNamespace).Get(ctx,
 				templateagent.HubKubeconfigSecretName(addOnName), metav1.GetOptions{})
 			if err != nil {
 				return err
@@ -164,16 +163,16 @@ var _ = ginkgo.Describe("Template addon with token-based authentication (v1beta1
 			}
 
 			return nil
-		}).Should(gomega.Succeed())
+		}).Should(Succeed())
 
-		ginkgo.By("Step 5: Verify custom client cert secret is created")
-		gomega.Eventually(func() error {
-			_, err := agentClient.CoreV1().Secrets(addonInstallNamespace).Get(context.TODO(),
+		By("Step 5: Verify custom client cert secret is created")
+		Eventually(func() error {
+			_, err := agentClient.CoreV1().Secrets(addonInstallNamespace).Get(ctx,
 				templateagent.CustomSignedSecretName(addOnName, customSignerName), metav1.GetOptions{})
 			return err
-		}).Should(gomega.Succeed())
+		}).Should(Succeed())
 
-		ginkgo.By("Step 6: Test addon functionality - create configmap on hub")
+		By("Step 6: Test addon functionality - create configmap on hub")
 		configmap := &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      fmt.Sprintf("config-token-%s", rand.String(6)),
@@ -186,13 +185,13 @@ var _ = ginkgo.Describe("Template addon with token-based authentication (v1beta1
 		}
 
 		_, err = hub.KubeClient.CoreV1().ConfigMaps(universalClusterName).Create(
-			context.Background(), configmap, metav1.CreateOptions{})
-		gomega.Expect(err).ToNot(gomega.HaveOccurred())
+			ctx, configmap, metav1.CreateOptions{})
+		Expect(err).ToNot(HaveOccurred())
 
-		ginkgo.By("Step 7: Verify addon copies configmap to spoke using token auth")
-		gomega.Eventually(func() error {
+		By("Step 7: Verify addon copies configmap to spoke using token auth")
+		Eventually(func() error {
 			copiedConfig, err := spoke.KubeClient.CoreV1().ConfigMaps(addonInstallNamespace).Get(
-				context.Background(), configmap.Name, metav1.GetOptions{})
+				ctx, configmap.Name, metav1.GetOptions{})
 			if err != nil {
 				return err
 			}
@@ -201,16 +200,16 @@ var _ = ginkgo.Describe("Template addon with token-based authentication (v1beta1
 				return fmt.Errorf("expected configmap is not correct, %v", copiedConfig.Data)
 			}
 			return nil
-		}, "2m", "5s").ShouldNot(gomega.HaveOccurred())
+		}, "2m", "5s").ShouldNot(HaveOccurred())
 
-		ginkgo.By("Step 8: Cleanup - Delete the addon")
+		By("Step 8: Cleanup - Delete the addon")
 		err = hub.AddonClient.AddonV1beta1().ManagedClusterAddOns(universalClusterName).Delete(
-			context.TODO(), addOnName, metav1.DeleteOptions{})
-		gomega.Expect(err).ToNot(gomega.HaveOccurred())
+			ctx, addOnName, metav1.DeleteOptions{})
+		Expect(err).ToNot(HaveOccurred())
 
-		gomega.Eventually(func() error {
+		Eventually(func() error {
 			_, err := hub.AddonClient.AddonV1beta1().ManagedClusterAddOns(universalClusterName).Get(
-				context.TODO(), addOnName, metav1.GetOptions{})
+				ctx, addOnName, metav1.GetOptions{})
 			if err == nil {
 				return fmt.Errorf("the managedClusterAddon %s should be deleted", addOnName)
 			}
@@ -218,10 +217,10 @@ var _ = ginkgo.Describe("Template addon with token-based authentication (v1beta1
 				return err
 			}
 			return nil
-		}).ShouldNot(gomega.HaveOccurred())
+		}).ShouldNot(HaveOccurred())
 
-		ginkgo.By("Step 9: Delete addon template resources")
-		err = deleteResourcesFromYamlFiles(context.Background(), hub.DynamicClient, hub.RestMapper, s,
+		By("Step 9: Delete addon template resources")
+		err = deleteResourcesFromYamlFiles(ctx, hub.DynamicClient, hub.RestMapper, s,
 			defaultAddonTemplateReaderManifestsFunc(manifests.AddonManifestFiles, map[string]interface{}{
 				"Namespace":                   universalClusterName,
 				"AddonInstallNamespace":       addonInstallNamespace,
@@ -232,11 +231,11 @@ var _ = ginkgo.Describe("Template addon with token-based authentication (v1beta1
 			}),
 			templateResources,
 		)
-		gomega.Expect(err).ToNot(gomega.HaveOccurred())
+		Expect(err).ToNot(HaveOccurred())
 
-		ginkgo.By("Step 10: Cleanup CSRs")
-		gomega.Eventually(func() error {
-			csrs, err := hub.KubeClient.CertificatesV1().CertificateSigningRequests().List(context.TODO(),
+		By("Step 10: Cleanup CSRs")
+		Eventually(func() error {
+			csrs, err := hub.KubeClient.CertificatesV1().CertificateSigningRequests().List(ctx,
 				metav1.ListOptions{
 					LabelSelector: fmt.Sprintf("%s=%s,%s=%s", addonapiv1beta1.AddonLabelKey, addOnName,
 						clusterv1.ClusterNameLabelKey, universalClusterName),
@@ -246,7 +245,7 @@ var _ = ginkgo.Describe("Template addon with token-based authentication (v1beta1
 			}
 
 			for _, csr := range csrs.Items {
-				err = hub.KubeClient.CertificatesV1().CertificateSigningRequests().Delete(context.TODO(),
+				err = hub.KubeClient.CertificatesV1().CertificateSigningRequests().Delete(ctx,
 					csr.Name, metav1.DeleteOptions{})
 				if err != nil {
 					return err
@@ -254,6 +253,6 @@ var _ = ginkgo.Describe("Template addon with token-based authentication (v1beta1
 			}
 
 			return nil
-		}).ShouldNot(gomega.HaveOccurred())
+		}).ShouldNot(HaveOccurred())
 	})
 })

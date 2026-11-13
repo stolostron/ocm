@@ -143,6 +143,7 @@ func NewKlusterletController(
 type AwsIrsa struct {
 	HubClusterArn     string
 	ManagedClusterArn string
+	CredentialSource  string
 }
 
 type RegistrationDriver struct {
@@ -413,17 +414,18 @@ func (n *klusterletController) sync(ctx context.Context, controllerContext facto
 		config.RegistrationKubeAPIQPS = float32(klusterlet.Spec.RegistrationConfiguration.KubeAPIQPS)
 		config.RegistrationKubeAPIBurst = klusterlet.Spec.RegistrationConfiguration.KubeAPIBurst
 		// Configuring Registration driver depending on registration auth
-		if &klusterlet.Spec.RegistrationConfiguration.RegistrationDriver != nil &&
-			klusterlet.Spec.RegistrationConfiguration.RegistrationDriver.AuthType == operatorapiv1.AwsIrsaAuthType {
+		if klusterlet.Spec.RegistrationConfiguration.RegistrationDriver.AuthType == operatorapiv1.AwsIrsaAuthType {
 
 			hubClusterArn := klusterlet.Spec.RegistrationConfiguration.RegistrationDriver.AwsIrsa.HubClusterArn
 			managedClusterArn := klusterlet.Spec.RegistrationConfiguration.RegistrationDriver.AwsIrsa.ManagedClusterArn
+			credentialSource := klusterlet.Spec.RegistrationConfiguration.RegistrationDriver.AwsIrsa.CredentialSource
 
 			config.RegistrationDriver = RegistrationDriver{
 				AuthType: klusterlet.Spec.RegistrationConfiguration.RegistrationDriver.AuthType,
 				AwsIrsa: &AwsIrsa{
 					HubClusterArn:     hubClusterArn,
 					ManagedClusterArn: managedClusterArn,
+					CredentialSource:  string(credentialSource),
 				},
 			}
 			managedClusterIamRole := ManagedClusterIamRole{

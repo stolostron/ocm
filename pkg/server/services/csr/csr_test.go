@@ -69,7 +69,7 @@ func TestList(t *testing.T) {
 			}
 
 			service := NewCSRService(csrClient, csrInformer)
-			evts, err := service.List(context.Background(), types.ListOptions{ClusterName: c.clusterName})
+			evts, err := service.List(t.Context(), types.ListOptions{ClusterName: c.clusterName})
 			if err != nil {
 				t.Errorf("unexpected error: %v", err)
 			}
@@ -164,7 +164,9 @@ func TestHandleStatusUpdate(t *testing.T) {
 				csr := &certificatesv1.CertificateSigningRequest{
 					ObjectMeta: metav1.ObjectMeta{Name: "test-csr"},
 				}
-				evt.SetData(cloudevents.ApplicationJSON, csr)
+				if err := evt.SetData(cloudevents.ApplicationJSON, csr); err != nil {
+					t.Fatal(err)
+				}
 				return &evt
 			}(),
 			expectedError: true,
@@ -184,7 +186,9 @@ func TestHandleStatusUpdate(t *testing.T) {
 						Labels: map[string]string{clusterv1.ClusterNameLabelKey: "test-cluster"},
 					},
 				}
-				evt.SetData(cloudevents.ApplicationJSON, csr)
+				if err := evt.SetData(cloudevents.ApplicationJSON, csr); err != nil {
+					t.Fatal(err)
+				}
 				return &evt
 			}(),
 			validateActions: func(t *testing.T, actions []clienttesting.Action) {
@@ -204,7 +208,7 @@ func TestHandleStatusUpdate(t *testing.T) {
 			if identity == "" {
 				identity = "system:open-cluster-management:test-cluster:test-agent"
 			}
-			ctx := context.WithValue(context.Background(), authn.ContextUserKey, identity)
+			ctx := context.WithValue(t.Context(), authn.ContextUserKey, identity)
 			err := service.HandleStatusUpdate(ctx, c.csrEvt)
 			if c.expectedError {
 				if err == nil {
@@ -225,7 +229,7 @@ func TestHandleStatusUpdate(t *testing.T) {
 func TestEventHandlerFuncs(t *testing.T) {
 	handler := &csrOnHandler{}
 	service := &CSRService{}
-	eventHandlerFuncs := service.EventHandlerFuncs(context.Background(), handler)
+	eventHandlerFuncs := service.EventHandlerFuncs(t.Context(), handler)
 
 	csr := &certificatesv1.CertificateSigningRequest{
 		ObjectMeta: metav1.ObjectMeta{

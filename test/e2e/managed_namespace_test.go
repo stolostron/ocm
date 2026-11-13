@@ -1,12 +1,11 @@
 package e2e
 
 import (
-	"context"
 	"fmt"
 	"time"
 
-	ginkgo "github.com/onsi/ginkgo/v2"
-	gomega "github.com/onsi/gomega"
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -19,13 +18,13 @@ import (
 	"open-cluster-management.io/ocm/pkg/registration/spoke/managedcluster"
 )
 
-var _ = ginkgo.Describe("ManagedNamespace", func() {
+var _ = Describe("ManagedNamespace", func() {
 
-	ginkgo.Context("ManagedClusterSet with ManagedNamespaces", func() {
+	Context("ManagedClusterSet with ManagedNamespaces", func() {
 		var expectedNamespaces []string
 		var originalManagedNamespaces []clusterv1.ManagedNamespaceConfig
 
-		ginkgo.BeforeEach(func() {
+		BeforeEach(func(ctx SpecContext) {
 			suffix := rand.String(6)
 			expectedNamespaces = []string{
 				fmt.Sprintf("test-ns-1-%s", suffix),
@@ -33,9 +32,9 @@ var _ = ginkgo.Describe("ManagedNamespace", func() {
 			}
 
 			// Update the existing universal cluster set with managed namespaces
-			gomega.Eventually(func() error {
+			Eventually(func() error {
 				clusterSet, err := hub.ClusterClient.ClusterV1beta2().ManagedClusterSets().Get(
-					context.TODO(), universalClusterSetName, metav1.GetOptions{})
+					ctx, universalClusterSetName, metav1.GetOptions{})
 				if err != nil {
 					return err
 				}
@@ -50,16 +49,16 @@ var _ = ginkgo.Describe("ManagedNamespace", func() {
 				}
 
 				_, err = hub.ClusterClient.ClusterV1beta2().ManagedClusterSets().Update(
-					context.TODO(), clusterSet, metav1.UpdateOptions{})
+					ctx, clusterSet, metav1.UpdateOptions{})
 				return err
-			}, 30*time.Second, 2*time.Second).Should(gomega.Succeed())
+			}, 30*time.Second, 2*time.Second).Should(Succeed())
 		})
 
-		ginkgo.AfterEach(func() {
+		AfterEach(func(ctx SpecContext) {
 			// Restore original managed namespaces in the universal cluster set
-			gomega.Eventually(func() error {
+			Eventually(func() error {
 				clusterSet, err := hub.ClusterClient.ClusterV1beta2().ManagedClusterSets().Get(
-					context.TODO(), universalClusterSetName, metav1.GetOptions{})
+					ctx, universalClusterSetName, metav1.GetOptions{})
 				if err != nil {
 					return err
 				}
@@ -68,25 +67,25 @@ var _ = ginkgo.Describe("ManagedNamespace", func() {
 				clusterSet.Spec.ManagedNamespaces = originalManagedNamespaces
 
 				_, err = hub.ClusterClient.ClusterV1beta2().ManagedClusterSets().Update(
-					context.TODO(), clusterSet, metav1.UpdateOptions{})
+					ctx, clusterSet, metav1.UpdateOptions{})
 				return err
-			}, 30*time.Second, 2*time.Second).Should(gomega.Succeed())
+			}, 30*time.Second, 2*time.Second).Should(Succeed())
 
 			// Clean up any test namespaces that might have been created on the spoke cluster
 			for _, nsName := range expectedNamespaces {
 				err := spoke.KubeClient.CoreV1().Namespaces().Delete(
-					context.TODO(), nsName, metav1.DeleteOptions{})
+					ctx, nsName, metav1.DeleteOptions{})
 				if err != nil && !errors.IsNotFound(err) {
-					ginkgo.GinkgoLogr.Error(err, "failed to delete test namespace", "namespace", nsName)
+					GinkgoLogr.Error(err, "failed to delete test namespace", "namespace", nsName)
 				}
 			}
 		})
 
-		ginkgo.It("should update ManagedCluster status with managed namespaces from ManagedClusterSet", func() {
-			ginkgo.By("Waiting for the hub-side managed namespace controller to update the ManagedCluster status")
-			gomega.Eventually(func() bool {
+		It("should update ManagedCluster status with managed namespaces from ManagedClusterSet", func(ctx SpecContext) {
+			By("Waiting for the hub-side managed namespace controller to update the ManagedCluster status")
+			Eventually(func() bool {
 				cluster, err := hub.ClusterClient.ClusterV1().ManagedClusters().Get(
-					context.TODO(), universalClusterName, metav1.GetOptions{})
+					ctx, universalClusterName, metav1.GetOptions{})
 				if err != nil {
 					return false
 				}
@@ -112,19 +111,19 @@ var _ = ginkgo.Describe("ManagedNamespace", func() {
 				}
 
 				return true
-			}, 60*time.Second, 2*time.Second).Should(gomega.BeTrue(),
+			}, 60*time.Second, 2*time.Second).Should(BeTrue(),
 				"ManagedCluster status should be updated with managed namespaces")
 		})
 
-		ginkgo.It("should create managed namespaces on spoke cluster with correct labels", func() {
+		It("should create managed namespaces on spoke cluster with correct labels", func(ctx SpecContext) {
 			// Get expected hub cluster set label
 			expectedLabel := managedcluster.GetHubClusterSetLabel(hubHash)
 
-			ginkgo.By("Waiting for the spoke-side managed namespace controller to create namespaces")
-			gomega.Eventually(func() bool {
+			By("Waiting for the spoke-side managed namespace controller to create namespaces")
+			Eventually(func() bool {
 				// List all namespaces with the expected label set to "true"
 				namespaceList, err := spoke.KubeClient.CoreV1().Namespaces().List(
-					context.TODO(), metav1.ListOptions{
+					ctx, metav1.ListOptions{
 						LabelSelector: fmt.Sprintf("%s=true", expectedLabel),
 					})
 				if err != nil {
@@ -139,15 +138,15 @@ var _ = ginkgo.Describe("ManagedNamespace", func() {
 
 				// Check if all expected namespaces are found with the correct label
 				return foundNamespaces.HasAll(expectedNamespaces...)
-			}, 120*time.Second, 3*time.Second).Should(gomega.BeTrue(),
+			}, 120*time.Second, 3*time.Second).Should(BeTrue(),
 				"All expected namespaces should be created with correct hub-specific label")
 		})
 
-		ginkgo.It("should update managed namespace conditions when namespace creation succeeds", func() {
-			ginkgo.By("Waiting for successful namespace creation conditions")
-			gomega.Eventually(func() bool {
+		It("should update managed namespace conditions when namespace creation succeeds", func(ctx SpecContext) {
+			By("Waiting for successful namespace creation conditions")
+			Eventually(func() bool {
 				cluster, err := hub.ClusterClient.ClusterV1().ManagedClusters().Get(
-					context.TODO(), universalClusterName, metav1.GetOptions{})
+					ctx, universalClusterName, metav1.GetOptions{})
 				if err != nil {
 					return false
 				}
@@ -164,29 +163,29 @@ var _ = ginkgo.Describe("ManagedNamespace", func() {
 				}
 
 				return len(cluster.Status.ManagedNamespaces) == len(expectedNamespaces)
-			}, 120*time.Second, 3*time.Second).Should(gomega.BeTrue(),
+			}, 120*time.Second, 3*time.Second).Should(BeTrue(),
 				"All managed namespaces should have successful conditions")
 		})
 
-		ginkgo.It("should cleanup previously managed namespaces when removed from cluster set", func() {
+		It("should cleanup previously managed namespaces when removed from cluster set", func(ctx SpecContext) {
 			// Get expected hub cluster set label
 			expectedLabel := managedcluster.GetHubClusterSetLabel(hubHash)
 
-			ginkgo.By("Waiting for initial namespaces to be created")
+			By("Waiting for initial namespaces to be created")
 			for _, expectedNS := range expectedNamespaces {
 				nsName := expectedNS
-				gomega.Eventually(func() error {
+				Eventually(func() error {
 					_, err := spoke.KubeClient.CoreV1().Namespaces().Get(
-						context.TODO(), nsName, metav1.GetOptions{})
+						ctx, nsName, metav1.GetOptions{})
 					return err
-				}, 120*time.Second, 3*time.Second).Should(gomega.Succeed())
+				}, 120*time.Second, 3*time.Second).Should(Succeed())
 			}
 
-			ginkgo.By("Removing one namespace from the ManagedClusterSet")
+			By("Removing one namespace from the ManagedClusterSet")
 			// Update the cluster set to remove the first namespace
-			gomega.Eventually(func() error {
+			Eventually(func() error {
 				clusterSet, err := hub.ClusterClient.ClusterV1beta2().ManagedClusterSets().Get(
-					context.TODO(), universalClusterSetName, metav1.GetOptions{})
+					ctx, universalClusterSetName, metav1.GetOptions{})
 				if err != nil {
 					return err
 				}
@@ -197,15 +196,15 @@ var _ = ginkgo.Describe("ManagedNamespace", func() {
 				}
 
 				_, err = hub.ClusterClient.ClusterV1beta2().ManagedClusterSets().Update(
-					context.TODO(), clusterSet, metav1.UpdateOptions{})
+					ctx, clusterSet, metav1.UpdateOptions{})
 				return err
-			}, 30*time.Second, 2*time.Second).Should(gomega.Succeed())
+			}, 30*time.Second, 2*time.Second).Should(Succeed())
 
-			ginkgo.By("Verifying the removed namespace label is set to 'false'")
+			By("Verifying the removed namespace label is set to 'false'")
 			removedNS := expectedNamespaces[0]
-			gomega.Eventually(func() bool {
+			Eventually(func() bool {
 				ns, err := spoke.KubeClient.CoreV1().Namespaces().Get(
-					context.TODO(), removedNS, metav1.GetOptions{})
+					ctx, removedNS, metav1.GetOptions{})
 				if err != nil {
 					return false
 				}
@@ -216,14 +215,14 @@ var _ = ginkgo.Describe("ManagedNamespace", func() {
 				}
 
 				return true
-			}, 120*time.Second, 3*time.Second).Should(gomega.BeTrue(),
+			}, 120*time.Second, 3*time.Second).Should(BeTrue(),
 				fmt.Sprintf("Removed namespace %s should have label set to 'false'", removedNS))
 
-			ginkgo.By("Verifying the remaining namespace still has label set to 'true'")
+			By("Verifying the remaining namespace still has label set to 'true'")
 			remainingNS := expectedNamespaces[1]
-			gomega.Consistently(func() bool {
+			Consistently(func() bool {
 				ns, err := spoke.KubeClient.CoreV1().Namespaces().Get(
-					context.TODO(), remainingNS, metav1.GetOptions{})
+					ctx, remainingNS, metav1.GetOptions{})
 				if err != nil {
 					return false
 				}
@@ -234,37 +233,37 @@ var _ = ginkgo.Describe("ManagedNamespace", func() {
 				}
 
 				return true
-			}, 30*time.Second, 2*time.Second).Should(gomega.BeTrue(),
+			}, 30*time.Second, 2*time.Second).Should(BeTrue(),
 				fmt.Sprintf("Remaining namespace %s should still have label set to 'true'", remainingNS))
 		})
 	})
 
-	ginkgo.Context("ManagedNamespace with multiple cluster sets", func() {
+	Context("ManagedNamespace with multiple cluster sets", func() {
 		var additionalClusterSetName string
 		var namespace1, namespace2 string
 		var originalUniversalManagedNamespaces []clusterv1.ManagedNamespaceConfig
 
-		ginkgo.BeforeEach(func() {
+		BeforeEach(func(ctx SpecContext) {
 			suffix := rand.String(6)
 			additionalClusterSetName = fmt.Sprintf("test-clusterset-%s", suffix)
 			namespace1 = fmt.Sprintf("test-ns-1-%s", suffix)
 			namespace2 = fmt.Sprintf("test-ns-2-%s", suffix)
 
 			// Store original managed namespaces from universal cluster set
-			gomega.Eventually(func() error {
+			Eventually(func() error {
 				clusterSet, err := hub.ClusterClient.ClusterV1beta2().ManagedClusterSets().Get(
-					context.TODO(), universalClusterSetName, metav1.GetOptions{})
+					ctx, universalClusterSetName, metav1.GetOptions{})
 				if err != nil {
 					return err
 				}
 				originalUniversalManagedNamespaces = clusterSet.Spec.ManagedNamespaces
 				return nil
-			}, 30*time.Second, 2*time.Second).Should(gomega.Succeed())
+			}, 30*time.Second, 2*time.Second).Should(Succeed())
 
 			// Add managed namespace to universal cluster set
-			gomega.Eventually(func() error {
+			Eventually(func() error {
 				clusterSet, err := hub.ClusterClient.ClusterV1beta2().ManagedClusterSets().Get(
-					context.TODO(), universalClusterSetName, metav1.GetOptions{})
+					ctx, universalClusterSetName, metav1.GetOptions{})
 				if err != nil {
 					return err
 				}
@@ -272,9 +271,9 @@ var _ = ginkgo.Describe("ManagedNamespace", func() {
 				clusterSet.Spec.ManagedNamespaces = append(originalUniversalManagedNamespaces, clusterv1.ManagedNamespaceConfig{Name: namespace1})
 
 				_, err = hub.ClusterClient.ClusterV1beta2().ManagedClusterSets().Update(
-					context.TODO(), clusterSet, metav1.UpdateOptions{})
+					ctx, clusterSet, metav1.UpdateOptions{})
 				return err
-			}, 30*time.Second, 2*time.Second).Should(gomega.Succeed())
+			}, 30*time.Second, 2*time.Second).Should(Succeed())
 
 			// Create additional ManagedClusterSet with LabelSelector
 			additionalClusterSet := &clusterv1beta2.ManagedClusterSet{
@@ -297,15 +296,15 @@ var _ = ginkgo.Describe("ManagedNamespace", func() {
 			}
 
 			_, err := hub.ClusterClient.ClusterV1beta2().ManagedClusterSets().Create(
-				context.TODO(), additionalClusterSet, metav1.CreateOptions{})
-			gomega.Expect(err).NotTo(gomega.HaveOccurred())
+				ctx, additionalClusterSet, metav1.CreateOptions{})
+			Expect(err).NotTo(HaveOccurred())
 		})
 
-		ginkgo.AfterEach(func() {
+		AfterEach(func(ctx SpecContext) {
 			// Restore original managed namespaces in the universal cluster set
-			gomega.Eventually(func() error {
+			Eventually(func() error {
 				clusterSet, err := hub.ClusterClient.ClusterV1beta2().ManagedClusterSets().Get(
-					context.TODO(), universalClusterSetName, metav1.GetOptions{})
+					ctx, universalClusterSetName, metav1.GetOptions{})
 				if err != nil {
 					return err
 				}
@@ -313,26 +312,29 @@ var _ = ginkgo.Describe("ManagedNamespace", func() {
 				clusterSet.Spec.ManagedNamespaces = originalUniversalManagedNamespaces
 
 				_, err = hub.ClusterClient.ClusterV1beta2().ManagedClusterSets().Update(
-					context.TODO(), clusterSet, metav1.UpdateOptions{})
+					ctx, clusterSet, metav1.UpdateOptions{})
 				return err
-			}, 30*time.Second, 2*time.Second).Should(gomega.Succeed())
+			}, 30*time.Second, 2*time.Second).Should(Succeed())
 
 			// Clean up additional cluster set
-			hub.ClusterClient.ClusterV1beta2().ManagedClusterSets().Delete(
-				context.TODO(), additionalClusterSetName, metav1.DeleteOptions{})
+			err := hub.ClusterClient.ClusterV1beta2().ManagedClusterSets().Delete(
+				ctx, additionalClusterSetName, metav1.DeleteOptions{})
+			if !errors.IsNotFound(err) {
+				Expect(err).ToNot(HaveOccurred())
+			}
 
 			// Clean up test namespaces
-			spoke.KubeClient.CoreV1().Namespaces().Delete(
-				context.TODO(), namespace1, metav1.DeleteOptions{})
-			spoke.KubeClient.CoreV1().Namespaces().Delete(
-				context.TODO(), namespace2, metav1.DeleteOptions{})
+			Expect(spoke.KubeClient.CoreV1().Namespaces().Delete(
+				ctx, namespace1, metav1.DeleteOptions{})).ToNot(HaveOccurred())
+			Expect(spoke.KubeClient.CoreV1().Namespaces().Delete(
+				ctx, namespace2, metav1.DeleteOptions{})).ToNot(HaveOccurred())
 		})
 
-		ginkgo.It("should manage namespaces from multiple cluster sets", func() {
-			ginkgo.By("Waiting for ManagedCluster status to include namespaces from both cluster sets")
-			gomega.Eventually(func() bool {
+		It("should manage namespaces from multiple cluster sets", func(ctx SpecContext) {
+			By("Waiting for ManagedCluster status to include namespaces from both cluster sets")
+			Eventually(func() bool {
 				cluster, err := hub.ClusterClient.ClusterV1().ManagedClusters().Get(
-					context.TODO(), universalClusterName, metav1.GetOptions{})
+					ctx, universalClusterName, metav1.GetOptions{})
 				if err != nil {
 					return false
 				}
@@ -349,21 +351,21 @@ var _ = ginkgo.Describe("ManagedNamespace", func() {
 				return foundNamespaces[namespace1] == universalClusterSetName &&
 					foundNamespaces[namespace2] == additionalClusterSetName
 
-			}, 60*time.Second, 2*time.Second).Should(gomega.BeTrue(),
+			}, 60*time.Second, 2*time.Second).Should(BeTrue(),
 				"ManagedCluster should have namespaces from both cluster sets")
 
-			ginkgo.By("Verifying both namespaces are created on the spoke cluster")
-			gomega.Eventually(func() bool {
+			By("Verifying both namespaces are created on the spoke cluster")
+			Eventually(func() bool {
 				expectedNamespaces := []string{namespace1, namespace2}
 				for _, nsName := range expectedNamespaces {
 					_, err := spoke.KubeClient.CoreV1().Namespaces().Get(
-						context.TODO(), nsName, metav1.GetOptions{})
+						ctx, nsName, metav1.GetOptions{})
 					if err != nil {
 						return false
 					}
 				}
 				return true
-			}, 120*time.Second, 3*time.Second).Should(gomega.BeTrue(),
+			}, 120*time.Second, 3*time.Second).Should(BeTrue(),
 				"Both namespaces should be created on the spoke cluster")
 		})
 	})

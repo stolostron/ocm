@@ -1,11 +1,11 @@
 package sigplacementdecision
 
 import (
-	"context"
 	"testing"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	clienttesting "k8s.io/client-go/testing"
 	cpv1alpha2 "sigs.k8s.io/cluster-inventory-api/apis/v1alpha2"
 	cpfake "sigs.k8s.io/cluster-inventory-api/client/clientset/versioned/fake"
@@ -58,7 +58,10 @@ func newSIGPlacementDecisionWithOwnerRefs(namespace, name string, labels map[str
 }
 
 func ownerRefFor(ocmPD *v1beta1.PlacementDecision) metav1.OwnerReference {
-	return *metav1.NewControllerRef(ocmPD, v1beta1.SchemeGroupVersion.WithKind("PlacementDecision"))
+	return *metav1.NewControllerRef(ocmPD, schema.GroupVersion{
+		Group:   v1beta1.GroupVersion.Group,
+		Version: v1beta1.GroupVersion.Version,
+	}.WithKind("PlacementDecision"))
 }
 
 func TestSIGPlacementDecisionControllerSync(t *testing.T) {
@@ -295,10 +298,14 @@ func TestSIGPlacementDecisionControllerSync(t *testing.T) {
 			sigPDInformers := cpinformers.NewSharedInformerFactory(cpClient, 0)
 
 			for _, pd := range c.ocmPDs {
-				clusterInformers.Cluster().V1beta1().PlacementDecisions().Informer().GetStore().Add(pd)
+				if err := clusterInformers.Cluster().V1beta1().PlacementDecisions().Informer().GetStore().Add(pd); err != nil {
+					t.Fatal(err)
+				}
 			}
 			for _, pd := range c.existingSIGPDs {
-				sigPDInformers.Apis().V1alpha2().PlacementDecisions().Informer().GetStore().Add(pd)
+				if err := sigPDInformers.Apis().V1alpha2().PlacementDecisions().Informer().GetStore().Add(pd); err != nil {
+					t.Fatal(err)
+				}
 			}
 
 			ctrl := &sigPlacementDecisionController{
@@ -308,7 +315,7 @@ func TestSIGPlacementDecisionControllerSync(t *testing.T) {
 			}
 
 			syncCtx := testingcommon.NewFakeSyncContext(t, c.key)
-			err := ctrl.sync(context.TODO(), syncCtx, c.key)
+			err := ctrl.sync(t.Context(), syncCtx, c.key)
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
 			}
@@ -404,8 +411,8 @@ func TestBuildSIGPlacementDecision(t *testing.T) {
 	if ownerRef.Kind != "PlacementDecision" {
 		t.Errorf("expected owner reference kind PlacementDecision, got %s", ownerRef.Kind)
 	}
-	if ownerRef.APIVersion != v1beta1.SchemeGroupVersion.String() {
-		t.Errorf("expected owner reference apiVersion %s, got %s", v1beta1.SchemeGroupVersion.String(), ownerRef.APIVersion)
+	if ownerRef.APIVersion != v1beta1.GroupVersion.String() {
+		t.Errorf("expected owner reference apiVersion %s, got %s", v1beta1.GroupVersion.String(), ownerRef.APIVersion)
 	}
 	if ownerRef.Controller == nil || !*ownerRef.Controller {
 		t.Errorf("expected owner reference to be a controller reference")

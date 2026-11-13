@@ -70,7 +70,7 @@ func TestList(t *testing.T) {
 			}
 
 			service := NewWorkService(workClient, workInformer)
-			evts, err := service.List(context.Background(), types.ListOptions{ClusterName: c.clusterName})
+			evts, err := service.List(t.Context(), types.ListOptions{ClusterName: c.clusterName})
 			if err != nil {
 				t.Errorf("unexpected error: %v", err)
 			}
@@ -127,7 +127,9 @@ func TestHandleStatusUpdate(t *testing.T) {
 						},
 					},
 				}
-				evt.SetData(cloudevents.ApplicationJSON, manifestBundleStatus)
+				if err := evt.SetData(cloudevents.ApplicationJSON, manifestBundleStatus); err != nil {
+					t.Fatal(err)
+				}
 				return &evt
 			}(),
 			expectedError: true,
@@ -161,7 +163,9 @@ func TestHandleStatusUpdate(t *testing.T) {
 						},
 					},
 				}
-				evt.SetData(cloudevents.ApplicationJSON, manifestBundleStatus)
+				if err := evt.SetData(cloudevents.ApplicationJSON, manifestBundleStatus); err != nil {
+					t.Fatal(err)
+				}
 				return &evt
 			}(),
 			expectedError: true,
@@ -195,7 +199,9 @@ func TestHandleStatusUpdate(t *testing.T) {
 						},
 					},
 				}
-				evt.SetData(cloudevents.ApplicationJSON, manifestBundleStatus)
+				if err := evt.SetData(cloudevents.ApplicationJSON, manifestBundleStatus); err != nil {
+					t.Fatal(err)
+				}
 				return &evt
 			}(),
 			validateActions: func(t *testing.T, actions []clienttesting.Action) {
@@ -239,7 +245,9 @@ func TestHandleStatusUpdate(t *testing.T) {
 						},
 					},
 				}
-				evt.SetData(cloudevents.ApplicationJSON, manifestBundleStatus)
+				if err := evt.SetData(cloudevents.ApplicationJSON, manifestBundleStatus); err != nil {
+					t.Fatal(err)
+				}
 				return &evt
 			}(),
 			validateActions: func(t *testing.T, actions []clienttesting.Action) {
@@ -278,7 +286,9 @@ func TestHandleStatusUpdate(t *testing.T) {
 						},
 					},
 				}
-				evt.SetData(cloudevents.ApplicationJSON, manifestBundleStatus)
+				if err := evt.SetData(cloudevents.ApplicationJSON, manifestBundleStatus); err != nil {
+					t.Fatal(err)
+				}
 				return &evt
 			}(),
 			validateActions: func(t *testing.T, actions []clienttesting.Action) {
@@ -303,7 +313,7 @@ func TestHandleStatusUpdate(t *testing.T) {
 			}
 
 			service := NewWorkService(workClient, workInformer)
-			err := service.HandleStatusUpdate(context.Background(), c.workEvt)
+			err := service.HandleStatusUpdate(t.Context(), c.workEvt)
 			if c.expectedError {
 				if err == nil {
 					t.Errorf("expected error, got nil")
@@ -323,7 +333,7 @@ func TestHandleStatusUpdate(t *testing.T) {
 func TestEventHandlerFuncs(t *testing.T) {
 	handler := &workHandler{}
 	service := &WorkService{}
-	eventHandlerFuncs := service.EventHandlerFuncs(context.Background(), handler)
+	eventHandlerFuncs := service.EventHandlerFuncs(t.Context(), handler)
 
 	work := &workv1.ManifestWork{
 		ObjectMeta: metav1.ObjectMeta{
@@ -417,7 +427,7 @@ func TestHandleOnCreateFunc(t *testing.T) {
 		t.Run(c.name, func(t *testing.T) {
 			handler := &workHandler{}
 			service := &WorkService{codec: codec.NewManifestBundleCodec()}
-			createFunc := service.handleOnCreateFunc(context.Background(), handler)
+			createFunc := service.handleOnCreateFunc(t.Context(), handler)
 			createFunc(c.obj)
 			if handler.handleEventCallCount != c.expectedCallCount {
 				t.Errorf("expected %d HandleEvent calls, got %d", c.expectedCallCount, handler.handleEventCallCount)
@@ -610,7 +620,7 @@ func TestHandleOnUpdateFunc(t *testing.T) {
 		t.Run(c.name, func(t *testing.T) {
 			handler := &workHandler{}
 			service := &WorkService{codec: codec.NewManifestBundleCodec()}
-			updateFunc := service.handleOnUpdateFunc(context.Background(), handler)
+			updateFunc := service.handleOnUpdateFunc(t.Context(), handler)
 			updateFunc(c.oldObj, c.newObj)
 			if handler.handleEventCallCount != c.expectedCallCount {
 				t.Errorf("%s: expected %d HandleEvent calls, got %d", c.description, c.expectedCallCount, handler.handleEventCallCount)
@@ -645,7 +655,7 @@ func TestHandleOnDeleteFunc(t *testing.T) {
 		t.Run(c.name, func(t *testing.T) {
 			handler := &workHandler{}
 			service := &WorkService{codec: codec.NewManifestBundleCodec()}
-			deleteFunc := service.handleOnDeleteFunc(context.Background(), handler)
+			deleteFunc := service.handleOnDeleteFunc(t.Context(), handler)
 			deleteFunc(c.obj)
 			if handler.handleEventCallCount != c.expectedCallCount {
 				t.Errorf("expected %d HandleEvent calls, got %d", c.expectedCallCount, handler.handleEventCallCount)
