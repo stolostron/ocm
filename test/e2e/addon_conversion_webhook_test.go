@@ -636,6 +636,9 @@ var _ = ginkgo.Describe("Create v1beta1 ClusterManagementAddOn", ginkgo.Label("a
 		addon := &addonv1beta1.ClusterManagementAddOn{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: addonName,
+				Annotations: map[string]string{
+					addonv1alpha1.AddonLifecycleAnnotationKey: addonv1alpha1.AddonLifecycleSelfManageAnnotationValue,
+				},
 			},
 			Spec: addonv1beta1.ClusterManagementAddOnSpec{
 				AddOnMeta: addonv1beta1.AddOnMeta{
@@ -643,7 +646,7 @@ var _ = ginkgo.Describe("Create v1beta1 ClusterManagementAddOn", ginkgo.Label("a
 					Description: "Test addon for v1beta1",
 				},
 				InstallStrategy: addonv1beta1.InstallStrategy{
-					Type: addonv1beta1.AddonInstallStrategyManual,
+					Type: addonv1beta1.AddonInstallStrategyPlacements,
 				},
 				DefaultConfigs: []addonv1beta1.AddOnConfig{
 					{
