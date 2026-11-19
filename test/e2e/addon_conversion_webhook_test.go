@@ -636,6 +636,9 @@ var _ = ginkgo.Describe("Create v1beta1 ClusterManagementAddOn", ginkgo.Label("a
 		addon := &addonv1beta1.ClusterManagementAddOn{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: addonName,
+				Annotations: map[string]string{
+					addonv1alpha1.AddonLifecycleAnnotationKey: addonv1alpha1.AddonLifecycleSelfManageAnnotationValue,
+				},
 			},
 			Spec: addonv1beta1.ClusterManagementAddOnSpec{
 				AddOnMeta: addonv1beta1.AddOnMeta{
@@ -643,7 +646,7 @@ var _ = ginkgo.Describe("Create v1beta1 ClusterManagementAddOn", ginkgo.Label("a
 					Description: "Test addon for v1beta1",
 				},
 				InstallStrategy: addonv1beta1.InstallStrategy{
-					Type: addonv1beta1.AddonInstallStrategyManual,
+					Type: addonv1beta1.AddonInstallStrategyPlacements,
 				},
 				DefaultConfigs: []addonv1beta1.AddOnConfig{
 					{
@@ -660,9 +663,9 @@ var _ = ginkgo.Describe("Create v1beta1 ClusterManagementAddOn", ginkgo.Label("a
 		_, err := hub.CreateClusterManagementAddOnV1Beta1(addonName, addon)
 		gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
-		ginkgo.By("Update v1beta1 ClusterManagementAddOn status using v1beta1 client")
+		ginkgo.By("Update v1beta1 ClusterManagementAddOn status and verify conversion")
 		gomega.Eventually(func() error {
-			addon, err = hub.GetClusterManagementAddOnV1Beta1(addonName)
+			addon, err := hub.GetClusterManagementAddOnV1Beta1(addonName)
 			if err != nil {
 				return err
 			}
@@ -689,11 +692,10 @@ var _ = ginkgo.Describe("Create v1beta1 ClusterManagementAddOn", ginkgo.Label("a
 			}
 			_, err = hub.AddonClient.AddonV1beta1().ClusterManagementAddOns().UpdateStatus(
 				context.Background(), addon, metav1.UpdateOptions{})
-			return err
-		}).Should(gomega.Succeed())
+			if err != nil {
+				return err
+			}
 
-		ginkgo.By("Get v1beta1 ClusterManagementAddOn using v1alpha1 client and verify conversion")
-		gomega.Eventually(func() error {
 			v1alpha1Addon, err := hub.GetClusterManagementAddOnV1Alpha1(addonName)
 			if err != nil {
 				return err
