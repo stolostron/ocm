@@ -38,11 +38,11 @@ func ToAddOnRegistriesPrivateValues(config addonapiv1beta1.AddOnDeploymentConfig
 }
 
 func ToAddOnInstallNamespacePrivateValues(config addonapiv1beta1.AddOnDeploymentConfig) (addonfactory.Values, error) {
-	if len(config.Spec.AgentInstallNamespace) == 0 {
+	if config.Spec.AgentInstallNamespace == nil || len(*config.Spec.AgentInstallNamespace) == 0 {
 		return nil, nil
 	}
 	return addonfactory.Values{
-		InstallNamespacePrivateValueKey: config.Spec.AgentInstallNamespace,
+		InstallNamespacePrivateValueKey: *config.Spec.AgentInstallNamespace,
 	}, nil
 }
 
@@ -98,7 +98,7 @@ func (a *CRDTemplateAgentAddon) getValues(
 	}
 	overrideValues = addonfactory.MergeValues(defaultValues, overrideValues)
 
-	for i := 0; i < len(a.getValuesFuncs); i++ {
+	for i := range len(a.getValuesFuncs) {
 		if a.getValuesFuncs[i] != nil {
 			userValues, err := a.getValuesFuncs[i](cluster, addon)
 			if err != nil {

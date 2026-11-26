@@ -3,15 +3,22 @@ package manifestworkreplicasetcontroller
 import (
 	"context"
 	"fmt"
+	"slices"
+	"strings"
+	"unicode/utf8"
 
 	"k8s.io/apimachinery/pkg/api/errors"
 	apimeta "k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/klog/v2"
 
 	clusterlister "open-cluster-management.io/api/client/cluster/listers/cluster/v1beta1"
+	workclientset "open-cluster-management.io/api/client/work/clientset/versioned"
 	worklisterv1 "open-cluster-management.io/api/client/work/listers/work/v1"
+	clusterv1beta1 "open-cluster-management.io/api/cluster/v1beta1"
 	workv1 "open-cluster-management.io/api/work/v1"
 	workapiv1alpha1 "open-cluster-management.io/api/work/v1alpha1"
 	clustersdkv1alpha1 "open-cluster-management.io/sdk-go/pkg/apis/cluster/v1alpha1"
@@ -23,6 +30,7 @@ import (
 
 // deployReconciler is to manage ManifestWork based on the placement.
 type deployReconciler struct {
+	workClient          workclientset.Interface
 	workApplier         *workapplier.WorkApplier
 	manifestWorkLister  worklisterv1.ManifestWorkLister
 	placeDecisionLister clusterlister.PlacementDecisionLister
@@ -34,6 +42,7 @@ func (d *deployReconciler) reconcile(
 	// Manifestwork create/update/delete logic.
 	var errs []error
 	var plcsSummary []workapiv1alpha1.PlacementSummary
+	var missingPlacements []string
 	minRequeue := maxRequeueTime
 	count, total, succeededCount := 0, 0, 0
 
@@ -44,32 +53,58 @@ func (d *deployReconciler) reconcile(
 	}
 
 	// Get all ManifestWorks belonging to this ManifestWorkReplicaSet
-	allManifestWorks, _, err := getManifestWorkInReplicaSet(mwrSet, d.manifestWorkLister)
+	allManifestWorks, works, err := getManifestWorkInReplicaSet(mwrSet, d.manifestWorkLister)
 	if err != nil {
 		return mwrSet, reconcileContinue, fmt.Errorf("failed to list manifestworks: %w", err)
 	}
 
-	// Delete ManifestWorks that belong to placements no longer in the spec
-	for _, mwRecord := range allManifestWorks.workByCluster {
-		if mwRecord.placements.Len() == 0 || mwRecord.placements.Difference(currentPlacementNames).Len() > 0 {
-			// This ManifestWork belongs to a placement that's no longer in the spec, delete it
-			err := d.workApplier.Delete(ctx, mwRecord.work.Namespace, mwRecord.work.Name)
+	// Delete duplicated works, see getManifestWorkInReplicaSet
+	for _, mw := range allManifestWorks.duplicates {
+		klog.FromContext(ctx).Info("Deleting duplicate manifestwork",
+			"manifestWorkReplicaSet", klog.KObj(mwrSet), "manifestWork", klog.KObj(mw))
+		err := d.workApplier.Delete(ctx, mw.Namespace, mw.Name)
+		if err != nil && !errors.IsNotFound(err) {
+			errs = append(errs, fmt.Errorf("failed to delete duplicate manifestwork %s/%s: %w", mw.Namespace, mw.Name, err))
+		}
+	}
+
+	// Delete ManifestWorks that belong to placements no longer in the spec. All works are checked:
+	// workByCluster holds one work per cluster, which can be the one of another placement.
+	for _, mw := range works {
+		placementName, ok := mw.Labels[workapiv1alpha1.ManifestWorkReplicaSetPlacementNameLabelKey]
+		if !ok || !currentPlacementNames.Has(placementName) {
+			err := d.workApplier.Delete(ctx, mw.Namespace, mw.Name)
 			if err != nil && !errors.IsNotFound(err) {
-				errs = append(errs, fmt.Errorf("failed to delete manifestwork %s/%s for removed placement: %w", mwRecord.work.Namespace, mwRecord.work.Name, err))
+				errs = append(errs, fmt.Errorf("failed to delete manifestwork %s/%s for removed placement: %w", mw.Namespace, mw.Name, err))
 			}
 		}
 	}
 
+	// Identify retained works first so reference order cannot let another placement
+	// create duplicate work on the same cluster.
+	placements := make([]*clusterv1beta1.Placement, len(mwrSet.Spec.PlacementRefs))
+	placementErrors := make([]error, len(mwrSet.Spec.PlacementRefs))
+	retainedClusters := sets.New[string]()
+	for i, placementRef := range mwrSet.Spec.PlacementRefs {
+		placements[i], placementErrors[i] = d.placementLister.Placements(mwrSet.Namespace).Get(placementRef.Name)
+		if !errors.IsNotFound(placementErrors[i]) {
+			continue
+		}
+		missingPlacements = append(missingPlacements, placementRef.Name)
+		for _, mw := range allManifestWorks.workByPlacement[placementRef.Name] {
+			retainedClusters.Insert(mw.Namespace)
+		}
+	}
+
 	// Getting the placements and the created ManifestWorks related to each placement
-	for _, placementRef := range mwrSet.Spec.PlacementRefs {
+	for i, placementRef := range mwrSet.Spec.PlacementRefs {
 		var existingRolloutClsStatus []clustersdkv1alpha1.ClusterRolloutStatus
 		existingClusterNames := sets.New[string]()
 		succeededClusterNames := sets.New[string]()
-		placement, err := d.placementLister.Placements(mwrSet.Namespace).Get(placementRef.Name)
+		placement, err := placements[i], placementErrors[i]
 
 		if errors.IsNotFound(err) {
-			apimeta.SetStatusCondition(&mwrSet.Status.Conditions, getPlacementDecisionVerified(mwrSet.Generation, workapiv1alpha1.ReasonPlacementDecisionNotFound, ""))
-			return mwrSet, reconcileStop, nil
+			continue
 		}
 
 		if err != nil {
@@ -77,7 +112,11 @@ func (d *deployReconciler) reconcile(
 		}
 
 		manifestWorks := allManifestWorks.workByPlacement[placement.Name]
+		workNamesByCluster := make(map[string]string, len(manifestWorks))
 		for _, mw := range manifestWorks {
+			if _, exists := workNamesByCluster[mw.Namespace]; !exists || mw.DeletionTimestamp.IsZero() {
+				workNamesByCluster[mw.Namespace] = mw.Name
+			}
 			// Check if ManifestWorkTemplate changes, ManifestWork will need to be updated.
 			newMW := &workv1.ManifestWork{}
 			mw.ObjectMeta.DeepCopyInto(&newMW.ObjectMeta)
@@ -117,6 +156,20 @@ func (d *deployReconciler) reconcile(
 			continue
 		}
 
+		// Preserve retained-only works without letting overlaps consume rollout slots.
+		if retainedClusters.Len() > 0 {
+			selectedClusters := placeTracker.ExistingClusterGroupsBesides().GetClusters()
+			for clusterName := range selectedClusters.Intersection(retainedClusters) {
+				if _, ok := workNamesByCluster[clusterName]; ok {
+					continue
+				}
+				existingRolloutClsStatus = append(existingRolloutClsStatus, clustersdkv1alpha1.ClusterRolloutStatus{
+					ClusterName: clusterName,
+					Status:      clustersdkv1alpha1.Skip,
+				})
+			}
+		}
+
 		_, rolloutResult, err := rolloutHandler.GetRolloutCluster(placementRef.RolloutStrategy, existingRolloutClsStatus)
 
 		if err != nil {
@@ -133,10 +186,14 @@ func (d *deployReconciler) reconcile(
 		// Create or update ManifestWorks
 		for _, rolloutStatus := range rolloutResult.ClustersToRollout {
 			if rolloutStatus.Status == clustersdkv1alpha1.ToApply {
-				var workName string
-				if relatedManifestWork, ok := allManifestWorks.workByCluster[rolloutStatus.ClusterName]; ok {
-					if relatedManifestWork.placements.Has(placementRef.Name) {
-						workName = relatedManifestWork.work.Name
+				workName := workNamesByCluster[rolloutStatus.ClusterName]
+				if workName == "" {
+					// The lister may not have the work created by a previous sync yet, and a create
+					// with generateName would add a duplicate, so check the API server first.
+					workName, err = d.workNameInCluster(ctx, mwrSet, rolloutStatus.ClusterName, placementRef.Name)
+					if err != nil {
+						errs = append(errs, err)
+						continue
 					}
 				}
 				mw := buildManifestWork(mwrSet, workName, rolloutStatus.ClusterName, placementRef.Name)
@@ -195,7 +252,23 @@ func (d *deployReconciler) reconcile(
 		mwrSet.Status.Summary.Degraded = 0
 		mwrSet.Status.Summary.Progressing = 0
 	}
+	missingMessage := ""
+	if len(missingPlacements) > 0 {
+		missingMessage = fmt.Sprintf("placements not found in namespace %s: %s", mwrSet.Namespace, strings.Join(missingPlacements, ", "))
+		// Bound the missing names as well as apply errors to keep condition messages within API limits.
+		suffix := fmt.Sprintf("... (truncated; %d placements missing)", len(missingPlacements))
+		missingMessage = truncateConditionMessage(missingMessage, suffix)
+	}
 	switch {
+	case missingMessage != "":
+		message := missingMessage
+		if len(errs) > 0 {
+			message += "; " + aggregatedErrorMessage(errs)
+			suffix := fmt.Sprintf("... (truncated; %d placements missing; %d errors total)", len(missingPlacements), len(errs))
+			message = truncateConditionMessage(message, suffix)
+		}
+		apimeta.SetStatusCondition(&mwrSet.Status.Conditions,
+			getPlacementDecisionVerified(mwrSet.Generation, workapiv1alpha1.ReasonPlacementDecisionNotFound, message))
 	case len(errs) > 0:
 		// Check errors first: an apply or rollout failure on some clusters must be reported even
 		// when others succeeded (count > 0), and when every apply failed (count == 0) it must not
@@ -208,7 +281,9 @@ func (d *deployReconciler) reconcile(
 		apimeta.SetStatusCondition(&mwrSet.Status.Conditions, getPlacementDecisionVerified(mwrSet.Generation, workapiv1alpha1.ReasonPlacementDecisionEmpty, ""))
 	}
 
-	if total == succeededCount {
+	if missingMessage != "" {
+		apimeta.SetStatusCondition(&mwrSet.Status.Conditions, getPlacementRollOut(mwrSet.Generation, workapiv1alpha1.ReasonProgressing, missingMessage))
+	} else if total == succeededCount {
 		apimeta.SetStatusCondition(&mwrSet.Status.Conditions, getPlacementRollOut(mwrSet.Generation, workapiv1alpha1.ReasonComplete, ""))
 	} else {
 		apimeta.SetStatusCondition(&mwrSet.Status.Conditions, getPlacementRollOut(mwrSet.Generation, workapiv1alpha1.ReasonProgressing, ""))
@@ -223,6 +298,30 @@ func (d *deployReconciler) reconcile(
 	}
 
 	return mwrSet, reconcileContinue, nil
+}
+
+// workNameInCluster lists the works of mwrSet and placementName in the cluster namespace from the
+// API server, and returns the name of the oldest one not being deleted, or "" if there is none.
+func (d *deployReconciler) workNameInCluster(ctx context.Context, mwrSet *workapiv1alpha1.ManifestWorkReplicaSet,
+	clusterName, placementName string) (string, error) {
+	selector := labels.SelectorFromSet(labels.Set{
+		helper.ManifestWorkReplicaSetOwnerKeyHashLabelKey:           ownerKeyHash(mwrSet.Namespace, mwrSet.Name),
+		workapiv1alpha1.ManifestWorkReplicaSetPlacementNameLabelKey: placementName,
+	})
+	works, err := d.workClient.WorkV1().ManifestWorks(clusterName).List(ctx, metav1.ListOptions{LabelSelector: selector.String()})
+	if err != nil {
+		return "", fmt.Errorf("failed to list manifestworks in %s: %w", clusterName, err)
+	}
+	var current []*workv1.ManifestWork
+	for i := range works.Items {
+		if works.Items[i].DeletionTimestamp.IsZero() {
+			current = append(current, &works.Items[i])
+		}
+	}
+	if len(current) == 0 {
+		return "", nil
+	}
+	return slices.MinFunc(current, compareWorksByAge).Name, nil
 }
 
 func (d *deployReconciler) clusterRolloutStatusFunc(clusterName string, manifestWork workv1.ManifestWork) (clustersdkv1alpha1.ClusterRolloutStatus, error) {
@@ -369,11 +468,20 @@ func aggregatedErrorMessage(errs []error) string {
 		return ""
 	}
 	msg := utilerrors.NewAggregate(errs).Error()
-	if len(msg) <= maxAggregatedErrorMessageLen {
-		return msg
-	}
 	suffix := fmt.Sprintf("... (truncated; %d errors total)", len(errs))
-	return msg[:maxAggregatedErrorMessageLen-len(suffix)] + suffix
+	return truncateConditionMessage(msg, suffix)
+}
+
+// truncateConditionMessage avoids splitting UTF-8 characters that JSON encoding would replace.
+func truncateConditionMessage(message, suffix string) string {
+	if len(message) <= maxAggregatedErrorMessageLen {
+		return message
+	}
+	cut := maxAggregatedErrorMessageLen - len(suffix)
+	for cut > 0 && !utf8.RuneStart(message[cut]) {
+		cut--
+	}
+	return message[:cut] + suffix
 }
 
 func getCondition(conditionType string, reason string, message string, status metav1.ConditionStatus, generation int64) metav1.Condition {

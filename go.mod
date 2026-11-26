@@ -3,11 +3,11 @@ module open-cluster-management.io/ocm
 go 1.26.0
 
 require (
-	github.com/aws/aws-sdk-go-v2 v1.47.5
-	github.com/aws/aws-sdk-go-v2/config v1.33.13
-	github.com/aws/aws-sdk-go-v2/service/eks v1.104.3
-	github.com/aws/aws-sdk-go-v2/service/iam v1.64.6
-	github.com/aws/smithy-go v1.28.7
+	github.com/aws/aws-sdk-go-v2 v1.48.0
+	github.com/aws/aws-sdk-go-v2/config v1.33.18
+	github.com/aws/aws-sdk-go-v2/service/eks v1.105.6
+	github.com/aws/aws-sdk-go-v2/service/iam v1.64.9
+	github.com/aws/smithy-go v1.28.9
 	github.com/cloudevents/sdk-go/v2 v2.16.2
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc
 	github.com/evanphx/json-patch v5.9.11+incompatible
@@ -16,7 +16,7 @@ require (
 	github.com/google/cel-go v0.29.2
 	github.com/google/go-cmp v0.7.0
 	github.com/itchyny/gojq v0.12.20
-	github.com/onsi/ginkgo/v2 v2.33.1
+	github.com/onsi/ginkgo/v2 v2.34.0
 	github.com/onsi/gomega v1.44.0
 	github.com/openshift/api v0.0.0-20261023091600-9809689a2448
 	github.com/openshift/build-machinery-go v0.0.0-20250602125535-1b6d00b8c37c
@@ -24,11 +24,11 @@ require (
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.25.0
 	github.com/spf13/cobra v1.10.2
-	github.com/spf13/pflag v1.0.10
+	github.com/spf13/pflag v1.1.0
 	github.com/stretchr/testify v1.12.1
 	github.com/valyala/fasttemplate v1.2.2
 	go.uber.org/zap v1.28.0
-	google.golang.org/grpc v1.84.0
+	google.golang.org/grpc v1.85.0
 	gopkg.in/yaml.v2 v2.4.0
 	helm.sh/helm/v3 v3.22.1
 	k8s.io/api v0.37.2
@@ -40,8 +40,8 @@ require (
 	k8s.io/klog/v2 v2.140.0
 	k8s.io/kube-aggregator v0.37.2
 	k8s.io/utils v0.0.0-20260707023825-cf1189d6abe3
-	open-cluster-management.io/addon-framework v1.4.0
-	open-cluster-management.io/api v1.4.1-0.20261023183208-940bd2e3ecb2
+	open-cluster-management.io/addon-framework v1.4.1-0.20261120203526-206153a346f4
+	open-cluster-management.io/api v1.4.1-0.20261119191600-32701950496c
 	open-cluster-management.io/sdk-go v1.4.0
 	sigs.k8s.io/about-api v0.0.0-20250131010323-518069c31c03
 	sigs.k8s.io/cluster-inventory-api v0.2.0
@@ -66,17 +66,17 @@ require (
 	github.com/Masterminds/sprig/v3 v3.3.0 // indirect
 	github.com/NYTimes/gziphandler v1.1.1 // indirect
 	github.com/antlr4-go/antlr/v4 v4.13.1 // indirect
-	github.com/aws/aws-sdk-go-v2/credentials v1.20.13 // indirect
-	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.20.5 // indirect
-	github.com/aws/aws-sdk-go-v2/internal/configsources v1.5.8 // indirect
-	github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.8.8 // indirect
-	github.com/aws/aws-sdk-go-v2/internal/v4a v1.5.8 // indirect
-	github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding v1.13.23 // indirect
-	github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.14.8 // indirect
-	github.com/aws/aws-sdk-go-v2/service/signin v1.12.1 // indirect
-	github.com/aws/aws-sdk-go-v2/service/sso v1.39.1 // indirect
-	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.44.1 // indirect
-	github.com/aws/aws-sdk-go-v2/service/sts v1.51.6 // indirect
+	github.com/aws/aws-sdk-go-v2/credentials v1.21.0 // indirect
+	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.20.9 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/configsources v1.5.12 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.8.12 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/v4a v1.5.12 // indirect
+	github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding v1.13.25 // indirect
+	github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.14.12 // indirect
+	github.com/aws/aws-sdk-go-v2/service/signin v1.13.1 // indirect
+	github.com/aws/aws-sdk-go-v2/service/sso v1.39.5 // indirect
+	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.44.5 // indirect
+	github.com/aws/aws-sdk-go-v2/service/sts v1.52.0 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/blang/semver/v4 v4.0.0 // indirect
 	github.com/bwmarrin/snowflake v0.3.0 // indirect
@@ -155,12 +155,13 @@ require (
 	go.opentelemetry.io/auto/sdk v1.2.1 // indirect
 	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.71.0 // indirect
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.71.0 // indirect
-	go.opentelemetry.io/otel v1.46.0 // indirect
+	go.opentelemetry.io/otel v1.47.0 // indirect
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace v1.46.0 // indirect
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc v1.46.0 // indirect
-	go.opentelemetry.io/otel/metric v1.46.0 // indirect
+	go.opentelemetry.io/otel/log v1.47.0 // indirect
+	go.opentelemetry.io/otel/metric v1.47.0 // indirect
 	go.opentelemetry.io/otel/sdk v1.46.0 // indirect
-	go.opentelemetry.io/otel/trace v1.46.0 // indirect
+	go.opentelemetry.io/otel/trace v1.47.0 // indirect
 	go.opentelemetry.io/proto/otlp v1.11.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
 	go.yaml.in/yaml/v2 v2.4.4 // indirect

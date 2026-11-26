@@ -4,9 +4,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sort"
 	"strings"
 	"testing"
 	"time"
+	"unicode/utf8"
 
 	"github.com/stretchr/testify/assert"
 	apimeta "k8s.io/apimachinery/pkg/api/meta"
@@ -22,6 +24,7 @@ import (
 	workclient "open-cluster-management.io/api/client/work/clientset/versioned"
 	fakeworkclient "open-cluster-management.io/api/client/work/clientset/versioned/fake"
 	workinformers "open-cluster-management.io/api/client/work/informers/externalversions"
+	worklisterv1 "open-cluster-management.io/api/client/work/listers/work/v1"
 	clusterv1alpha1 "open-cluster-management.io/api/cluster/v1alpha1"
 	workapiv1 "open-cluster-management.io/api/work/v1"
 	workapiv1alpha1 "open-cluster-management.io/api/work/v1alpha1"
@@ -63,6 +66,7 @@ func TestDeployReconcileAsExpected(t *testing.T) {
 	placementDecisionLister := clusterInformerFactory.Cluster().V1beta1().PlacementDecisions().Lister()
 
 	pmwDeployController := deployReconciler{
+		workClient:          fWorkClient,
 		workApplier:         workapplier.NewWorkApplierWithTypedClient(fWorkClient, mwLister),
 		manifestWorkLister:  mwLister,
 		placeDecisionLister: placementDecisionLister,
@@ -127,6 +131,7 @@ func TestDeployReconcileAsPlacementDecisionEmpty(t *testing.T) {
 	placementDecisionLister := clusterInformerFactory.Cluster().V1beta1().PlacementDecisions().Lister()
 
 	pmwDeployController := deployReconciler{
+		workClient:          fWorkClient,
 		workApplier:         workapplier.NewWorkApplierWithTypedClient(fWorkClient, mwLister),
 		manifestWorkLister:  mwLister,
 		placeDecisionLister: placementDecisionLister,
@@ -202,6 +207,7 @@ func TestDeployReconcileApplyFailureReportsNotAsExpected(t *testing.T) {
 	placementDecisionLister := clusterInformerFactory.Cluster().V1beta1().PlacementDecisions().Lister()
 
 	pmwDeployController := deployReconciler{
+		workClient:          fWorkClient,
 		workApplier:         workapplier.NewWorkApplierWithTypedClient(fWorkClient, mwLister),
 		manifestWorkLister:  mwLister,
 		placeDecisionLister: placementDecisionLister,
@@ -272,6 +278,7 @@ func TestDeployReconcileMultiPlacementApplyFailuresAreAggregated(t *testing.T) {
 	placementDecisionLister := clusterInformerFactory.Cluster().V1beta1().PlacementDecisions().Lister()
 
 	pmwDeployController := deployReconciler{
+		workClient:          fWorkClient,
 		workApplier:         workapplier.NewWorkApplierWithTypedClient(fWorkClient, mwLister),
 		manifestWorkLister:  mwLister,
 		placeDecisionLister: placementDecisionLister,
@@ -331,6 +338,7 @@ func TestDeployReconcilePartialApplyFailureReportsNotAsExpected(t *testing.T) {
 	}
 
 	pmwDeployController := deployReconciler{
+		workClient:          fWorkClient,
 		workApplier:         workapplier.NewWorkApplierWithTypedClient(fWorkClient, mwLister),
 		manifestWorkLister:  mwLister,
 		placeDecisionLister: clusterInformerFactory.Cluster().V1beta1().PlacementDecisions().Lister(),
@@ -388,6 +396,7 @@ func TestDeployReconcileRolloutErrorNotOverwrittenByOtherPlacement(t *testing.T)
 	}
 
 	pmwDeployController := deployReconciler{
+		workClient:          fWorkClient,
 		workApplier:         workapplier.NewWorkApplierWithTypedClient(fWorkClient, mwLister),
 		manifestWorkLister:  mwLister,
 		placeDecisionLister: clusterInformerFactory.Cluster().V1beta1().PlacementDecisions().Lister(),
@@ -441,6 +450,7 @@ func TestDeployReconcileInvalidRolloutStrategyReportsNotAsExpected(t *testing.T)
 	placementDecisionLister := clusterInformerFactory.Cluster().V1beta1().PlacementDecisions().Lister()
 
 	pmwDeployController := deployReconciler{
+		workClient:          fWorkClient,
 		workApplier:         workapplier.NewWorkApplierWithTypedClient(fWorkClient, mwLister),
 		manifestWorkLister:  mwLister,
 		placeDecisionLister: placementDecisionLister,
@@ -487,6 +497,7 @@ func TestDeployReconcileSelectedClustersButEmptyDecision(t *testing.T) {
 	placementDecisionLister := clusterInformerFactory.Cluster().V1beta1().PlacementDecisions().Lister()
 
 	pmwDeployController := deployReconciler{
+		workClient:          fWorkClient,
 		workApplier:         workapplier.NewWorkApplierWithTypedClient(fWorkClient, mwLister),
 		manifestWorkLister:  mwLister,
 		placeDecisionLister: placementDecisionLister,
@@ -540,6 +551,83 @@ func TestAggregatedErrorMessage(t *testing.T) {
 	})
 }
 
+func TestAggregatedErrorMessageUTF8(t *testing.T) {
+	for _, tt := range []struct {
+		name    string
+		message string
+	}{
+		{name: "short Unicode message", message: "é界🙂"},
+		{name: "ASCII at byte limit", message: strings.Repeat("x", maxAggregatedErrorMessageLen)},
+		{name: "Unicode at byte limit", message: strings.Repeat("é", maxAggregatedErrorMessageLen/len("é"))},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.message, aggregatedErrorMessage([]error{errors.New(tt.message)}))
+		})
+	}
+
+	const suffix = "... (truncated; 1 errors total)"
+	for _, character := range []string{"é", "界", "🙂"} {
+		for cutInRune := 0; cutInRune <= len(character); cutInRune++ {
+			t.Run(fmt.Sprintf("%d-byte character cut at %d", len(character), cutInRune), func(t *testing.T) {
+				prefix := strings.Repeat("x", maxAggregatedErrorMessageLen-len(suffix)-cutInRune)
+				message := prefix + character + strings.Repeat("x", len(suffix)+1)
+				wantMessage := prefix
+				if cutInRune == len(character) {
+					wantMessage += character
+				}
+				wantMessage += suffix
+
+				got := aggregatedErrorMessage([]error{errors.New(message)})
+				assert.True(t, utf8.ValidString(got), "truncation must not split a UTF-8 character")
+				assert.LessOrEqual(t, len(got), maxAggregatedErrorMessageLen)
+				assert.Equal(t, wantMessage, got)
+			})
+		}
+	}
+}
+
+func TestDeployReconcileMissingPlacementMessageUTF8(t *testing.T) {
+	const prefix = "placements not found in namespace default: "
+	const suffix = "... (truncated; 1 placements missing)"
+	for _, character := range []string{"é", "界", "🙂"} {
+		for cutInRune := 0; cutInRune <= len(character); cutInRune++ {
+			t.Run(fmt.Sprintf("%d-byte character cut at %d", len(character), cutInRune), func(t *testing.T) {
+				namePrefix := strings.Repeat("x", maxAggregatedErrorMessageLen-len(suffix)-len(prefix)-cutInRune)
+				name := namePrefix + character + strings.Repeat("x", len(suffix)+1)
+				mwrSet := helpertest.CreateTestManifestWorkReplicaSet("mwrSet-test", "default", name)
+				fWorkClient := fakeworkclient.NewSimpleClientset(mwrSet)
+				workInformerFactory := workinformers.NewSharedInformerFactoryWithOptions(fWorkClient, time.Minute)
+				mwLister := workInformerFactory.Work().V1().ManifestWorks().Lister()
+				clusterInformerFactory := clusterinformers.NewSharedInformerFactoryWithOptions(fakeclusterclient.NewSimpleClientset(), time.Minute)
+				reconciler := deployReconciler{
+					workClient:          fWorkClient,
+					workApplier:         workapplier.NewWorkApplierWithTypedClient(fWorkClient, mwLister),
+					manifestWorkLister:  mwLister,
+					placeDecisionLister: clusterInformerFactory.Cluster().V1beta1().PlacementDecisions().Lister(),
+					placementLister:     clusterInformerFactory.Cluster().V1beta1().Placements().Lister(),
+				}
+
+				_, _, err := reconciler.reconcile(context.TODO(), mwrSet)
+				if err != nil {
+					t.Fatal(err)
+				}
+				wantMessage := prefix + namePrefix
+				if cutInRune == len(character) {
+					wantMessage += character
+				}
+				wantMessage += suffix
+				if assert.Len(t, mwrSet.Status.Conditions, 2) {
+					for _, condition := range mwrSet.Status.Conditions {
+						assert.True(t, utf8.ValidString(condition.Message), "truncation must not split a UTF-8 character")
+						assert.LessOrEqual(t, len(condition.Message), maxAggregatedErrorMessageLen)
+						assert.Equal(t, wantMessage, condition.Message)
+					}
+				}
+			})
+		}
+	}
+}
+
 func TestDeployReconcileAsPlacementNotExist(t *testing.T) {
 	mwrSet := helpertest.CreateTestManifestWorkReplicaSet("mwrSet-test", "default", "place-notexist")
 	fWorkClient := fakeworkclient.NewSimpleClientset(mwrSet)
@@ -558,6 +646,7 @@ func TestDeployReconcileAsPlacementNotExist(t *testing.T) {
 	placementDecisionLister := clusterInformerFactory.Cluster().V1beta1().PlacementDecisions().Lister()
 
 	pmwDeployController := deployReconciler{
+		workClient:          fWorkClient,
 		workApplier:         workapplier.NewWorkApplierWithTypedClient(fWorkClient, mwLister),
 		manifestWorkLister:  mwLister,
 		placeDecisionLister: placementDecisionLister,
@@ -584,6 +673,581 @@ func TestDeployReconcileAsPlacementNotExist(t *testing.T) {
 	// Check placement condition reason is PlacementDecisionNotFound
 	if placeCondition.Reason != workapiv1alpha1.ReasonPlacementDecisionNotFound {
 		t.Fatal("Placement condition Reason not match PlacementDecisionEmpty ", placeCondition)
+	}
+}
+
+func TestDeployReconcileMissingPlacementContinuesWithValidPlacement(t *testing.T) {
+	type testCase struct {
+		name         string
+		missingFirst bool
+		missingCount int
+		missingName  string
+		applyFailure bool
+		applyError   string
+	}
+	tests := []testCase{
+		{name: "missing placement first", missingFirst: true, missingCount: 1},
+		{name: "missing placement last", missingCount: 1},
+		{name: "missing placement with apply failure", missingCount: 1, applyFailure: true},
+		{name: "many missing placements", missingFirst: true, missingCount: 520},
+		{name: "many missing placements with apply failure", missingCount: 520, applyFailure: true},
+	}
+	missingPrefix := "placements not found in namespace default: "
+	combinedPrefix := missingPrefix + "missing; "
+	combinedSuffix := "... (truncated; 1 placements missing; 1 errors total)"
+	for _, delta := range []int{-1, 0, 1} {
+		tests = append(tests, testCase{
+			name: fmt.Sprintf("combined message at limit %+d", delta), missingCount: 1, applyFailure: true,
+			applyError: strings.Repeat("x", maxAggregatedErrorMessageLen-len(combinedPrefix)+delta),
+		})
+	}
+	for _, runeText := range []string{"é", "界", "🙂"} {
+		for cutInRune := 0; cutInRune <= len(runeText); cutInRune++ {
+			cut := maxAggregatedErrorMessageLen - len(combinedSuffix) - cutInRune
+			tests = append(tests, testCase{
+				name: fmt.Sprintf("combined error %s cutoff %d", runeText, cutInRune), missingCount: 1, applyFailure: true,
+				applyError: strings.Repeat("x", cut-len(combinedPrefix)) + runeText + strings.Repeat("z", maxAggregatedErrorMessageLen),
+			}, testCase{
+				name: fmt.Sprintf("combined missing name %s cutoff %d", runeText, cutInRune), missingCount: 1, applyFailure: true,
+				missingName: "missing-" + strings.Repeat("x", cut-len(missingPrefix)-len("missing-")) + runeText + strings.Repeat("z", maxAggregatedErrorMessageLen),
+			})
+		}
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mwrSet := helpertest.CreateTestManifestWorkReplicaSet("mwrSet-test", "default", "valid")
+			mwrSet.Generation = 2
+			var missingRefs []workapiv1alpha1.LocalPlacementReference
+			for i := 0; i < tt.missingCount; i++ {
+				missingRef := mwrSet.Spec.PlacementRefs[0]
+				missingRef.Name = "missing"
+				if tt.missingName != "" {
+					missingRef.Name = tt.missingName
+				}
+				if i > 0 {
+					missingRef.Name = fmt.Sprintf("missing-%03d-%s", i, strings.Repeat("a", 51))
+				}
+				missingRefs = append(missingRefs, missingRef)
+			}
+			if tt.missingFirst {
+				mwrSet.Spec.PlacementRefs = append(missingRefs, mwrSet.Spec.PlacementRefs...)
+			} else {
+				mwrSet.Spec.PlacementRefs = append(mwrSet.Spec.PlacementRefs, missingRefs...)
+			}
+			missingWork := helpertest.CreateTestManifestWork(mwrSet.Name, mwrSet.Namespace, "missing", "cls-missing")
+			workObjects := []runtime.Object{mwrSet}
+			// Oversized Unicode references cannot refer to a previously valid Placement.
+			if tt.missingName == "" {
+				workObjects = append(workObjects, missingWork)
+			}
+			fWorkClient := fakeworkclient.NewSimpleClientset(workObjects...)
+			applyErr := fmt.Errorf("apply rejected: %s", strings.Repeat("x", maxAggregatedErrorMessageLen*2))
+			if tt.applyError != "" {
+				applyErr = errors.New(tt.applyError)
+			}
+			if tt.applyFailure {
+				fWorkClient.PrependReactor("create", "manifestworks", func(clienttesting.Action) (bool, runtime.Object, error) {
+					return true, nil, applyErr
+				})
+			}
+			workInformerFactory := workinformers.NewSharedInformerFactoryWithOptions(fWorkClient, time.Minute)
+			if tt.missingName == "" {
+				if err := workInformerFactory.Work().V1().ManifestWorks().Informer().GetStore().Add(missingWork); err != nil {
+					t.Fatal(err)
+				}
+			}
+			mwLister := workInformerFactory.Work().V1().ManifestWorks().Lister()
+
+			placement, decision := helpertest.CreateTestPlacement("valid", "default", "cls1")
+			fClusterClient := fakeclusterclient.NewSimpleClientset(placement, decision)
+			clusterInformerFactory := clusterinformers.NewSharedInformerFactoryWithOptions(fClusterClient, time.Minute)
+			if err := clusterInformerFactory.Cluster().V1beta1().Placements().Informer().GetStore().Add(placement); err != nil {
+				t.Fatal(err)
+			}
+			if err := clusterInformerFactory.Cluster().V1beta1().PlacementDecisions().Informer().GetStore().Add(decision); err != nil {
+				t.Fatal(err)
+			}
+
+			deployReconciler := deployReconciler{
+				workClient:          fWorkClient,
+				workApplier:         workapplier.NewWorkApplierWithTypedClient(fWorkClient, mwLister),
+				manifestWorkLister:  mwLister,
+				placeDecisionLister: clusterInformerFactory.Cluster().V1beta1().PlacementDecisions().Lister(),
+				placementLister:     clusterInformerFactory.Cluster().V1beta1().Placements().Lister(),
+			}
+
+			mwrSet, state, err := deployReconciler.reconcile(context.TODO(), mwrSet)
+			wantTotal := 1
+			if tt.applyFailure {
+				assert.Error(t, err)
+				wantTotal = 0
+			} else if err != nil {
+				t.Fatal(err)
+			}
+			assert.Equal(t, reconcileContinue, state)
+
+			created, deleted := 0, 0
+			for _, action := range fWorkClient.Actions() {
+				switch {
+				case action.Matches("create", "manifestworks"):
+					created++
+				case action.Matches("delete", "manifestworks"):
+					deleted++
+				}
+			}
+			assert.Equal(t, 1, created)
+			assert.Equal(t, 0, deleted)
+			assert.Equal(t, workapiv1alpha1.ManifestWorkReplicaSetSummary{Total: wantTotal}, mwrSet.Status.Summary)
+			if assert.Len(t, mwrSet.Status.PlacementsSummary, 1) {
+				assert.Equal(t, "valid", mwrSet.Status.PlacementsSummary[0].Name)
+				assert.Equal(t, workapiv1alpha1.ManifestWorkReplicaSetSummary{Total: wantTotal}, mwrSet.Status.PlacementsSummary[0].Summary)
+			}
+
+			verified := apimeta.FindStatusCondition(mwrSet.Status.Conditions, workapiv1alpha1.ManifestWorkReplicaSetConditionPlacementVerified)
+			if assert.NotNil(t, verified) {
+				assert.Equal(t, metav1.ConditionFalse, verified.Status)
+				assert.Equal(t, workapiv1alpha1.ReasonPlacementDecisionNotFound, verified.Reason)
+				assert.Equal(t, mwrSet.Generation, verified.ObservedGeneration)
+				assert.Contains(t, verified.Message, "missing")
+			}
+			rolledOut := apimeta.FindStatusCondition(mwrSet.Status.Conditions, workapiv1alpha1.ManifestWorkReplicaSetConditionPlacementRolledOut)
+			if assert.NotNil(t, rolledOut) {
+				assert.Equal(t, metav1.ConditionFalse, rolledOut.Status)
+				assert.Equal(t, workapiv1alpha1.ReasonProgressing, rolledOut.Reason)
+				assert.Equal(t, mwrSet.Generation, rolledOut.ObservedGeneration)
+				assert.Contains(t, rolledOut.Message, "missing")
+				assert.LessOrEqual(t, len(rolledOut.Message), maxAggregatedErrorMessageLen)
+				assert.True(t, utf8.ValidString(rolledOut.Message))
+				if tt.missingCount > 1 || tt.missingName != "" {
+					assert.Contains(t, rolledOut.Message, fmt.Sprintf("... (truncated; %d placements missing)", tt.missingCount))
+				} else {
+					assert.Equal(t, "placements not found in namespace default: missing", rolledOut.Message)
+				}
+				if verified != nil {
+					wantMessage := rolledOut.Message
+					if tt.applyFailure {
+						wantMessage += "; " + aggregatedErrorMessage([]error{applyErr})
+					}
+					if len(wantMessage) > maxAggregatedErrorMessageLen {
+						suffix := fmt.Sprintf("... (truncated; %d placements missing; 1 errors total)", tt.missingCount)
+						wantMessage = strings.ToValidUTF8(wantMessage[:maxAggregatedErrorMessageLen-len(suffix)], "") + suffix
+					}
+					assert.Equal(t, wantMessage, verified.Message)
+					assert.LessOrEqual(t, len(verified.Message), maxAggregatedErrorMessageLen)
+					assert.True(t, utf8.ValidString(verified.Message))
+				}
+			}
+		})
+	}
+}
+
+func TestDeployReconcileMissingPlacementOverlap(t *testing.T) {
+	for _, tt := range []struct {
+		name             string
+		missingFirst     bool
+		rolloutType      clusterv1alpha1.RolloutType
+		oldTemplate      bool
+		noConditions     bool
+		deleting         bool
+		onlyOverlap      bool
+		removeMissingRef bool
+		recreateMissing  bool
+	}{
+		{name: "missing first", missingFirst: true},
+		{name: "missing last"},
+		{name: "progressive missing first", missingFirst: true, rolloutType: clusterv1alpha1.Progressive},
+		{name: "progressive missing last", rolloutType: clusterv1alpha1.Progressive},
+		{name: "per group missing first", missingFirst: true, rolloutType: clusterv1alpha1.ProgressivePerGroup},
+		{name: "per group missing last", rolloutType: clusterv1alpha1.ProgressivePerGroup},
+		{name: "old template is preserved", oldTemplate: true, rolloutType: clusterv1alpha1.Progressive},
+		{name: "unreported work is preserved", noConditions: true},
+		{name: "deleting work is not replaced", deleting: true},
+		{name: "only overlapping cluster", onlyOverlap: true},
+		{name: "removed missing reference permits replacement", removeMissingRef: true},
+		{name: "recover missing first", missingFirst: true, onlyOverlap: true, recreateMissing: true},
+		{name: "recover missing last", onlyOverlap: true, recreateMissing: true},
+		{name: "recover progressive missing first", missingFirst: true, onlyOverlap: true, recreateMissing: true, rolloutType: clusterv1alpha1.Progressive},
+		{name: "recover progressive missing last", onlyOverlap: true, recreateMissing: true, rolloutType: clusterv1alpha1.Progressive},
+		{name: "recover per group missing first", missingFirst: true, onlyOverlap: true, recreateMissing: true, rolloutType: clusterv1alpha1.ProgressivePerGroup},
+		{name: "recover per group missing last", onlyOverlap: true, recreateMissing: true, rolloutType: clusterv1alpha1.ProgressivePerGroup},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx := context.Background()
+			mwrSet := helpertest.CreateTestManifestWorkReplicaSet("mwrs-test", "default", "valid")
+			mwrSet.Generation = 2
+			validRef := mwrSet.Spec.PlacementRefs[0]
+			if tt.rolloutType != "" {
+				validRef.RolloutStrategy = clusterv1alpha1.RolloutStrategy{Type: tt.rolloutType}
+				if tt.rolloutType == clusterv1alpha1.Progressive {
+					validRef.RolloutStrategy.Progressive = &clusterv1alpha1.RolloutProgressive{MaxConcurrency: intstr.FromInt(1)}
+				}
+			}
+			missingRef := validRef
+			missingRef.Name = "missing"
+			mwrSet.Spec.PlacementRefs = []workapiv1alpha1.LocalPlacementReference{validRef, missingRef}
+			if tt.missingFirst {
+				mwrSet.Spec.PlacementRefs = []workapiv1alpha1.LocalPlacementReference{missingRef, validRef}
+			}
+			missingWork := helpertest.CreateTestManifestWork(mwrSet.Name, mwrSet.Namespace, "missing", "cls0")
+			if tt.oldTemplate {
+				missingWork.Spec = helpertest.CreateTestManifestWorkSpecWithSecret("v1", "Secret", "default", "old")
+			}
+			if tt.noConditions {
+				missingWork.Status.Conditions = nil
+			}
+			if tt.deleting {
+				now := metav1.Now()
+				missingWork.DeletionTimestamp = &now
+			}
+			originalWork := missingWork.DeepCopy()
+			fWorkClient := fakeworkclient.NewSimpleClientset(mwrSet, missingWork)
+			createCount := 0
+			fWorkClient.PrependReactor("create", "manifestworks", func(action clienttesting.Action) (bool, runtime.Object, error) {
+				// The fake client does not expand GenerateName like the API server does.
+				work := action.(clienttesting.CreateAction).GetObject().(*workapiv1.ManifestWork)
+				if work.Name == "" {
+					createCount++
+					work.Name = fmt.Sprintf("%s-%d", work.GenerateName, createCount)
+				}
+				return false, nil, nil
+			})
+			workInformerFactory := workinformers.NewSharedInformerFactoryWithOptions(fWorkClient, time.Minute)
+			workStore := workInformerFactory.Work().V1().ManifestWorks().Informer().GetStore()
+			if err := workStore.Add(missingWork); err != nil {
+				t.Fatal(err)
+			}
+			mwLister := workInformerFactory.Work().V1().ManifestWorks().Lister()
+			refreshWorkCache := func() {
+				t.Helper()
+				works, err := fWorkClient.WorkV1().ManifestWorks(metav1.NamespaceAll).List(ctx, metav1.ListOptions{})
+				if err != nil {
+					t.Fatal(err)
+				}
+				objects := make([]interface{}, 0, len(works.Items))
+				for i := range works.Items {
+					objects = append(objects, &works.Items[i])
+				}
+				if err := workStore.Replace(objects, ""); err != nil {
+					t.Fatal(err)
+				}
+			}
+
+			clusters := []string{"cls0", "cls1"}
+			wantTotal := 1
+			if tt.onlyOverlap {
+				clusters = []string{"cls0"}
+				wantTotal = 0
+			}
+			placement, decisions := helpertest.CreateTestPlacementWithDecisionStrategy("valid", "default", 1, clusters...)
+			clusterInformerFactory := clusterinformers.NewSharedInformerFactoryWithOptions(fakeclusterclient.NewSimpleClientset(placement), time.Minute)
+			if err := clusterInformerFactory.Cluster().V1beta1().Placements().Informer().GetStore().Add(placement); err != nil {
+				t.Fatal(err)
+			}
+			for _, decision := range decisions {
+				if err := clusterInformerFactory.Cluster().V1beta1().PlacementDecisions().Informer().GetStore().Add(decision); err != nil {
+					t.Fatal(err)
+				}
+			}
+			reconciler := deployReconciler{
+				workClient:          fWorkClient,
+				workApplier:         workapplier.NewWorkApplierWithTypedClient(fWorkClient, mwLister),
+				manifestWorkLister:  mwLister,
+				placeDecisionLister: clusterInformerFactory.Cluster().V1beta1().PlacementDecisions().Lister(),
+				placementLister:     clusterInformerFactory.Cluster().V1beta1().Placements().Lister(),
+			}
+
+			_, state, err := reconciler.reconcile(ctx, mwrSet)
+			if err != nil {
+				t.Fatal(err)
+			}
+			assert.Equal(t, reconcileContinue, state)
+			created := 0
+			for _, action := range fWorkClient.Actions() {
+				if action.Matches("create", "manifestworks") {
+					created++
+					assert.Equal(t, "cls1", action.GetNamespace(), "only the non-overlapping cluster should get a new work")
+				}
+				assert.False(t, action.Matches("patch", "manifestworks"), "the retained work must not be updated or relabeled")
+				assert.False(t, action.Matches("delete", "manifestworks"), "the retained work must not be deleted")
+			}
+			assert.Equal(t, wantTotal, created)
+			assert.Equal(t, workapiv1alpha1.ManifestWorkReplicaSetSummary{Total: wantTotal}, mwrSet.Status.Summary)
+			if assert.Len(t, mwrSet.Status.PlacementsSummary, 1) {
+				assert.Equal(t, "valid", mwrSet.Status.PlacementsSummary[0].Name)
+				assert.Equal(t, workapiv1alpha1.ManifestWorkReplicaSetSummary{Total: wantTotal}, mwrSet.Status.PlacementsSummary[0].Summary)
+			}
+			assert.Equal(t, originalWork, missingWork, "the informer object must remain unchanged")
+
+			status := statusReconciler{manifestWorkLister: mwLister}
+			if _, _, err := status.reconcile(ctx, mwrSet); err != nil {
+				t.Fatal(err)
+			}
+			applied := apimeta.FindStatusCondition(mwrSet.Status.Conditions, workapiv1alpha1.ManifestWorkReplicaSetConditionManifestworkApplied)
+			if assert.NotNil(t, applied) {
+				assert.Equal(t, metav1.ConditionFalse, applied.Status)
+				assert.Equal(t, workapiv1alpha1.ReasonNotAsExpected, applied.Reason)
+				assert.Equal(t, mwrSet.Generation, applied.ObservedGeneration)
+			}
+
+			refreshWorkCache()
+			fWorkClient.ClearActions()
+			if _, _, err := reconciler.reconcile(ctx, mwrSet); err != nil {
+				t.Fatal(err)
+			}
+			assert.Empty(t, fWorkClient.Actions(), "a repeated sync must not create another work")
+
+			if tt.recreateMissing {
+				// Keep both references; the recreated Placement no longer selects cls0.
+				recreated, emptyDecision := helpertest.CreateTestPlacement("missing", "default")
+				if err := clusterInformerFactory.Cluster().V1beta1().Placements().Informer().GetStore().Add(recreated); err != nil {
+					t.Fatal(err)
+				}
+				if err := clusterInformerFactory.Cluster().V1beta1().PlacementDecisions().Informer().GetStore().Add(emptyDecision); err != nil {
+					t.Fatal(err)
+				}
+				if _, _, err := reconciler.reconcile(ctx, mwrSet); err != nil {
+					t.Fatal(err)
+				}
+				created, deleted := 0, 0
+				for _, action := range fWorkClient.Actions() {
+					if action.Matches("create", "manifestworks") {
+						created++
+						assert.Equal(t, "cls0", action.GetNamespace())
+					}
+					if action.Matches("delete", "manifestworks") {
+						deleted++
+						assert.Equal(t, originalWork.Name, action.(clienttesting.DeleteAction).GetName())
+					}
+					assert.False(t, action.Matches("patch", "manifestworks"), "must not adopt or relabel the retained work")
+				}
+				assert.Equal(t, 1, created)
+				assert.Equal(t, 1, deleted)
+				works, err := fWorkClient.WorkV1().ManifestWorks("cls0").List(ctx, metav1.ListOptions{})
+				if err != nil {
+					t.Fatal(err)
+				}
+				if !assert.Len(t, works.Items, 1) {
+					return
+				}
+				recoveredWork := &works.Items[0]
+				assert.NotEqual(t, originalWork.Name, recoveredWork.Name)
+				assert.Equal(t, "valid", recoveredWork.Labels[workapiv1alpha1.ManifestWorkReplicaSetPlacementNameLabelKey])
+				assert.True(t, workapplier.ManifestWorkEqual(buildManifestWork(mwrSet, recoveredWork.Name, "cls0", "valid"), recoveredWork))
+				verified := apimeta.FindStatusCondition(mwrSet.Status.Conditions, workapiv1alpha1.ManifestWorkReplicaSetConditionPlacementVerified)
+				if assert.NotNil(t, verified) {
+					assert.Equal(t, metav1.ConditionTrue, verified.Status)
+					assert.Equal(t, workapiv1alpha1.ReasonAsExpected, verified.Reason)
+					assert.Equal(t, mwrSet.Generation, verified.ObservedGeneration)
+				}
+				assert.Equal(t, 1, mwrSet.Status.Summary.Total)
+				recoveredWork.Status = helpertest.CreateTestManifestWork(mwrSet.Name, mwrSet.Namespace, "valid", "cls0").Status
+				if _, err := fWorkClient.WorkV1().ManifestWorks("cls0").UpdateStatus(ctx, recoveredWork, metav1.UpdateOptions{}); err != nil {
+					t.Fatal(err)
+				}
+				refreshWorkCache()
+				fWorkClient.ClearActions()
+				if _, _, err := reconciler.reconcile(ctx, mwrSet); err != nil {
+					t.Fatal(err)
+				}
+				assert.Empty(t, fWorkClient.Actions(), "recovery must not create another work on repeated reconciliation")
+				if _, _, err := status.reconcile(ctx, mwrSet); err != nil {
+					t.Fatal(err)
+				}
+				applied = apimeta.FindStatusCondition(mwrSet.Status.Conditions, workapiv1alpha1.ManifestWorkReplicaSetConditionManifestworkApplied)
+				if assert.NotNil(t, applied) {
+					assert.Equal(t, metav1.ConditionTrue, applied.Status)
+					assert.Equal(t, workapiv1alpha1.ReasonAsExpected, applied.Reason)
+					assert.Equal(t, mwrSet.Generation, applied.ObservedGeneration)
+				}
+				return
+			}
+
+			// Removing the valid reference must not delete work retained for the missing reference.
+			mwrSet.Spec.PlacementRefs = []workapiv1alpha1.LocalPlacementReference{missingRef}
+			if tt.removeMissingRef {
+				mwrSet.Spec.PlacementRefs = []workapiv1alpha1.LocalPlacementReference{validRef}
+			}
+			if _, _, err := reconciler.reconcile(ctx, mwrSet); err != nil {
+				t.Fatal(err)
+			}
+			works, err := fWorkClient.WorkV1().ManifestWorks("cls0").List(ctx, metav1.ListOptions{})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if assert.Len(t, works.Items, 1) {
+				if tt.removeMissingRef {
+					assert.NotEqual(t, originalWork.Name, works.Items[0].Name)
+					assert.Equal(t, "valid", works.Items[0].Labels[workapiv1alpha1.ManifestWorkReplicaSetPlacementNameLabelKey])
+				} else {
+					assert.Equal(t, *originalWork, works.Items[0])
+				}
+			}
+
+			// Retention ends when the owning reference is removed from the spec.
+			refreshWorkCache()
+			mwrSet.Spec.PlacementRefs = nil
+			if _, _, err := reconciler.reconcile(ctx, mwrSet); err != nil {
+				t.Fatal(err)
+			}
+			works, err = fWorkClient.WorkV1().ManifestWorks(metav1.NamespaceAll).List(ctx, metav1.ListOptions{})
+			if err != nil {
+				t.Fatal(err)
+			}
+			assert.Empty(t, works.Items)
+		})
+	}
+}
+
+// Exercise both informer list orders without relying on the store's iteration order.
+type orderedManifestWorkLister struct {
+	worklisterv1.ManifestWorkLister
+	reverse bool
+}
+
+func (l orderedManifestWorkLister) List(selector labels.Selector) ([]*workapiv1.ManifestWork, error) {
+	works, err := l.ManifestWorkLister.List(selector)
+	sort.Slice(works, func(i, j int) bool {
+		if l.reverse {
+			return works[i].Name > works[j].Name
+		}
+		return works[i].Name < works[j].Name
+	})
+	return works, err
+}
+
+func TestDeployReconcileOwnWorkOnRetainedCluster(t *testing.T) {
+	for _, tt := range []struct {
+		name              string
+		rolloutType       clusterv1alpha1.RolloutType
+		deleting          bool
+		deletingDuplicate bool
+		deletingOlder     bool
+	}{
+		{name: "all", rolloutType: clusterv1alpha1.All},
+		{name: "progressive", rolloutType: clusterv1alpha1.Progressive},
+		{name: "per group", rolloutType: clusterv1alpha1.ProgressivePerGroup},
+		{name: "deleting own work", rolloutType: clusterv1alpha1.All, deleting: true},
+		{name: "older deleting duplicate", rolloutType: clusterv1alpha1.All, deletingDuplicate: true, deletingOlder: true},
+		{name: "newer deleting duplicate", rolloutType: clusterv1alpha1.All, deletingDuplicate: true},
+	} {
+		for _, reverse := range []bool{false, true} {
+			t.Run(fmt.Sprintf("%s/reverse=%t", tt.name, reverse), func(t *testing.T) {
+				ctx := context.Background()
+				mwrSet := helpertest.CreateTestManifestWorkReplicaSet("mwrs-test", "default", "valid")
+				mwrSet.Spec.PlacementRefs[0].RolloutStrategy = clusterv1alpha1.RolloutStrategy{Type: tt.rolloutType}
+				missingRef := mwrSet.Spec.PlacementRefs[0]
+				missingRef.Name = "missing"
+				mwrSet.Spec.PlacementRefs = append([]workapiv1alpha1.LocalPlacementReference{missingRef}, mwrSet.Spec.PlacementRefs...)
+
+				ownWork := helpertest.CreateTestManifestWork(mwrSet.Name, mwrSet.Namespace, "valid", "cls0")
+				ownWork.Name, ownWork.UID = "a-valid", "valid-work-uid"
+				ownWork.Spec = helpertest.CreateTestManifestWorkSpecWithSecret("v1", "Secret", "default", "old")
+				if tt.deleting {
+					now := metav1.NewTime(time.Now().UTC().Truncate(time.Second))
+					ownWork.DeletionTimestamp = &now
+					ownWork.Finalizers = []string{workapiv1.ManifestWorkFinalizer}
+				}
+				missingWork := helpertest.CreateTestManifestWork(mwrSet.Name, mwrSet.Namespace, "missing", "cls0")
+				missingWork.Name, missingWork.UID = "z-retained", "retained-work-uid"
+				objects := []runtime.Object{mwrSet, ownWork, missingWork}
+				cachedWorks := []*workapiv1.ManifestWork{ownWork, missingWork}
+				var deletingDuplicate *workapiv1.ManifestWork
+				if tt.deletingDuplicate {
+					now := metav1.NewTime(time.Now().UTC().Truncate(time.Second))
+					ownWork.CreationTimestamp = now
+					deletingDuplicate = ownWork.DeepCopy()
+					deletingDuplicate.Name, deletingDuplicate.UID = "b-valid-deleting", "deleting-duplicate-uid"
+					deletingDuplicate.CreationTimestamp = metav1.NewTime(now.Add(time.Minute))
+					if tt.deletingOlder {
+						deletingDuplicate.CreationTimestamp = metav1.NewTime(now.Add(-time.Minute))
+					}
+					deletingDuplicate.DeletionTimestamp = &now
+					deletingDuplicate.Finalizers = []string{workapiv1.ManifestWorkFinalizer}
+					objects = append(objects, deletingDuplicate)
+					cachedWorks = append(cachedWorks, deletingDuplicate)
+				}
+				originalOwnWork, originalMissingWork := ownWork.DeepCopy(), missingWork.DeepCopy()
+				originalDeletingDuplicate := deletingDuplicate.DeepCopy()
+				fWorkClient := fakeworkclient.NewSimpleClientset(objects...)
+				workInformerFactory := workinformers.NewSharedInformerFactoryWithOptions(fWorkClient, time.Minute)
+				workStore := workInformerFactory.Work().V1().ManifestWorks().Informer().GetStore()
+				for _, work := range cachedWorks {
+					if err := workStore.Add(work); err != nil {
+						t.Fatal(err)
+					}
+				}
+				mwLister := orderedManifestWorkLister{
+					ManifestWorkLister: workInformerFactory.Work().V1().ManifestWorks().Lister(),
+					reverse:            reverse,
+				}
+
+				placement, decision := helpertest.CreateTestPlacement("valid", "default", "cls0")
+				clusterInformerFactory := clusterinformers.NewSharedInformerFactoryWithOptions(fakeclusterclient.NewSimpleClientset(placement, decision), time.Minute)
+				if err := clusterInformerFactory.Cluster().V1beta1().Placements().Informer().GetStore().Add(placement); err != nil {
+					t.Fatal(err)
+				}
+				if err := clusterInformerFactory.Cluster().V1beta1().PlacementDecisions().Informer().GetStore().Add(decision); err != nil {
+					t.Fatal(err)
+				}
+				reconciler := deployReconciler{
+					workClient:          fWorkClient,
+					workApplier:         workapplier.NewWorkApplierWithTypedClient(fWorkClient, mwLister),
+					manifestWorkLister:  mwLister,
+					placeDecisionLister: clusterInformerFactory.Cluster().V1beta1().PlacementDecisions().Lister(),
+					placementLister:     clusterInformerFactory.Cluster().V1beta1().Placements().Lister(),
+				}
+
+				for sync := 0; sync < 2; sync++ {
+					fWorkClient.ClearActions()
+					_, state, err := reconciler.reconcile(ctx, mwrSet)
+					if err != nil {
+						t.Fatal(err)
+					}
+					assert.Equal(t, reconcileContinue, state)
+					patches := 0
+					for _, action := range fWorkClient.Actions() {
+						assert.False(t, action.Matches("create", "manifestworks"), "must not create extra work")
+						assert.False(t, action.Matches("delete", "manifestworks"), "must preserve existing works")
+						if action.Matches("patch", "manifestworks") {
+							patches++
+							assert.Equal(t, ownWork.Name, action.(clienttesting.PatchAction).GetName())
+						}
+					}
+					assert.Equal(t, 1-sync, patches, "update once, then leave the current work unchanged")
+					updated, err := fWorkClient.WorkV1().ManifestWorks("cls0").Get(ctx, ownWork.Name, metav1.GetOptions{})
+					if err != nil {
+						t.Fatal(err)
+					}
+					assert.True(t, workapplier.ManifestWorkEqual(buildManifestWork(mwrSet, ownWork.Name, "cls0", "valid"), updated))
+					assert.Equal(t, ownWork.UID, updated.UID)
+					assert.Equal(t, ownWork.Finalizers, updated.Finalizers)
+					assert.True(t, ownWork.DeletionTimestamp.Equal(updated.DeletionTimestamp), "must preserve the deletion timestamp")
+					retained, err := fWorkClient.WorkV1().ManifestWorks("cls0").Get(ctx, missingWork.Name, metav1.GetOptions{})
+					if err != nil {
+						t.Fatal(err)
+					}
+					assert.Equal(t, originalMissingWork, retained)
+					works, err := fWorkClient.WorkV1().ManifestWorks("cls0").List(ctx, metav1.ListOptions{})
+					if err != nil {
+						t.Fatal(err)
+					}
+					assert.Len(t, works.Items, len(cachedWorks))
+					if deletingDuplicate != nil {
+						storedDeleting, err := fWorkClient.WorkV1().ManifestWorks("cls0").Get(ctx, deletingDuplicate.Name, metav1.GetOptions{})
+						if err != nil {
+							t.Fatal(err)
+						}
+						assert.Equal(t, originalDeletingDuplicate, storedDeleting, "must update the live work, not its deleting duplicate")
+						assert.Equal(t, originalDeletingDuplicate, deletingDuplicate, "must not mutate the informer object")
+					}
+					assert.Equal(t, originalOwnWork, ownWork, "must not mutate the informer object")
+					assert.Equal(t, originalMissingWork, missingWork, "must not mutate the informer object")
+					if err := workStore.Update(updated); err != nil {
+						t.Fatal(err)
+					}
+				}
+			})
+		}
 	}
 }
 
@@ -618,6 +1282,7 @@ func TestDeployWithRolloutStrategyReconcileAsExpected(t *testing.T) {
 
 	mwLister := workInformerFactory.Work().V1().ManifestWorks().Lister()
 	pmwDeployController := deployReconciler{
+		workClient:          fWorkClient,
 		workApplier:         workapplier.NewWorkApplierWithTypedClient(fWorkClient, mwLister),
 		manifestWorkLister:  mwLister,
 		placeDecisionLister: placementDecisionLister,
@@ -711,7 +1376,7 @@ func TestDeployWithRolloutStrategyReconcileAsExpected(t *testing.T) {
 	assert.Equal(t, rollOutCondition.Reason, workapiv1alpha1.ReasonProgressing)
 
 	// Now mark all ManifestWorks as Succeeded to achieve ReasonComplete
-	for i := 0; i < len(clusters); i++ {
+	for i := range len(clusters) {
 		mw := helpertest.CreateTestManifestWork(mwrSet.Name, mwrSet.Namespace, "place-test", clusters[i])
 		apimeta.SetStatusCondition(&mw.Status.Conditions, metav1.Condition{
 			Type:               workapiv1.WorkApplied,
@@ -781,6 +1446,7 @@ func TestDeployWithMultiPlacementsReconcileAsExpected(t *testing.T) {
 
 	mwLister := workInformerFactory.Work().V1().ManifestWorks().Lister()
 	pmwDeployController := deployReconciler{
+		workClient:          fWorkClient,
 		workApplier:         workapplier.NewWorkApplierWithTypedClient(fWorkClient, mwLister),
 		manifestWorkLister:  mwLister,
 		placeDecisionLister: placementDecisionLister,
@@ -876,7 +1542,7 @@ func TestDeployMWRSetSpecChangesReconcile(t *testing.T) {
 	mwrSet.Generation = 1
 
 	var objs []runtime.Object
-	for i := 0; i < clsPerGroup; i++ {
+	for i := range clsPerGroup {
 		mw := helpertest.CreateTestManifestWork(mwrSet.Name, mwrSet.Namespace, placement.Name, clusters[i])
 		objs = append(objs, mw)
 	}
@@ -885,7 +1551,7 @@ func TestDeployMWRSetSpecChangesReconcile(t *testing.T) {
 	fWorkClient := fakeworkclient.NewSimpleClientset(objs...)
 	workInformerFactory := workinformers.NewSharedInformerFactoryWithOptions(fWorkClient, 1*time.Second)
 	// create manifestWorks
-	for i := 0; i < clsPerGroup; i++ {
+	for i := range clsPerGroup {
 		mw := helpertest.CreateTestManifestWork(mwrSet.Name, mwrSet.Namespace, placement.Name, clusters[i])
 		err = workInformerFactory.Work().V1().ManifestWorks().Informer().GetStore().Add(mw)
 		if err != nil {
@@ -899,6 +1565,7 @@ func TestDeployMWRSetSpecChangesReconcile(t *testing.T) {
 
 	mwLister := workInformerFactory.Work().V1().ManifestWorks().Lister()
 	pmwDeployController := deployReconciler{
+		workClient:          fWorkClient,
 		workApplier:         workapplier.NewWorkApplierWithTypedClient(fWorkClient, mwLister),
 		manifestWorkLister:  mwLister,
 		placeDecisionLister: placementDecisionLister,
@@ -949,7 +1616,7 @@ func TestDeployMWRSetSpecChangesReconcile(t *testing.T) {
 	assert.Equal(t, rollOutCondition.Reason, workapiv1alpha1.ReasonProgressing)
 
 	// Mark all ManifestWorks as Succeeded
-	for i := 0; i < int(placement.Status.NumberOfSelectedClusters); i++ {
+	for i := range int(placement.Status.NumberOfSelectedClusters) {
 		mw := helpertest.CreateTestManifestWork(mwrSet.Name, mwrSet.Namespace, placement.Name, clusters[i])
 		apimeta.SetStatusCondition(&mw.Status.Conditions, metav1.Condition{
 			Type:               workapiv1.WorkApplied,
@@ -1081,6 +1748,7 @@ func TestRequeueWithProgressDeadline(t *testing.T) {
 	placementDecisionLister := clusterInformerFactory.Cluster().V1beta1().PlacementDecisions().Lister()
 
 	pmwDeployController := deployReconciler{
+		workClient:          fWorkClient,
 		workApplier:         workapplier.NewWorkApplierWithTypedClient(fWorkClient, mwLister),
 		manifestWorkLister:  mwLister,
 		placeDecisionLister: placementDecisionLister,
@@ -1132,6 +1800,7 @@ func TestDeployReconcileDeletesOrphanedManifestWorks(t *testing.T) {
 	placementDecisionLister := clusterInformerFactory.Cluster().V1beta1().PlacementDecisions().Lister()
 
 	pmwDeployController := deployReconciler{
+		workClient:          fWorkClient,
 		workApplier:         workapplier.NewWorkApplierWithTypedClient(fWorkClient, mwLister),
 		manifestWorkLister:  mwLister,
 		placeDecisionLister: placementDecisionLister,
@@ -1219,6 +1888,7 @@ func TestDeployReconcileWithMultiplePlacementChanges(t *testing.T) {
 	placementDecisionLister := clusterInformerFactory.Cluster().V1beta1().PlacementDecisions().Lister()
 
 	pmwDeployController := deployReconciler{
+		workClient:          fWorkClient,
 		workApplier:         workapplier.NewWorkApplierWithTypedClient(fWorkClient, mwLister),
 		manifestWorkLister:  mwLister,
 		placeDecisionLister: placementDecisionLister,
@@ -1347,6 +2017,7 @@ func TestDeployRolloutProgressingWhenNotAllSucceeded(t *testing.T) {
 	mwLister := workInformerFactory.Work().V1().ManifestWorks().Lister()
 
 	pmwDeployController := deployReconciler{
+		workClient:          fWorkClient,
 		workApplier:         workapplier.NewWorkApplierWithTypedClient(fWorkClient, mwLister),
 		manifestWorkLister:  mwLister,
 		placeDecisionLister: placementDecisionLister,
@@ -1758,6 +2429,7 @@ func TestClusterRolloutStatusFunc(t *testing.T) {
 			placementDecisionLister := clusterInformerFactory.Cluster().V1beta1().PlacementDecisions().Lister()
 
 			reconciler := deployReconciler{
+				workClient:          fWorkClient,
 				workApplier:         workapplier.NewWorkApplierWithTypedClient(fWorkClient, mwLister),
 				manifestWorkLister:  mwLister,
 				placeDecisionLister: placementDecisionLister,
@@ -2156,6 +2828,7 @@ func TestDeployReconcileLongOwnerNameUsesHashLabel(t *testing.T) {
 	}
 
 	pmwDeployController := deployReconciler{
+		workClient:          fWorkClient,
 		workApplier:         workapplier.NewWorkApplierWithTypedClient(fWorkClient, mwLister),
 		manifestWorkLister:  mwLister,
 		placeDecisionLister: clusterInformerFactory.Cluster().V1beta1().PlacementDecisions().Lister(),
@@ -2224,6 +2897,7 @@ func TestOldLabelOnlyManifestWorkMigratesOnSpecChange(t *testing.T) {
 	assert.Nil(t, clusterInformerFactory.Cluster().V1beta1().PlacementDecisions().Informer().GetStore().Add(placementDecision))
 
 	pmwDeployController := deployReconciler{
+		workClient:          fWorkClient,
 		workApplier:         workapplier.NewWorkApplierWithTypedClient(fWorkClient, mwLister),
 		manifestWorkLister:  mwLister,
 		placeDecisionLister: clusterInformerFactory.Cluster().V1beta1().PlacementDecisions().Lister(),
@@ -2265,5 +2939,329 @@ func TestOldLabelOnlyManifestWorkMigratesOnSpecChange(t *testing.T) {
 		assert.Equal(t, fmt.Sprintf("%s.%s", mwrsNS, mwrsName),
 			migrated.Labels[workapiv1alpha1.ManifestWorkReplicaSetControllerNameLabelKey],
 			"deprecated label should be preserved for short names")
+	}
+}
+
+// progressingWork sets the creation time of mw and makes it Applied and Progressing, so its
+// rollout status is Progressing.
+func progressingWork(mw *workapiv1.ManifestWork, created time.Time) *workapiv1.ManifestWork {
+	mw.CreationTimestamp = metav1.NewTime(created)
+	apimeta.SetStatusCondition(&mw.Status.Conditions, metav1.Condition{
+		Type: workapiv1.WorkApplied, Status: metav1.ConditionTrue, Reason: "Applied", ObservedGeneration: mw.Generation,
+	})
+	apimeta.SetStatusCondition(&mw.Status.Conditions, metav1.Condition{
+		Type: workapiv1.WorkProgressing, Status: metav1.ConditionTrue, Reason: "Applying", ObservedGeneration: mw.Generation,
+	})
+	return mw
+}
+
+func TestDeployReconcileDeletesDuplicateManifestWorks(t *testing.T) {
+	// Two works of the replica set on cls1, as created by two syncs with a stale lister. Both
+	// are Progressing, so with the All strategy they used to fill the rollout of the 2-cluster
+	// placement and cls2 never got a work.
+	mwrSet := helpertest.CreateTestManifestWorkReplicaSet("mwrSet-test", "default", "place-test")
+	now := time.Now()
+	older := progressingWork(buildManifestWork(mwrSet, "mwrSet-test-older", "cls1", "place-test"), now.Add(-time.Minute))
+	newer := progressingWork(buildManifestWork(mwrSet, "mwrSet-test-newer", "cls1", "place-test"), now)
+
+	fWorkClient := fakeworkclient.NewSimpleClientset(mwrSet, older, newer)
+	workInformerFactory := workinformers.NewSharedInformerFactoryWithOptions(fWorkClient, 1*time.Second)
+	for _, mw := range []*workapiv1.ManifestWork{older, newer} {
+		if err := workInformerFactory.Work().V1().ManifestWorks().Informer().GetStore().Add(mw); err != nil {
+			t.Fatal(err)
+		}
+	}
+	mwLister := workInformerFactory.Work().V1().ManifestWorks().Lister()
+
+	placement, placementDecision := helpertest.CreateTestPlacement("place-test", "default", "cls1", "cls2")
+	fClusterClient := fakeclusterclient.NewSimpleClientset(placement, placementDecision)
+	clusterInformerFactory := clusterinformers.NewSharedInformerFactoryWithOptions(fClusterClient, 1*time.Second)
+	if err := clusterInformerFactory.Cluster().V1beta1().Placements().Informer().GetStore().Add(placement); err != nil {
+		t.Fatal(err)
+	}
+	if err := clusterInformerFactory.Cluster().V1beta1().PlacementDecisions().Informer().GetStore().Add(placementDecision); err != nil {
+		t.Fatal(err)
+	}
+
+	pmwDeployController := deployReconciler{
+		workClient:          fWorkClient,
+		workApplier:         workapplier.NewWorkApplierWithTypedClient(fWorkClient, mwLister),
+		manifestWorkLister:  mwLister,
+		placeDecisionLister: clusterInformerFactory.Cluster().V1beta1().PlacementDecisions().Lister(),
+		placementLister:     clusterInformerFactory.Cluster().V1beta1().Placements().Lister(),
+	}
+
+	if _, _, err := pmwDeployController.reconcile(context.TODO(), mwrSet); err != nil {
+		t.Fatal(err)
+	}
+
+	works, err := listWorksByMWRS(context.TODO(), fWorkClient, "cls2", mwrSet.Namespace, mwrSet.Name, "place-test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(works) != 1 {
+		t.Fatalf("expected cls2 to get its work, got %d works", len(works))
+	}
+	works, err = listWorksByMWRS(context.TODO(), fWorkClient, "cls1", mwrSet.Namespace, mwrSet.Name, "place-test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var names []string
+	for _, mw := range works {
+		names = append(names, mw.Name)
+	}
+	assert.Equal(t, []string{older.Name}, names, "only the oldest work is kept on cls1")
+}
+
+func TestDeployReconcileDoesNotCreateAWorkTheListerHasNotSeen(t *testing.T) {
+	// A previous sync created the work of cls1 for place-test; the lister has not seen it yet.
+	mwrSet := helpertest.CreateTestManifestWorkReplicaSet("mwrSet-test", "default", "place-test")
+	created := buildManifestWork(mwrSet, "mwrSet-test-abcde", "cls1", "place-test")
+
+	cases := []struct {
+		name   string
+		listed []*workapiv1.ManifestWork
+	}{
+		{
+			name: "a cluster joining the placement",
+		},
+		{
+			// The lister only has the work of the previous placement.
+			name:   "after the placementRef changed",
+			listed: []*workapiv1.ManifestWork{buildManifestWork(mwrSet, "mwrSet-test-fghij", "cls1", "place-old")},
+		},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			objects := []runtime.Object{mwrSet, created}
+			for _, mw := range c.listed {
+				objects = append(objects, mw)
+			}
+			fWorkClient := fakeworkclient.NewSimpleClientset(objects...)
+			workInformerFactory := workinformers.NewSharedInformerFactoryWithOptions(fWorkClient, 1*time.Second)
+			for _, mw := range c.listed {
+				if err := workInformerFactory.Work().V1().ManifestWorks().Informer().GetStore().Add(mw); err != nil {
+					t.Fatal(err)
+				}
+			}
+			mwLister := workInformerFactory.Work().V1().ManifestWorks().Lister()
+
+			placement, placementDecision := helpertest.CreateTestPlacement("place-test", "default", "cls1")
+			fClusterClient := fakeclusterclient.NewSimpleClientset(placement, placementDecision)
+			clusterInformerFactory := clusterinformers.NewSharedInformerFactoryWithOptions(fClusterClient, 1*time.Second)
+			if err := clusterInformerFactory.Cluster().V1beta1().Placements().Informer().GetStore().Add(placement); err != nil {
+				t.Fatal(err)
+			}
+			if err := clusterInformerFactory.Cluster().V1beta1().PlacementDecisions().Informer().GetStore().Add(placementDecision); err != nil {
+				t.Fatal(err)
+			}
+
+			pmwDeployController := deployReconciler{
+				workClient:          fWorkClient,
+				workApplier:         workapplier.NewWorkApplierWithTypedClient(fWorkClient, mwLister),
+				manifestWorkLister:  mwLister,
+				placeDecisionLister: clusterInformerFactory.Cluster().V1beta1().PlacementDecisions().Lister(),
+				placementLister:     clusterInformerFactory.Cluster().V1beta1().Placements().Lister(),
+			}
+
+			if _, _, err := pmwDeployController.reconcile(context.TODO(), mwrSet); err != nil {
+				t.Fatal(err)
+			}
+
+			works, err := listWorksByMWRS(context.TODO(), fWorkClient, "cls1", mwrSet.Namespace, mwrSet.Name, "place-test")
+			if err != nil {
+				t.Fatal(err)
+			}
+			if len(works) != 1 {
+				t.Fatalf("expected the one work of cls1, got %d works", len(works))
+			}
+		})
+	}
+}
+
+func TestGetManifestWorkInReplicaSetKeepsTheOldestWorkPerPlacementAndCluster(t *testing.T) {
+	mwrSet := helpertest.CreateTestManifestWorkReplicaSet("mwrSet-test", "default", "place-a", "place-b")
+	now := time.Now()
+	work := func(name, cluster, placement string, created time.Time) *workapiv1.ManifestWork {
+		mw := buildManifestWork(mwrSet, name, cluster, placement)
+		mw.CreationTimestamp = metav1.NewTime(created)
+		return mw
+	}
+	deleting := func(mw *workapiv1.ManifestWork) *workapiv1.ManifestWork {
+		ts := metav1.NewTime(now)
+		mw.DeletionTimestamp = &ts
+		return mw
+	}
+
+	cases := []struct {
+		name       string
+		works      []*workapiv1.ManifestWork
+		duplicates []string
+	}{
+		{
+			name: "one work per placement and cluster",
+			works: []*workapiv1.ManifestWork{
+				work("a-cls1", "cls1", "place-a", now), work("b-cls1", "cls1", "place-b", now), work("a-cls2", "cls2", "place-a", now),
+			},
+		},
+		{
+			name: "the newer of two works is the duplicate",
+			works: []*workapiv1.ManifestWork{
+				work("newer", "cls1", "place-a", now), work("older", "cls1", "place-a", now.Add(-time.Minute)),
+			},
+			duplicates: []string{"newer"},
+		},
+		{
+			name: "same creation time, the first name is kept",
+			works: []*workapiv1.ManifestWork{
+				work("mwrSet-testbbbbb", "cls1", "place-a", now), work("mwrSet-testaaaaa", "cls1", "place-a", now),
+			},
+			duplicates: []string{"mwrSet-testbbbbb"},
+		},
+		{
+			name: "a work being deleted is not a duplicate",
+			works: []*workapiv1.ManifestWork{
+				work("current", "cls1", "place-a", now), deleting(work("leaving", "cls1", "place-a", now.Add(-time.Minute))),
+			},
+		},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			workInformerFactory := workinformers.NewSharedInformerFactoryWithOptions(fakeworkclient.NewSimpleClientset(), 1*time.Second)
+			for _, mw := range c.works {
+				if err := workInformerFactory.Work().V1().ManifestWorks().Informer().GetStore().Add(mw); err != nil {
+					t.Fatal(err)
+				}
+			}
+
+			result, all, err := getManifestWorkInReplicaSet(mwrSet, workInformerFactory.Work().V1().ManifestWorks().Lister())
+			if err != nil {
+				t.Fatal(err)
+			}
+			var duplicates []string
+			for _, mw := range result.duplicates {
+				duplicates = append(duplicates, mw.Name)
+			}
+			assert.Equal(t, c.duplicates, duplicates)
+			assert.Len(t, all, len(c.works), "every work is still returned, the duplicates included")
+			for _, mws := range result.workByPlacement {
+				for _, mw := range mws {
+					assert.NotContains(t, c.duplicates, mw.Name, "a duplicate is not counted in its placement")
+				}
+			}
+		})
+	}
+}
+
+func TestDeployReconcileDeletesTheWorkOfARemovedPlacementBesideANewerWork(t *testing.T) {
+	// cls1 was selected by place-old and place-test, then place-old was removed from the spec.
+	// The work of place-old is older than the one of place-test.
+	mwrSet := helpertest.CreateTestManifestWorkReplicaSet("mwrSet-test", "default", "place-test")
+	now := time.Now()
+	oldPlacementWork := buildManifestWork(mwrSet, "mwrSet-test-old", "cls1", "place-old")
+	oldPlacementWork.CreationTimestamp = metav1.NewTime(now.Add(-time.Minute))
+	currentWork := buildManifestWork(mwrSet, "mwrSet-test-current", "cls1", "place-test")
+	currentWork.CreationTimestamp = metav1.NewTime(now)
+
+	fWorkClient := fakeworkclient.NewSimpleClientset(mwrSet, oldPlacementWork, currentWork)
+	workInformerFactory := workinformers.NewSharedInformerFactoryWithOptions(fWorkClient, 1*time.Second)
+	for _, mw := range []*workapiv1.ManifestWork{oldPlacementWork, currentWork} {
+		if err := workInformerFactory.Work().V1().ManifestWorks().Informer().GetStore().Add(mw); err != nil {
+			t.Fatal(err)
+		}
+	}
+	mwLister := workInformerFactory.Work().V1().ManifestWorks().Lister()
+
+	placement, placementDecision := helpertest.CreateTestPlacement("place-test", "default", "cls1")
+	fClusterClient := fakeclusterclient.NewSimpleClientset(placement, placementDecision)
+	clusterInformerFactory := clusterinformers.NewSharedInformerFactoryWithOptions(fClusterClient, 1*time.Second)
+	if err := clusterInformerFactory.Cluster().V1beta1().Placements().Informer().GetStore().Add(placement); err != nil {
+		t.Fatal(err)
+	}
+	if err := clusterInformerFactory.Cluster().V1beta1().PlacementDecisions().Informer().GetStore().Add(placementDecision); err != nil {
+		t.Fatal(err)
+	}
+
+	pmwDeployController := deployReconciler{
+		workClient:          fWorkClient,
+		workApplier:         workapplier.NewWorkApplierWithTypedClient(fWorkClient, mwLister),
+		manifestWorkLister:  mwLister,
+		placeDecisionLister: clusterInformerFactory.Cluster().V1beta1().PlacementDecisions().Lister(),
+		placementLister:     clusterInformerFactory.Cluster().V1beta1().Placements().Lister(),
+	}
+
+	if _, _, err := pmwDeployController.reconcile(context.TODO(), mwrSet); err != nil {
+		t.Fatal(err)
+	}
+
+	works, err := listWorksByMWRS(context.TODO(), fWorkClient, "cls1", mwrSet.Namespace, mwrSet.Name, "place-old")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(works) != 0 {
+		t.Fatalf("expected the work of the removed placement to be deleted, got %d works", len(works))
+	}
+	works, err = listWorksByMWRS(context.TODO(), fWorkClient, "cls1", mwrSet.Namespace, mwrSet.Name, "place-test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(works) != 1 {
+		t.Fatalf("expected the work of place-test to be kept, got %d works", len(works))
+	}
+}
+
+func TestDeployReconcileUpdatesTheLiveWorkBesideADeletingOne(t *testing.T) {
+	// cls1 has its work and a newer duplicate that is being deleted, both with the previous
+	// template. The template changes: the live work must be the one updated.
+	mwrSet := helpertest.CreateTestManifestWorkReplicaSet("mwrSet-test", "default", "place-test")
+	now := time.Now()
+	live := buildManifestWork(mwrSet, "mwrSet-test-live", "cls1", "place-test")
+	live.CreationTimestamp = metav1.NewTime(now.Add(-time.Minute))
+	deleting := buildManifestWork(mwrSet, "mwrSet-test-deleting", "cls1", "place-test")
+	deleting.CreationTimestamp = metav1.NewTime(now)
+	deleting.DeletionTimestamp = &metav1.Time{Time: now}
+	deleting.Finalizers = []string{"cluster.open-cluster-management.io/manifest-work-cleanup"}
+
+	newTemplate := helpertest.CreateTestManifestWorkSpecWithSecret("v2", "test", "ns-test", "name-test")
+	newTemplate.DeepCopyInto(&mwrSet.Spec.ManifestWorkTemplate)
+
+	fWorkClient := fakeworkclient.NewSimpleClientset(mwrSet, live, deleting)
+	workInformerFactory := workinformers.NewSharedInformerFactoryWithOptions(fWorkClient, 1*time.Second)
+	for _, mw := range []*workapiv1.ManifestWork{live, deleting} {
+		if err := workInformerFactory.Work().V1().ManifestWorks().Informer().GetStore().Add(mw); err != nil {
+			t.Fatal(err)
+		}
+	}
+	mwLister := workInformerFactory.Work().V1().ManifestWorks().Lister()
+
+	placement, placementDecision := helpertest.CreateTestPlacement("place-test", "default", "cls1")
+	fClusterClient := fakeclusterclient.NewSimpleClientset(placement, placementDecision)
+	clusterInformerFactory := clusterinformers.NewSharedInformerFactoryWithOptions(fClusterClient, 1*time.Second)
+	if err := clusterInformerFactory.Cluster().V1beta1().Placements().Informer().GetStore().Add(placement); err != nil {
+		t.Fatal(err)
+	}
+	if err := clusterInformerFactory.Cluster().V1beta1().PlacementDecisions().Informer().GetStore().Add(placementDecision); err != nil {
+		t.Fatal(err)
+	}
+
+	pmwDeployController := deployReconciler{
+		workClient:          fWorkClient,
+		workApplier:         workapplier.NewWorkApplierWithTypedClient(fWorkClient, mwLister),
+		manifestWorkLister:  mwLister,
+		placeDecisionLister: clusterInformerFactory.Cluster().V1beta1().PlacementDecisions().Lister(),
+		placementLister:     clusterInformerFactory.Cluster().V1beta1().Placements().Lister(),
+	}
+
+	if _, _, err := pmwDeployController.reconcile(context.TODO(), mwrSet); err != nil {
+		t.Fatal(err)
+	}
+
+	updated, err := fWorkClient.WorkV1().ManifestWorks("cls1").Get(context.TODO(), live.Name, metav1.GetOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if assert.Len(t, updated.Spec.Workload.Manifests, 1) {
+		assert.JSONEq(t, string(newTemplate.Workload.Manifests[0].Raw), string(updated.Spec.Workload.Manifests[0].Raw),
+			"the live work gets the new template")
 	}
 }
